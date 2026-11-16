@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.config import TAMANHO_MAXIMO_ARQUIVO
 from app.main import app
-from app.ocr import ocr_disponivel
+from app.ocr import MotorOcr, OcrIndisponivelError, ocr_disponivel
 from tests.conftest import CANTOS_FOLHA_NORMALIZADOS
 
 cliente = TestClient(app)
@@ -99,18 +99,63 @@ def test_gerar_pdf(pagina_plana_png):
     assert resposta.content.startswith(b"%PDF")
 
 
-@pytest.mark.skipif(ocr_disponivel(), reason="Só vale quando o Tesseract não está instalado")
-def test_extrair_ocr_sem_tesseract_responde_503(pagina_plana_png):
+def test_extrair_ocr_responde_503_quando_o_motor_falha(pagina_plana_png, monkeypatch):
+    def falhar(_imagem):
+        raise OcrIndisponivelError("modelos ausentes")
+
+    monkeypatch.setattr(MotorOcr, "ler", staticmethod(falhar))
     resposta = cliente.post(
         "/extrair-ocr", files={"imagem": arquivo(pagina_plana_png, "p.png", "image/png")}
     )
     assert resposta.status_code == 503
 
 
-@pytest.mark.skipif(not ocr_disponivel(), reason="Tesseract com idioma 'por' não instalado")
+@pytest.mark.skipif(not ocr_disponivel(), reason="Modelos de OCR indisponíveis")
 def test_extrair_ocr(pagina_plana_png):
     resposta = cliente.post(
         "/extrair-ocr", files={"imagem": arquivo(pagina_plana_png, "p.png", "image/png")}
     )
     assert resposta.status_code == 200
     assert "MINISCAN" in resposta.json()["texto"].upper()
+
+
+def test_processar_pagina_devolve_regioes_no_cabecalho(foto_documento_jpeg):
+    resposta = cliente.post(
+        "/processar-pagina",
+        files={"imagem": arquivo(foto_documento_jpeg)},
+        data={"cantos": CANTOS_JSON, "filtro": "bw"},
+    )
+    assert resposta.status_code == 200
+    assert isinstance(json.loads(resposta.headers["x-regioes-graficas"]), list)
+
+    sem_preservar = cliente.post(
+        "/processar-pagina",
+        files={"imagem": arquivo(foto_documento_jpeg)},
+        data={"cantos": CANTOS_JSON, "filtro": "bw", "preservar_graficos": "false"},
+    )
+    assert "x-regioes-graficas" not in sem_preservar.headers
+
+
+def test_extrair_ocr_valida_regioes(pagina_plana_png, monkeypatch):
+    recebidas = {}
+
+    def ocr_falso(_imagem, ignorar_graficos=True, regioes=None):
+        recebidas["regioes"] = regioes
+        return "texto"
+
+    monkeypatch.setattr("app.rotas.extrair_texto_ocr", ocr_falso)
+    regioes = json.dumps([{"x0": 1, "y0": 2, "x1": 30, "y1": 40}])
+    resposta = cliente.post(
+        "/extrair-ocr",
+        files={"imagem": arquivo(pagina_plana_png, "p.png", "image/png")},
+        data={"regioes": regioes},
+    )
+    assert resposta.status_code == 200
+    assert (recebidas["regioes"][0].x1, recebidas["regioes"][0].y1) == (30, 40)
+
+    invalida = cliente.post(
+        "/extrair-ocr",
+        files={"imagem": arquivo(pagina_plana_png, "p.png", "image/png")},
+        data={"regioes": '[{"x0": -5}]'},
+    )
+    assert invalida.status_code == 422

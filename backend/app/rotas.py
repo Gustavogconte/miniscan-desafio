@@ -1,9 +1,10 @@
 """Rotas HTTP da API do MiniScan.
 
-As rotas são síncronas de propósito: o processamento com OpenCV e Tesseract usa CPU,
+As rotas são síncronas de propósito: o processamento com OpenCV e onnxruntime usa CPU,
 e o FastAPI executa rotas síncronas em uma thread separada, sem travar o servidor.
 """
 
+import json
 from functools import lru_cache
 from typing import Annotated
 
@@ -22,6 +23,7 @@ from app.esquemas import (
     RespostaSaude,
     validador_cantos,
     validador_metadados,
+    validador_regioes,
 )
 from app.ocr import IDIOMA_OCR, extrair_texto_ocr, ocr_disponivel
 from app.pdf import gerar_pdf
@@ -32,11 +34,14 @@ from app.persistencia import (
     salvar_documento,
 )
 from app.visao.bordas import detectar_cantos
-from app.visao.filtros import Filtro, aplicar_filtro, formato_saida
+from app.visao.filtros import Filtro, aplicar_filtro_com_regioes, formato_saida
 from app.visao.imagem import codificar_imagem, decodificar_imagem
+from app.visao.layout import DetectorLayout, Regiao
 from app.visao.perspectiva import corrigir_perspectiva
 
 roteador = APIRouter()
+
+CABECALHO_REGIOES = "X-Regioes-Graficas"
 
 ERROS_ENTRADA = {
     status.HTTP_413_CONTENT_TOO_LARGE: {"model": RespostaErro},
@@ -71,6 +76,7 @@ def rota_saude() -> RespostaSaude:
     return RespostaSaude(
         status="ok",
         ocr_disponivel=ocr_disponivel(),
+        layout_disponivel=DetectorLayout.obter().disponivel,
         persistencia_configurada=configuracoes.persistencia_configurada,
     )
 
@@ -105,12 +111,34 @@ def rota_processar_pagina(
     imagem: Annotated[UploadFile, File()],
     cantos: Annotated[str, Form(description='JSON com 4 pontos, ex.: [{"x":0.1,"y":0.1}, ...]')],
     filtro: Annotated[Filtro, Form()] = "original",
+    preservar_graficos: Annotated[
+        bool, Form(description="Mantém fotos e figuras originais sobre o fundo filtrado")
+    ] = True,
 ) -> Response:
     matriz = decodificar_imagem(ler_arquivo(imagem))
     retificada = corrigir_perspectiva(matriz, ler_cantos(cantos))
-    filtrada = aplicar_filtro(retificada, filtro)
+    filtrada, regioes = aplicar_filtro_com_regioes(retificada, filtro, preservar_graficos)
     extensao, tipo_mime = formato_saida(filtro)
-    return Response(content=codificar_imagem(filtrada, extensao), media_type=tipo_mime)
+    cabecalhos = {}
+    if regioes is not None:
+        # Reenviado pelo front-end ao /extrair-ocr para não repetir a detecção (~2 s).
+        cabecalhos[CABECALHO_REGIOES] = json.dumps([r.para_dict() for r in regioes])
+    return Response(
+        content=codificar_imagem(filtrada, extensao), media_type=tipo_mime, headers=cabecalhos
+    )
+
+
+def ler_regioes(regioes_json: str | None) -> list[Regiao] | None:
+    if regioes_json is None:
+        return None
+    try:
+        itens = validador_regioes.validate_json(regioes_json)
+    except ValidationError as erro:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            'Envie "regioes" como o JSON devolvido no cabeçalho X-Regioes-Graficas.',
+        ) from erro
+    return [Regiao(**item.model_dump()) for item in itens]
 
 
 @roteador.post(
@@ -120,9 +148,16 @@ def rota_processar_pagina(
     tags=["ocr"],
     summary="Extrai o texto da página retificada (pt-BR)",
 )
-def rota_extrair_ocr(imagem: Annotated[UploadFile, File()]) -> RespostaOcr:
+def rota_extrair_ocr(
+    imagem: Annotated[UploadFile, File()],
+    regioes: Annotated[
+        str | None,
+        Form(description="Regiões devolvidas pelo /processar-pagina (evita detectar de novo)"),
+    ] = None,
+) -> RespostaOcr:
     matriz = decodificar_imagem(ler_arquivo(imagem))
-    return RespostaOcr(texto=extrair_texto_ocr(matriz), idioma=IDIOMA_OCR)
+    texto = extrair_texto_ocr(matriz, regioes=ler_regioes(regioes))
+    return RespostaOcr(texto=texto, idioma=IDIOMA_OCR)
 
 
 @roteador.post(

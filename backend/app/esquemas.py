@@ -36,6 +36,10 @@ class RespostaOcr(BaseModel):
 class RespostaSaude(BaseModel):
     status: str
     ocr_disponivel: bool
+    layout_disponivel: bool = Field(
+        description="Falso quando o modelo DocLayout-YOLO não está instalado; "
+        "nesse caso as figuras não são preservadas."
+    )
     persistencia_configurada: bool
 
 
@@ -57,3 +61,17 @@ class RespostaDocumento(BaseModel):
 
 class RespostaErro(BaseModel):
     detail: str
+
+
+class RegiaoGrafica(BaseModel):
+    """Retângulo de uma figura, foto ou assinatura, em pixels da página retificada."""
+
+    x0: Annotated[int, Field(ge=0)]
+    y0: Annotated[int, Field(ge=0)]
+    x1: Annotated[int, Field(ge=0)]
+    y1: Annotated[int, Field(ge=0)]
+    classe: str = "figure"
+    confianca: float = 1.0
+
+
+validador_regioes = TypeAdapter(Annotated[list[RegiaoGrafica], Field(max_length=100)])
