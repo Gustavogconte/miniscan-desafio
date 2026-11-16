@@ -2,16 +2,17 @@
 name = "miniscan-api"
 version = "0.1.0"
 description = "API de visão computacional do MiniScan: detecção de cantos, correção de perspectiva, filtros, OCR e PDF."
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "python-multipart>=0.0.9",
     "opencv-python-headless>=4.10",
     "numpy>=2.0",
-    "pytesseract>=0.3.13",
     "img2pdf>=0.5",
     "supabase>=2.34.1",
+    "rapidocr>=3.10.0",
+    "onnxruntime>=1.32.0",
 ]
 
 [dependency-groups]
@@ -30,7 +31,7 @@ pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
