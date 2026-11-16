@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/* Tema controlado pelo atributo data-theme no <html> (claro é o padrão). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Tokens Clean Professional (docs/figma/miniscan-tokens.json). */
+:root,
+[data-theme="light"] {
+  --fundo: #f8fafc;
+  --cartao: #ffffff;
+  --secundario: #f1f5f9;
+  --borda: #e2e8f0;
+  --primaria: #2563eb;
+  --primaria-hover: #1d4ed8;
+  --primaria-suave: #dbeafe;
+  --texto: #172033;
+  --texto-secundario: #64748b;
+  --texto-suave: #94a3b8;
+  --sucesso: #15803d;
+  --alerta: #b45309;
+  --perigo: #dc2626;
+  --palco-recorte: #0f172a;
+  --sombra-cartao: 0 1px 3px rgb(15 23 42 / 0.04), 0 1px 2px rgb(15 23 42 / 0.02);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --fundo: #0f172a;
+  --cartao: #1e293b;
+  --secundario: #334155;
+  --borda: #334155;
+  --primaria: #3b82f6;
+  --primaria-hover: #2563eb;
+  --primaria-suave: rgb(59 130 246 / 0.16);
+  --texto: #f8fafc;
+  --texto-secundario: #cbd5e1;
+  --texto-suave: #94a3b8;
+  --sucesso: #4ade80;
+  --alerta: #fbbf24;
+  --perigo: #f87171;
+  --palco-recorte: #020617;
+  --sombra-cartao: 0 2px 6px rgb(0 0 0 / 0.25);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-fundo: var(--fundo);
+  --color-cartao: var(--cartao);
+  --color-secundario: var(--secundario);
+  --color-borda: var(--borda);
+  --color-primaria: var(--primaria);
+  --color-primaria-hover: var(--primaria-hover);
+  --color-primaria-suave: var(--primaria-suave);
+  --color-texto: var(--texto);
+  --color-texto-secundario: var(--texto-secundario);
+  --color-texto-suave: var(--texto-suave);
+  --color-sucesso: var(--sucesso);
+  --color-alerta: var(--alerta);
+  --color-perigo: var(--perigo);
+  --color-palco-recorte: var(--palco-recorte);
+  --shadow-cartao: var(--sombra-cartao);
+  --font-display: var(--fonte-display);
+  --font-sans: var(--fonte-corpo);
+  --font-mono: var(--fonte-mono);
+}
+
+html,
+body {
+  background-color: var(--fundo);
+  color: var(--texto);
+}
+
+body {
+  font-family: var(--fonte-corpo), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Foco visível e consistente para teclado. */
+:focus-visible {
+  outline: 2px solid var(--primaria);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
