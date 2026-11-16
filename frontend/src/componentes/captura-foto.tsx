@@ -38,6 +38,7 @@ export function useCapturaFoto() {
         altura: foto.altura,
         cantos: null,
         cantosDetectados: null,
+        cantosConfirmados: null,
         detectado: false,
         filtro: "bw",
         processadas: {},

@@ -4,8 +4,9 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import type { Cantos, Ponto } from "@/lib/tipos";
 
-const NOMES = ["superior esquerdo", "superior direito", "inferior direito", "inferior esquerdo"];
-const PASSO_TECLADO = 0.005;
+export const NOMES_CANTOS = ["superior esquerdo", "superior direito", "inferior direito", "inferior esquerdo"];
+const NOMES = NOMES_CANTOS;
+export const PASSO_TECLADO = 0.005;
 const PASSO_TECLADO_RAPIDO = 0.03;
 const ZOOM_LUPA = 2.5;
 const TAMANHO_LUPA = 96;
@@ -16,11 +17,14 @@ interface Props {
   altura: number;
   cantos: Cantos;
   aoMudar: (cantos: Cantos) => void;
+  /** Canto que as setas de ajuste fino movem (o último tocado ou focado). */
+  cantoAtivo: number;
+  aoSelecionarCanto: (indice: number) => void;
 }
 
-const limitar = (valor: number) => Math.min(1, Math.max(0, valor));
+export const limitar = (valor: number) => Math.min(1, Math.max(0, valor));
 
-export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Props) {
+export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar, cantoAtivo, aoSelecionarCanto }: Props) {
   const palco = useRef<HTMLDivElement>(null);
   const [arrastando, setArrastando] = useState<number | null>(null);
   const [larguraPalco, setLarguraPalco] = useState(0);
@@ -43,6 +47,7 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
     evento.currentTarget.focus();
     setLarguraPalco(palco.current?.clientWidth ?? 0);
     setArrastando(indice);
+    aoSelecionarCanto(indice);
   }
 
   function aoMover(indice: number, evento: PointerEvent<HTMLButtonElement>) {
@@ -90,8 +95,8 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
           <rect width="100" height="100" fill="rgb(2 6 23 / 0.55)" mask="url(#mascara-recorte)" />
           <polygon
             points={pontosSvg}
-            fill="rgb(37 99 235 / 0.12)"
-            stroke="#3b82f6"
+            fill="rgb(0 71 224 / 0.12)"
+            stroke="var(--primaria-texto)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
             strokeLinejoin="round"
@@ -102,7 +107,9 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
           <button
             key={NOMES[indice]}
             type="button"
-            aria-label={`Canto ${NOMES[indice]}. Use as setas para ajustar.`}
+            aria-label={`Canto ${NOMES[indice]}, ${Math.round(canto.x * 100)}% da largura e ${Math.round(canto.y * 100)}% da altura`}
+            aria-pressed={cantoAtivo === indice}
+            onFocus={() => aoSelecionarCanto(indice)}
             onPointerDown={(e) => aoPressionar(indice, e)}
             onPointerMove={(e) => aoMover(indice, e)}
             onPointerUp={() => setArrastando(null)}
@@ -111,7 +118,11 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
             className="group absolute flex size-12 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center justify-center rounded-full focus-visible:outline-none active:cursor-grabbing"
             style={{ left: `${canto.x * 100}%`, top: `${canto.y * 100}%` }}
           >
-            <span className="size-5 rounded-full border-[3px] border-white bg-primaria shadow-md transition group-focus-visible:ring-4 group-focus-visible:ring-primaria/50 group-active:scale-125" />
+            <span
+              className={`size-5 rounded-full border-[3px] border-white bg-primaria shadow-md transition group-focus-visible:ring-4 group-focus-visible:ring-white/60 group-active:scale-125 ${
+                cantoAtivo === indice ? "ring-4 ring-white/50" : ""
+              }`}
+            />
           </button>
         ))}
 

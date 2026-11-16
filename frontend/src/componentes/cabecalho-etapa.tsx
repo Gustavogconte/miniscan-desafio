@@ -2,7 +2,7 @@
 
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 
 interface Props {
   titulo: string;
@@ -10,7 +10,8 @@ interface Props {
   voltarPara: string;
   rotuloVoltar: string;
   acao?: ReactNode;
-  aoVoltar?: () => void;
+  /** Chamado antes de navegar; `evento.preventDefault()` cancela a volta. */
+  aoVoltar?: (evento: MouseEvent<HTMLAnchorElement>) => void;
 }
 
 export function CabecalhoEtapa({ titulo, subtitulo, voltarPara, rotuloVoltar, acao, aoVoltar }: Props) {

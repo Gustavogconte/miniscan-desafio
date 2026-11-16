@@ -43,6 +43,8 @@ export interface Pagina {
   altura: number;
   cantos: Cantos | null;
   cantosDetectados: Cantos | null;
+  /** Cantos do último recorte confirmado: voltar sem confirmar restaura estes. */
+  cantosConfirmados: Cantos | null;
   detectado: boolean;
   filtro: Filtro;
   processadas: Partial<Record<Filtro, ImagemLocal>>;
