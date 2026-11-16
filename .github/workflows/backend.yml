@@ -1,0 +1,32 @@
+name: Backend
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      # Modelos do PaddleOCR (~15 MB) baixados na primeira execução dos testes.
+      - uses: actions/cache@v4
+        with:
+          path: backend/.venv/lib/python3.11/site-packages/rapidocr/models
+          key: modelos-rapidocr-${{ hashFiles('backend/uv.lock') }}
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      # O modelo de layout (.onnx) não está no Git: os testes cobrem o detector com uma sessão simulada.
+      - run: uv run pytest
