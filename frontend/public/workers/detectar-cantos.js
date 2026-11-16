@@ -2,13 +2,15 @@
  * Detecção dos 4 cantos da folha com OpenCV.js — o mesmo algoritmo do backend
  * (backend/app/visao/bordas.py), rodando no navegador para o recorte ao vivo.
  *
- * 1. Candidatos por três caminhos: Canny normal, Canny sensível (bordas fracas,
- *    mesa clara) e segmentação pelo brilho do papel (Otsu).
+ * 1. Candidatos pelo brilho (Canny normal, Canny sensível e Otsu: o papel é claro)
+ *    e pela cor (Canny e Otsu na saturação: o papel é pouco saturado), o que resolve
+ *    mesa ocre, bege ou madeira clara quase do mesmo brilho do papel.
  * 2. Cada contorno vira um quadrilátero pela envoltória convexa; se ela tiver mais
  *    de 4 lados (dedo no canto, canto dobrado, papel ondulado), os 4 lados mais
  *    longos são prolongados até se cruzarem, recuperando o canto escondido.
  * 3. Vence o maior candidato com borda contínua nos 4 lados, medindo só o
- *    gradiente perpendicular a cada lado (descarta o bloco de texto).
+ *    gradiente perpendicular a cada lado (descarta o bloco de texto), somando brilho
+ *    e cor, com limiar que sobe em superfícies muito texturizadas.
  *
  * Arquivo JavaScript puro, carregado por importScripts no Web Worker e também
  * pelos testes em Node. Recebe pixels RGBA de um quadro já reduzido (~360 px).
@@ -22,8 +24,9 @@ var LIMIARES_CANNY = [
 ];
 var TOLERANCIAS_APROXIMACAO = [0.01, 0.015, 0.02, 0.03, 0.04, 0.05];
 var GRADIENTE_MINIMO = 8;
-var APOIO_MINIMO = 0.7;
-var BUSCA_PERPENDICULAR = 3;
+var APOIO_MINIMO = 0.8;
+var BUSCA_PERPENDICULAR = 4;
+var FATOR_RUIDO = 2;
 var MARGEM_DOS_CANTOS = 0.12;
 var CRESCIMENTO_MAXIMO = 1.35;
 var AMOSTRAS_POR_LADO = 60;
@@ -142,8 +145,11 @@ function quadrilatero(cv, contorno) {
   }
 }
 
-/** Fração de pontos com borda perpendicular forte, no lado mais fraco do quadrilátero. */
-function apoioDeBorda(quad, gx, gy, largura, altura) {
+/**
+ * Fração de pontos com borda perpendicular forte, no lado mais fraco do quadrilátero.
+ * `campos` são os gradientes {gx, gy} do brilho e da saturação, somados em cada ponto.
+ */
+function apoioDeBorda(quad, campos, largura, altura, limiar) {
   var menor = 1;
   for (var i = 0; i < 4; i++) {
     var a = quad[i];
@@ -163,9 +169,13 @@ function apoioDeBorda(quad, gx, gy, largura, altura) {
         var x = Math.min(largura - 1, Math.max(0, Math.round(bx + d * nx)));
         var y = Math.min(altura - 1, Math.max(0, Math.round(by + d * ny)));
         var indice = y * largura + x;
-        intensidade = Math.max(intensidade, Math.abs(gx[indice] * nx + gy[indice] * ny));
+        var soma = 0;
+        for (var c = 0; c < campos.length; c++) {
+          soma += Math.abs(campos[c].gx[indice] * nx + campos[c].gy[indice] * ny);
+        }
+        intensidade = Math.max(intensidade, soma);
       }
-      if (intensidade > GRADIENTE_MINIMO) fortes++;
+      if (intensidade > limiar) fortes++;
     }
     menor = Math.min(menor, fortes / AMOSTRAS_POR_LADO);
   }
@@ -188,31 +198,67 @@ function detectarCantosCv(cv, pixels, largura, altura) {
     var suavizada = guardar(new cv.Mat());
     cv.GaussianBlur(cinza, suavizada, new cv.Size(5, 5), 0);
 
-    // Sobel 3x3 dividido por 4: aproximadamente a diferença de brilho através da borda.
-    var matGx = guardar(new cv.Mat());
-    var matGy = guardar(new cv.Mat());
-    cv.Sobel(suavizada, matGx, cv.CV_32F, 1, 0, 3, 0.25);
-    cv.Sobel(suavizada, matGy, cv.CV_32F, 0, 1, 3, 0.25);
-    var gx = matGx.data32F;
-    var gy = matGy.data32F;
+    // Saturação (HSV): o papel é pouco saturado; madeira, ocre e bege são mais.
+    var rgb = guardar(new cv.Mat());
+    cv.cvtColor(rgba, rgb, cv.COLOR_RGBA2RGB);
+    var hsv = guardar(new cv.Mat());
+    cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
+    var canaisHsv = new cv.MatVector();
+    cv.split(hsv, canaisHsv);
+    var saturacaoBruta = canaisHsv.get(1);
+    var saturacao = guardar(new cv.Mat());
+    cv.GaussianBlur(saturacaoBruta, saturacao, new cv.Size(5, 5), 0);
+    saturacaoBruta.delete();
+    canaisHsv.delete();
+
+    // Sobel 3x3 dividido por 4: aproximadamente a diferença através da borda.
+    var campos = [suavizada, saturacao].map(function (canal) {
+      var gxMat = guardar(new cv.Mat());
+      var gyMat = guardar(new cv.Mat());
+      cv.Sobel(canal, gxMat, cv.CV_32F, 1, 0, 3, 0.25);
+      cv.Sobel(canal, gyMat, cv.CV_32F, 0, 1, 3, 0.25);
+      return { gx: gxMat.data32F, gy: gyMat.data32F };
+    });
+
+    // Limiar relativo à textura da própria foto (mediana do gradiente, amostrada):
+    // numa superfície muito texturizada, qualquer quadrilátero teria "borda" em todo lado.
+    var magnitudes = [];
+    for (var p = 0; p < largura * altura; p += 7) {
+      var m = 0;
+      for (var c = 0; c < campos.length; c++) m += Math.hypot(campos[c].gx[p], campos[c].gy[p]);
+      magnitudes.push(m);
+    }
+    magnitudes.sort(function (a, b) {
+      return a - b;
+    });
+    var limiar = Math.max(GRADIENTE_MINIMO, FATOR_RUIDO * magnitudes[Math.floor(magnitudes.length / 2)]);
 
     var nucleo = guardar(cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5)));
     var nucleoGrande = guardar(cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(15, 15)));
     var semPonto = new cv.Point(-1, -1);
     var mascaras = [];
-    LIMIARES_CANNY.forEach(function (limiar) {
+    var cannys = LIMIARES_CANNY.map(function (l) {
+      return { canal: suavizada, limiares: l };
+    }).concat([{ canal: saturacao, limiares: LIMIARES_CANNY[1] }]);
+    cannys.forEach(function (item) {
       var bordas = guardar(new cv.Mat());
-      cv.Canny(suavizada, bordas, limiar[0], limiar[1]);
+      cv.Canny(item.canal, bordas, item.limiares[0], item.limiares[1]);
       cv.morphologyEx(bordas, bordas, cv.MORPH_CLOSE, nucleo, semPonto, 2);
       mascaras.push({ imagem: bordas, modo: cv.RETR_LIST });
     });
-    // Papel é mais claro que quase toda mesa: Otsu separa a folha; o fechamento grande
+    // Papel é mais claro que quase toda mesa (Otsu no brilho) e menos saturado que mesa
+    // de madeira, ocre ou bege (Otsu invertido na saturação). O fechamento grande
     // preenche as linhas de texto para a folha virar uma mancha só.
-    var claro = guardar(new cv.Mat());
-    cv.threshold(suavizada, claro, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-    cv.morphologyEx(claro, claro, cv.MORPH_CLOSE, nucleoGrande);
-    cv.morphologyEx(claro, claro, cv.MORPH_OPEN, nucleo);
-    mascaras.push({ imagem: claro, modo: cv.RETR_EXTERNAL });
+    [
+      { canal: suavizada, tipo: cv.THRESH_BINARY },
+      { canal: saturacao, tipo: cv.THRESH_BINARY_INV },
+    ].forEach(function (item) {
+      var mancha = guardar(new cv.Mat());
+      cv.threshold(item.canal, mancha, 0, 255, item.tipo + cv.THRESH_OTSU);
+      cv.morphologyEx(mancha, mancha, cv.MORPH_CLOSE, nucleoGrande);
+      cv.morphologyEx(mancha, mancha, cv.MORPH_OPEN, nucleo);
+      mascaras.push({ imagem: mancha, modo: cv.RETR_EXTERNAL });
+    });
 
     var areaMinima = AREA_MINIMA_RELATIVA * largura * altura;
     var melhor = null;
@@ -240,7 +286,7 @@ function detectarCantosCv(cv, pixels, largura, altura) {
           var quad = quadrilatero(cv, atual);
           if (quad) {
             var area = areaPoligono(quad);
-            if (area > melhorArea && apoioDeBorda(quad, gx, gy, largura, altura) >= APOIO_MINIMO) {
+            if (area > melhorArea && apoioDeBorda(quad, campos, largura, altura, limiar) >= APOIO_MINIMO) {
               melhor = quad;
               melhorArea = area;
             }

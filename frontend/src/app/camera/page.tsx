@@ -248,6 +248,12 @@ export default function TelaCamera() {
         >
           <X className="size-6" aria-hidden />
         </Link>
+        {estadoCamera === "ativa" && tamanhoVideo.largura > 1 && (
+          // Resolução real entregue pela câmera: ajuda a entender fotos com pouca nitidez.
+          <span className="mr-auto rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white/80">
+            {tamanhoVideo.largura}×{tamanhoVideo.altura}
+          </span>
+        )}
         <div className="flex items-center gap-2">
           {modo !== "qrcode" && (
             <button

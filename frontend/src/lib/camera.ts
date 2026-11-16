@@ -44,7 +44,9 @@ export function useCameraAoVivo() {
       try {
         fluxo = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          // Pede até 4K: o navegador entrega o máximo que a câmera suporta. Resolução
+          // baixa deixa a página retificada pequena e as letras do P&B serrilhadas.
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } },
         });
         if (cancelado || !video.current) {
           fluxo.getTracks().forEach((t) => t.stop());
@@ -55,6 +57,13 @@ export function useCameraAoVivo() {
         trilha.current = fluxo.getVideoTracks()[0] ?? null;
         const capacidades = trilha.current?.getCapabilities?.() as CapacidadesComLanterna | undefined;
         setLanternaSuportada(Boolean(capacidades?.torch));
+        // Foco contínuo onde existir (Chrome no Android); o Safari já faz sozinho.
+        const modosFoco = (capacidades as { focusMode?: string[] } | undefined)?.focusMode;
+        if (modosFoco?.includes("continuous")) {
+          trilha.current
+            ?.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] })
+            .catch(() => {});
+        }
         setEstado("ativa");
       } catch (erro) {
         if (cancelado) return;
