@@ -159,3 +159,21 @@ def test_extrair_ocr_valida_regioes(pagina_plana_png, monkeypatch):
         data={"regioes": '[{"x0": -5}]'},
     )
     assert invalida.status_code == 422
+
+
+def test_cors_aceita_origens_de_previa_por_regex(monkeypatch):
+    from app import main
+    from app.config import Configuracoes
+
+    monkeypatch.setenv("MINISCAN_ORIGENS_CORS", "https://miniscan.vercel.app")
+    monkeypatch.setenv("MINISCAN_ORIGENS_CORS_REGEX", r"^https://miniscan-[a-z0-9-]+\.vercel\.app$")
+    monkeypatch.setattr(main, "configuracoes", Configuracoes())
+    cliente_cors = TestClient(main.criar_app())
+
+    def origem_liberada(origem: str) -> bool:
+        resposta = cliente_cors.get("/saude", headers={"Origin": origem})
+        return resposta.headers.get("access-control-allow-origin") == origem
+
+    assert origem_liberada("https://miniscan.vercel.app")
+    assert origem_liberada("https://miniscan-git-main-gustavo.vercel.app")
+    assert not origem_liberada("https://site-malicioso.com")

@@ -54,6 +54,7 @@ def criar_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=configuracoes.origens_cors,
+        allow_origin_regex=configuracoes.origens_cors_regex,
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
         # O front-end precisa ler as regiões gráficas devolvidas pelo /processar-pagina.
