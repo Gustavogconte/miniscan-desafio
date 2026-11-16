@@ -30,18 +30,20 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
 
 ## 4. Pipeline de Visão Computacional (Especificação para `/backend`)
 
-- **Detecção de Cantos (`POST /detect-corners`):** Redimensionamento proporcional -> `cv2.cvtColor` (cinza) -> `cv2.GaussianBlur` -> `cv2.Canny` -> `cv2.morphologyEx` (fechamento) -> `cv2.findContours` -> `cv2.approxPolyDP` (4 vértices). Retornar coordenadas normalizadas `(0..1)` para o front-end permitir ajuste manual.
-- **Processamento e Filtros (`POST /process-page`):**
+- **Detecção de Cantos (`POST /detectar-cantos`):** Redimensionamento proporcional -> `cv2.cvtColor` (cinza) -> `cv2.GaussianBlur` -> `cv2.Canny` -> `cv2.morphologyEx` (fechamento) -> `cv2.findContours` -> `cv2.approxPolyDP` (4 vértices). Retornar coordenadas normalizadas `(0..1)` para o front-end permitir ajuste manual.
+- **Processamento e Filtros (`POST /processar-pagina`):**
   - Homografia: `cv2.getPerspectiveTransform` + `cv2.warpPerspective`.
   - `original`: Imagem retificada em RGB.
   - `grayscale`: Luminância + `cv2.createCLAHE` para uniformizar iluminação.
   - `bw`: `cv2.adaptiveThreshold` (`ADAPTIVE_THRESH_GAUSSIAN_C`) para remover sombras da folha.
-- **OCR e PDF (`POST /extract-ocr` e `POST /generate-pdf`):**
+- **OCR e PDF (`POST /extrair-ocr` e `POST /gerar-pdf`):**
   - Rodar `pytesseract.image_to_string(..., lang='por')` sempre sobre a matriz tratada com `bw` para maior acurácia.
   - Compilar páginas ordenadas em PDF único usando `img2pdf`.
+- **Persistência (`POST /documentos`, planejado):** a API recebe PDF, imagens, filtros e textos OCR, faz o upload no bucket `miniscan-files` com a chave de serviço e insere em `documents` e `document_pages`. Os endpoints de visão continuam sem estado.
+- **Saúde (`GET /saude`):** informa se a API está no ar e se o Tesseract com o idioma `por` está disponível.
 
 ## 5. Convenções de Código e Git
 
-- **Idioma:** Código (variáveis, funções, rotas) em **inglês**; mensagens de commit, textos de interface (UI) e documentação para apresentação em **português (pt-BR)**.
+- **Idioma:** Projeto em **português (pt-BR)**: rotas da API, nomes de módulos, funções, variáveis e campos dos contratos, mensagens de commit, textos de interface e documentação. Identificadores sem acento e em `snake_case` no Python (`corrigir_perspectiva`) e `camelCase` no TypeScript (`corrigirPerspectiva`). Ficam como estão: APIs de bibliotecas (`cv2`, FastAPI, Supabase), nomes de tabelas e colunas já migrados (`documents`, `document_pages`) e os valores de filtro gravados no banco (`original`, `grayscale`, `bw`), que também são usados nos contratos da API.
 - **Commits:** Seguir *Conventional Commits* atômicos, com descrição em português (`feat(visao): adiciona detecção de cantos`, `feat(ocr): ...`, `feat(pwa): ...`, `fix(...): ...`).
 - **Estilo de Documentação do Usuário:** Parágrafos diretos e objetivos, sem listas com marcadores excessivos e sem vocabulário genérico de IA.
