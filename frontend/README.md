@@ -36,3 +36,15 @@ npm run build
 ```
 
 O OpenCV.js (cerca de 11 MB) não vai para o Git. O script `scripts/copiar-opencv.mjs` o copia de `node_modules` antes do `dev` e do `build`.
+
+## Deploy na Vercel
+
+1. Em [vercel.com/new](https://vercel.com/new), importe o repositório do GitHub e defina **Root Directory** como `frontend`. O framework (Next.js) é detectado sozinho.
+2. Em *Environment Variables*, cadastre:
+   - `NEXT_PUBLIC_API_URL`: o endereço da API no Hugging Face Spaces, por exemplo `https://usuario-miniscan-api.hf.space`.
+   - `NEXT_PUBLIC_SUPABASE_URL`: a URL do projeto no Supabase.
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: a chave **publishable** (`sb_publishable_...`).
+3. Faça o deploy. As variáveis `NEXT_PUBLIC_*` entram no build, então qualquer mudança nelas pede um novo deploy.
+4. Libere o domínio da Vercel no CORS da API (variável `MINISCAN_ORIGENS_CORS` do Space; veja `backend/README.md`).
+
+O `next.config.ts` envia cabeçalhos de segurança (câmera liberada só para o próprio app, bloqueio de iframe) e deixa o OpenCV.js em cache permanente, porque o nome do arquivo já tem a versão. A cada push, o GitHub Actions (`.github/workflows/frontend.yml`) roda lint, tipos, testes e build.
