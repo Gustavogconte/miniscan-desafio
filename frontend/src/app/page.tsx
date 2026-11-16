@@ -13,8 +13,8 @@ import type { DocumentoHistorico } from "@/lib/tipos";
 
 type EstadoLista =
   | { tipo: "carregando" }
-  | { tipo: "pronto"; documentos: DocumentoHistorico[] }
-  | { tipo: "erro"; mensagem: string };
+  | { tipo: "pronto"; documentos: DocumentoHistorico[]; termo: string }
+  | { tipo: "erro"; mensagem: string; termo: string };
 
 const ATRASO_BUSCA_MS = 300;
 
@@ -36,10 +36,10 @@ export default function TelaInicio() {
       async () => {
         try {
           const documentos = await buscarDocumentos(termo);
-          if (!cancelado) setLista({ tipo: "pronto", documentos });
+          if (!cancelado) setLista({ tipo: "pronto", documentos, termo });
         } catch (erro) {
           if (!cancelado) {
-            setLista({ tipo: "erro", mensagem: erro instanceof Error ? erro.message : "Erro ao carregar." });
+            setLista({ tipo: "erro", mensagem: erro instanceof Error ? erro.message : "Erro ao carregar.", termo });
           }
         }
       },
@@ -52,6 +52,8 @@ export default function TelaInicio() {
   }, [termo]);
 
   const quantidade = lista.tipo === "pronto" ? lista.documentos.length : null;
+  // A lista na tela ainda é de outro termo: a busca nova está em andamento.
+  const buscando = lista.tipo === "carregando" || lista.termo !== termo;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -60,8 +62,9 @@ export default function TelaInicio() {
       <div className="shrink-0 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="sr-only">MiniScan</h1>
-            <Logo className="h-9 w-auto" />
+            <h1>
+              <Logo className="h-9 w-auto" />
+            </h1>
             <p className="mt-1 text-xs text-texto-secundario">Digitalizador de documentos com OCR</p>
           </div>
           <BotaoTema />
@@ -82,12 +85,20 @@ export default function TelaInicio() {
             onChange={(evento) => setTermo(evento.target.value)}
             placeholder="Buscar por título ou texto (OCR)"
             autoComplete="off"
-            className="h-11 w-full rounded-xl border border-borda bg-cartao pl-10 pr-4 text-base text-texto placeholder:text-texto-suave focus:border-primaria focus:outline-none focus:ring-2 focus:ring-primaria-suave sm:text-sm"
+            className="h-11 w-full rounded-xl border border-borda-campo bg-cartao pl-10 pr-10 text-base text-texto placeholder:text-texto-suave focus:border-primaria-texto focus:outline-none focus:ring-2 focus:ring-primaria-suave sm:text-sm"
           />
+          {buscando && termo && (
+            <LoaderCircle
+              className="absolute right-3.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-texto-suave"
+              aria-hidden
+            />
+          )}
         </div>
 
         <p className="mt-3 text-xs font-medium text-texto-secundario" aria-live="polite">
-          {quantidade === null
+          {buscando && termo
+            ? "Buscando…"
+            : quantidade === null
             ? " "
             : termo
               ? `${quantidade} ${quantidade === 1 ? "resultado" : "resultados"}`
@@ -95,7 +106,7 @@ export default function TelaInicio() {
         </p>
       </div>
 
-      <section aria-label="Histórico de documentos" className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 pb-4">
+      <section aria-label="Histórico de documentos" aria-busy={buscando} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 pb-4">
         {lista.tipo === "carregando" &&
           [0, 1, 2].map((i) => <div key={i} className="h-[100px] animate-pulse rounded-2xl bg-secundario" />)}
 

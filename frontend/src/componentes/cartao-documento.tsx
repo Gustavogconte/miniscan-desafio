@@ -40,7 +40,7 @@ export function CartaoDocumento({ documento }: { documento: DocumentoHistorico }
   }
 
   return (
-    <article className="relative flex items-start gap-3.5 rounded-2xl border border-borda bg-cartao p-3.5 shadow-cartao transition hover:border-primaria/50">
+    <article className="relative flex items-start gap-3.5 rounded-2xl border border-borda bg-cartao p-3.5 shadow-cartao transition hover:border-primaria/50 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-primaria-texto has-[a:focus-visible]:ring-offset-2 has-[a:focus-visible]:ring-offset-fundo">
       <div className="flex h-[72px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-borda bg-secundario">
         {primeira ? (
           // eslint-disable-next-line @next/next/no-img-element -- miniatura vinda do Storage do Supabase
@@ -72,7 +72,7 @@ export function CartaoDocumento({ documento }: { documento: DocumentoHistorico }
         )}
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-texto-secundario">
           {primeira && (
-            <span className="rounded-md bg-primaria-suave px-2 py-0.5 font-mono font-semibold text-primaria">
+            <span className="rounded-md bg-primaria-suave px-2 py-0.5 font-mono font-semibold text-primaria-texto">
               {ROTULO_FILTRO[primeira.filter_applied]}
             </span>
           )}
@@ -87,7 +87,7 @@ export function CartaoDocumento({ documento }: { documento: DocumentoHistorico }
           type="button"
           onClick={compartilhar}
           aria-label={`Compartilhar ${documento.title}`}
-          className="absolute right-2 top-2 z-10 flex size-10 items-center justify-center rounded-xl text-texto-secundario transition hover:bg-secundario hover:text-primaria"
+          className="absolute right-1.5 top-1.5 z-10 flex size-11 items-center justify-center rounded-xl text-texto-secundario transition hover:bg-secundario hover:text-primaria-texto"
         >
           <Share2 className="size-4" aria-hidden />
         </button>

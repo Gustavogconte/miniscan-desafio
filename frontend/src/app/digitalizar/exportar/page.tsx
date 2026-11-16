@@ -132,7 +132,7 @@ export default function TelaExportar() {
         <div className="flex items-center gap-4 rounded-2xl border border-borda bg-cartao p-4 shadow-cartao">
           <div className="flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-xl border border-perigo/25 bg-perigo/10">
             <FileText className="size-6 text-perigo" aria-hidden />
-            <span className="mt-0.5 font-mono text-[9px] font-bold text-perigo">
+            <span className="mt-0.5 font-mono text-[11px] font-bold text-texto">
               {paginas.length} {paginas.length === 1 ? "PÁG" : "PÁGS"}
             </span>
           </div>
@@ -158,7 +158,7 @@ export default function TelaExportar() {
               type="button"
               onClick={gerar}
               aria-label="Tentar gerar o PDF de novo"
-              className="flex size-11 items-center justify-center rounded-xl border border-borda text-primaria"
+              className="flex size-11 items-center justify-center rounded-xl border border-borda text-primaria-texto"
             >
               <RotateCw className="size-4" aria-hidden />
             </button>
@@ -174,7 +174,7 @@ export default function TelaExportar() {
             value={titulo}
             onChange={(evento) => setTitulo(evento.target.value)}
             maxLength={200}
-            className="h-11 w-full rounded-xl border border-borda bg-fundo px-3.5 text-base text-texto focus:border-primaria focus:outline-none focus:ring-2 focus:ring-primaria-suave sm:text-sm"
+            className="h-11 w-full rounded-xl border border-borda-campo bg-fundo px-3.5 text-base text-texto focus:border-primaria-texto focus:outline-none focus:ring-2 focus:ring-primaria-suave sm:text-sm"
           />
           <p className="text-[11px] text-texto-secundario">O título também é usado na busca do histórico.</p>
         </div>
@@ -188,7 +188,7 @@ export default function TelaExportar() {
               <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
                 <span className="text-texto">Página {i + 1}</span>
                 <span className="flex items-center gap-2 text-texto-secundario">
-                  <span className="rounded-md bg-primaria-suave px-2 py-0.5 font-mono font-semibold text-primaria">
+                  <span className="rounded-md bg-primaria-suave px-2 py-0.5 font-mono font-semibold text-primaria-texto">
                     {ROTULO_FILTRO[p.filtro]}
                   </span>
                   {p.estadoOcr === "pronto"
@@ -220,7 +220,7 @@ export default function TelaExportar() {
             disabled={!pronto}
             className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-borda bg-cartao text-xs font-semibold text-texto transition hover:bg-secundario disabled:opacity-60"
           >
-            <Download className="size-4 text-primaria" aria-hidden />
+            <Download className="size-4 text-primaria-texto" aria-hidden />
             Baixar
           </button>
           <button
@@ -232,7 +232,7 @@ export default function TelaExportar() {
             {salvando ? (
               <LoaderCircle className="size-4 animate-spin" aria-hidden />
             ) : (
-              <CloudUpload className="size-4 text-primaria" aria-hidden />
+              <CloudUpload className="size-4 text-primaria-texto" aria-hidden />
             )}
             {salvando ? "Salvando…" : ocrPendente ? "Aguardando OCR…" : "Salvar no histórico"}
           </button>

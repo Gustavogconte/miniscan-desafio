@@ -10,12 +10,15 @@
   --cartao: #ffffff;
   --secundario: #f1f5f9;
   --borda: #e2e8f0;
-  --primaria: #2563eb;
-  --primaria-hover: #1d4ed8;
+  --borda-campo: #8492a6; /* 3,2:1 sobre o cartão (WCAG 1.4.11) */
+  /* Azul da logo: 7,05:1 com texto branco; 5,78:1 sobre --primaria-suave. */
+  --primaria: #0047e0;
+  --primaria-hover: #0039b5;
+  --primaria-texto: #0047e0;
   --primaria-suave: #dbeafe;
   --texto: #172033;
-  --texto-secundario: #64748b;
-  --texto-suave: #94a3b8;
+  --texto-secundario: #475569; /* 7,58:1 no branco */
+  --texto-suave: #64748b; /* 4,76:1 no branco */
   --sucesso: #15803d;
   --alerta: #b45309;
   --perigo: #dc2626;
@@ -29,8 +32,12 @@
   --cartao: #1e293b;
   --secundario: #334155;
   --borda: #334155;
-  --primaria: #3b82f6;
-  --primaria-hover: #2563eb;
+  --borda-campo: #64748b;
+  /* No escuro, preenchimento e texto azul precisam de tons diferentes:
+     #2563eb dá 5,17:1 com texto branco; #60a5fa dá 5,75:1 sobre o cartão. */
+  --primaria: #2563eb;
+  --primaria-hover: #1d4ed8;
+  --primaria-texto: #60a5fa;
   --primaria-suave: rgb(59 130 246 / 0.16);
   --texto: #f8fafc;
   --texto-secundario: #cbd5e1;
@@ -48,7 +55,9 @@
   --color-cartao: var(--cartao);
   --color-secundario: var(--secundario);
   --color-borda: var(--borda);
+  --color-borda-campo: var(--borda-campo);
   --color-primaria: var(--primaria);
+  --color-primaria-texto: var(--primaria-texto);
   --color-primaria-hover: var(--primaria-hover);
   --color-primaria-suave: var(--primaria-suave);
   --color-texto: var(--texto);
@@ -77,7 +86,7 @@ body {
 
 /* Foco visível e consistente para teclado. */
 :focus-visible {
-  outline: 2px solid var(--primaria);
+  outline: 2px solid var(--primaria-texto);
   outline-offset: 2px;
 }
 

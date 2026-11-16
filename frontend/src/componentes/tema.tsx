@@ -5,12 +5,14 @@ import { useSyncExternalStore } from "react";
 
 type Tema = "light" | "dark";
 const CHAVE = "miniscan-tema";
+/** Cor da barra do navegador/sistema em cada tema (igual ao fundo do app). */
+const COR_BARRA: Record<Tema, string> = { light: "#f8fafc", dark: "#0f172a" };
 
 /**
  * Script executado antes da pintura da página (no <head>) para aplicar o tema salvo
  * sem "piscar" o tema claro. Sem preferência salva, segue o sistema operacional.
  */
-export const SCRIPT_TEMA_INICIAL = `(function(){try{var t=localStorage.getItem("${CHAVE}");if(t!=="light"&&t!=="dark"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.setAttribute("data-theme","light")}})();`;
+export const SCRIPT_TEMA_INICIAL = `(function(){try{var t=localStorage.getItem("${CHAVE}");if(t!=="light"&&t!=="dark"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.setAttribute("data-theme",t);var c=t==="dark"?"${COR_BARRA.dark}":"${COR_BARRA.light}";var f=function(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",c);return!!m};if(!f())document.addEventListener("DOMContentLoaded",f)}catch(e){document.documentElement.setAttribute("data-theme","light")}})();`;
 
 const ouvintes = new Set<() => void>();
 
@@ -20,6 +22,7 @@ function lerTema(): Tema {
 
 function aplicarTema(tema: Tema) {
   document.documentElement.setAttribute("data-theme", tema);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", COR_BARRA[tema]);
   try {
     localStorage.setItem(CHAVE, tema);
   } catch {

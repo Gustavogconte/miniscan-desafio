@@ -41,10 +41,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
-  ],
+  // No Android, o teclado virtual encolhe a área útil (dvh) em vez de cobrir a tela.
+  interactiveWidget: "resizes-content",
+  // Uma única cor, atualizada pelo botão de tema (tema.tsx), e não pelo sistema.
+  themeColor: "#f8fafc",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
