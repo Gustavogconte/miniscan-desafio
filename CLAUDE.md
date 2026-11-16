@@ -20,7 +20,7 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
    - Tabelas `public.documents` (`id`, `title`, `pdf_url`, `page_count`, `created_at`, `updated_at`) e `public.document_pages` (`id`, `document_id`, `page_order`, `original_image_url`, `processed_image_url`, `filter_applied`, `ocr_text`, `created_at`, `updated_at`).
    - Triggers automáticos para `updated_at` e sincronização de `documents.page_count`.
    - Busca Full-Text em português via RPC `search_miniscan_documents(search_query TEXT)`.
-   - RLS ativado com políticas para MVP (`anon`, `authenticated`) e bucket `miniscan-files` (limite 15MB, MIME types restritos).
+   - RLS ativado e bucket `miniscan-files` (limite 15MB, MIME types restritos). A migração `20261116000002_restringe_escrita_anonima.sql` deixa `anon`/`authenticated` só com leitura: toda gravação passa pela API com a chave secreta.
 3. **Design System e Protótipo (`prototype/miniscan_prototype.html` e `docs/figma/`):**
    - Identidade visual **Clean Professional** com temas Claro (padrão) e Escuro (`data-theme="light"` e `data-theme="dark"`).
    - Paleta Light: fundo `#F8FAFC`, cards `#FFFFFF`, secundário `#F1F5F9`, bordas `#E2E8F0`, destaque `#2563EB`, texto `#172033` / `#64748B`.
