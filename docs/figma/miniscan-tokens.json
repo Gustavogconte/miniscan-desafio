@@ -1,0 +1,34 @@
+{
+  "$description": "MiniScan — Clean Professional design tokens (light default, dark alternative)",
+  "color": {
+    "light": {
+      "background": { "value": "#F8FAFC" },
+      "surface": { "value": "#FFFFFF" },
+      "surfaceSecondary": { "value": "#F1F5F9" },
+      "border": { "value": "#E2E8F0" },
+      "accent": { "value": "#2563EB" },
+      "textPrimary": { "value": "#172033" },
+      "textSecondary": { "value": "#64748B" }
+    },
+    "dark": {
+      "background": { "value": "#0F172A" },
+      "surface": { "value": "#1E293B" },
+      "surfaceElevated": { "value": "#334155" },
+      "accent": { "value": "#3B82F6" },
+      "textPrimary": { "value": "#F8FAFC" },
+      "textSecondary": { "value": "#CBD5E1" }
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "display": { "value": "Space Grotesk, sans-serif", "usage": "titles" },
+      "body": { "value": "IBM Plex Sans, sans-serif", "usage": "body text" },
+      "mono": { "value": "JetBrains Mono, monospace", "usage": "metadata and OCR text" }
+    }
+  },
+  "theme": {
+    "attribute": { "value": "data-theme" },
+    "default": { "value": "light" },
+    "values": { "value": ["light", "dark"] }
+  }
+}

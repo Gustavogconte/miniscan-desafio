@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1740" height="924" viewBox="0 0 1740 924">
+  <defs>
+    <style>
+      .bg { fill: #F8FAFC; }
+      .surface { fill: #FFFFFF; stroke: #E2E8F0; stroke-width: 1.5; }
+      .surface-alt { fill: #F1F5F9; }
+      .accent { fill: #2563EB; }
+      .accent-soft { fill: #DBEAFE; }
+      .accent-stroke { stroke: #2563EB; stroke-width: 2.5; fill: rgba(37, 99, 235, 0.14); }
+      .text-main { fill: #172033; font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+      .text-body { fill: #172033; font-family: 'IBM Plex Sans', sans-serif; }
+      .text-muted { fill: #64748B; font-family: 'IBM Plex Sans', sans-serif; }
+      .text-blue { fill: #2563EB; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+      .text-white { fill: #FFFFFF; font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+      .label-screen { fill: #64748B; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect width="1740" height="924" fill="#E2E8F0" />
+
+  <!-- TELA 1: INÍCIO E HISTÓRICO -->
+  <text x="40" y="30" class="label-screen">01 / INÍCIO & HISTÓRICO (390x844)</text>
+  <g transform="translate(40, 44)">
+    <rect width="390" height="844" rx="36" class="bg" stroke="#CBD5E1" stroke-width="2" />
+    <text x="20" y="62" class="text-main" font-size="26">MiniScan</text>
+    <text x="20" y="82" class="text-blue" font-size="11">DIGITALIZAÇÃO & OCR</text>
+    <circle cx="350" cy="60" r="18" class="surface" />
+
+    <rect x="20" y="102" width="350" height="46" rx="12" class="surface" />
+    <text x="38" y="130" class="text-muted" font-size="14">Buscar por título ou texto OCR...</text>
+
+    <text x="20" y="180" class="text-muted" font-size="12" font-weight="600">DOCUMENTOS RECENTES</text>
+
+    <rect x="20" y="194" width="350" height="82" rx="14" class="surface" />
+    <rect x="32" y="206" width="44" height="58" rx="8" class="accent-soft" />
+    <text x="54" y="240" text-anchor="middle" class="text-blue" font-size="11">PDF</text>
+    <text x="90" y="226" class="text-body" font-size="15" font-weight="600">Edital_IC_UTFPR_2026.pdf</text>
+    <text x="90" y="246" class="text-muted" font-size="12">16 Nov 2026 • 4 páginas • P&B</text>
+    <text x="90" y="264" class="text-blue" font-size="11">OCR: "Programa Institucional..."</text>
+
+    <rect x="20" y="288" width="350" height="82" rx="14" class="surface" />
+    <rect x="32" y="300" width="44" height="58" rx="8" class="surface-alt" />
+    <text x="54" y="334" text-anchor="middle" class="text-muted" font-size="11">PDF</text>
+    <text x="90" y="320" class="text-body" font-size="15" font-weight="600">Contrato_Laboratorio.pdf</text>
+    <text x="90" y="340" class="text-muted" font-size="12">14 Nov 2026 • 2 páginas • Cinza</text>
+    <text x="90" y="358" class="text-blue" font-size="11">OCR: "Termo de compromisso..."</text>
+
+    <rect x="20" y="758" width="224" height="54" rx="14" class="accent" />
+    <text x="132" y="790" text-anchor="middle" class="text-white" font-size="15">Digitalizar</text>
+    <rect x="256" y="758" width="114" height="54" rx="14" class="surface" />
+    <text x="313" y="790" text-anchor="middle" class="text-body" font-size="15" font-weight="600">Galeria</text>
+  </g>
+
+  <!-- TELA 2: AJUSTE DE PERSPECTIVA -->
+  <text x="460" y="30" class="label-screen">02 / PERSPECTIVA 4 PONTOS (390x844)</text>
+  <g transform="translate(460, 44)">
+    <rect width="390" height="844" rx="36" class="bg" stroke="#CBD5E1" stroke-width="2" />
+    <text x="20" y="58" class="text-main" font-size="20">Ajustar Bordas</text>
+    <text x="20" y="78" class="text-muted" font-size="12">Arraste os 4 cantos da folha</text>
+
+    <rect x="20" y="96" width="350" height="540" rx="16" fill="#0F172A" />
+    <polygon points="68,148 318,168 334,580 52,562" fill="#F8FAFC" />
+    <polygon points="68,148 318,168 334,580 52,562" class="accent-stroke" />
+    <circle cx="68" cy="148" r="13" fill="#FFFFFF" stroke="#2563EB" stroke-width="3.5" />
+    <circle cx="318" cy="168" r="13" fill="#FFFFFF" stroke="#2563EB" stroke-width="3.5" />
+    <circle cx="334" cy="580" r="13" fill="#FFFFFF" stroke="#2563EB" stroke-width="3.5" />
+    <circle cx="52" cy="562" r="13" fill="#FFFFFF" stroke="#2563EB" stroke-width="3.5" />
+
+    <rect x="20" y="652" width="168" height="46" rx="12" class="surface" />
+    <text x="104" y="680" text-anchor="middle" class="text-body" font-size="13" font-weight="600">Detectar Auto</text>
+    <rect x="202" y="652" width="168" height="46" rx="12" class="surface" />
+    <text x="286" y="680" text-anchor="middle" class="text-body" font-size="13" font-weight="600">Tela Inteira</text>
+
+    <rect x="20" y="758" width="350" height="54" rx="14" class="accent" />
+    <text x="195" y="790" text-anchor="middle" class="text-white" font-size="15">Confirmar Recorte</text>
+  </g>
+
+  <!-- TELA 3: EDITOR DE FILTROS & OCR -->
+  <text x="880" y="30" class="label-screen">03 / FILTROS & OCR (390x844)</text>
+  <g transform="translate(880, 44)">
+    <rect width="390" height="844" rx="36" class="bg" stroke="#CBD5E1" stroke-width="2" />
+    <text x="20" y="58" class="text-main" font-size="20">Editor (Pág. 1)</text>
+    <rect x="274" y="34" width="96" height="38" rx="10" class="surface" />
+    <text x="322" y="58" text-anchor="middle" class="text-blue" font-size="12">+ Página</text>
+
+    <rect x="45" y="92" width="300" height="386" rx="10" class="surface" />
+    <rect x="65" y="116" width="180" height="10" rx="2" fill="#172033" />
+    <rect x="65" y="140" width="250" height="6" rx="2" fill="#64748B" />
+    <rect x="65" y="154" width="230" height="6" rx="2" fill="#64748B" />
+    <rect x="65" y="168" width="245" height="6" rx="2" fill="#64748B" />
+
+    <rect x="20" y="494" width="110" height="46" rx="12" class="surface" />
+    <text x="75" y="522" text-anchor="middle" class="text-muted" font-size="13" font-weight="600">Original</text>
+    <rect x="140" y="494" width="110" height="46" rx="12" class="surface" />
+    <text x="195" y="522" text-anchor="middle" class="text-muted" font-size="13" font-weight="600">Cinza</text>
+    <rect x="260" y="494" width="110" height="46" rx="12" class="accent-soft" stroke="#2563EB" stroke-width="2" />
+    <text x="315" y="522" text-anchor="middle" class="text-blue" font-size="13">P&B</text>
+
+    <rect x="20" y="556" width="350" height="182" rx="14" class="surface" />
+    <text x="34" y="580" class="text-blue" font-size="11">TEXTO EXTRAÍDO (OCR)</text>
+    <rect x="286" y="564" width="72" height="28" rx="8" class="surface-alt" />
+    <text x="322" y="582" text-anchor="middle" class="text-body" font-size="11" font-weight="600">Copiar</text>
+    <text x="34" y="608" class="text-body" font-size="12">UNIVERSIDADE TECNOLÓGICA FEDERAL</text>
+    <text x="34" y="626" class="text-body" font-size="12">DO PARANÁ - CÂMPUS SANTA HELENA</text>
+    <text x="34" y="644" class="text-muted" font-size="12">Relatório de Visão Computacional...</text>
+
+    <rect x="20" y="758" width="350" height="54" rx="14" class="accent" />
+    <text x="195" y="790" text-anchor="middle" class="text-white" font-size="15">Gerar PDF</text>
+  </g>
+
+  <!-- TELA 4: EXPORTAÇÃO PDF -->
+  <text x="1300" y="30" class="label-screen">04 / EXPORTAR PDF (390x844)</text>
+  <g transform="translate(1300, 44)">
+    <rect width="390" height="844" rx="36" class="bg" stroke="#CBD5E1" stroke-width="2" />
+    <text x="20" y="58" class="text-main" font-size="22">Exportar PDF</text>
+    <text x="20" y="80" class="text-blue" font-size="11">PRONTO PARA COMPARTILHAR</text>
+
+    <text x="20" y="122" class="text-muted" font-size="12" font-weight="600">Nome do arquivo</text>
+    <rect x="20" y="132" width="350" height="48" rx="12" class="surface" />
+    <text x="36" y="161" class="text-body" font-size="14">Relatorio_IC_MiniScan.pdf</text>
+
+    <rect x="20" y="200" width="350" height="148" rx="16" class="surface" />
+    <rect x="36" y="218" width="44" height="52" rx="10" class="accent-soft" />
+    <text x="58" y="249" text-anchor="middle" class="text-blue" font-size="12">PDF</text>
+    <text x="94" y="238" class="text-main" font-size="15">Resumo do Arquivo</text>
+    <text x="94" y="258" class="text-muted" font-size="12">1 página • Filtro Preto e Branco</text>
+    <text x="36" y="302" class="text-muted" font-size="12">• Texto OCR indexado para busca</text>
+    <text x="36" y="322" class="text-blue" font-size="11">• Tamanho estimado: 318 KB</text>
+
+    <rect x="20" y="622" width="350" height="48" rx="12" class="surface" />
+    <text x="195" y="651" text-anchor="middle" class="text-body" font-size="14" font-weight="600">Salvar no Histórico</text>
+
+    <rect x="20" y="686" width="350" height="50" rx="14" class="surface-alt" />
+    <text x="195" y="716" text-anchor="middle" class="text-body" font-size="15" font-weight="600">Baixar PDF</text>
+
+    <rect x="20" y="754" width="350" height="54" rx="14" class="accent" />
+    <text x="195" y="786" text-anchor="middle" class="text-white" font-size="15">Compartilhar PDF</text>
+  </g>
+</svg>

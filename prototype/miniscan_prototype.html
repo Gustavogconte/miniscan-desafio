@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MiniScan — Protótipo Interativo Clean Professional</title>
+
+  <!-- Tipografia Moderna: Space Grotesk (Títulos), IBM Plex Sans (Interface) e JetBrains Mono (Dados/OCR) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bgMain: 'var(--bg-main)',
+            bgCard: 'var(--bg-card)',
+            bgSecondary: 'var(--bg-secondary)',
+            borderColor: 'var(--border-color)',
+            primary: 'var(--primary)',
+            primaryHover: 'var(--primary-hover)',
+            primarySoft: 'var(--primary-soft)',
+            textMain: 'var(--text-main)',
+            textSecondary: 'var(--text-secondary)',
+            textMuted: 'var(--text-muted)',
+            success: 'var(--success)',
+            warning: 'var(--warning)',
+            danger: 'var(--danger)'
+          },
+          fontFamily: {
+            display: ['"Space Grotesk"', 'sans-serif'],
+            sans: ['"IBM Plex Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* =========================================================================
+       VARIÁVEIS CSS CENTRALIZADAS DE TEMA (CLEAN PROFESSIONAL)
+       ========================================================================= */
+    :root,
+    [data-theme="light"] {
+      --bg-main: #F8FAFC;
+      --bg-card: #FFFFFF;
+      --bg-secondary: #F1F5F9;
+      --border-color: #E2E8F0;
+      --primary: #2563EB;
+      --primary-hover: #1D4ED8;
+      --primary-soft: #DBEAFE;
+      --text-main: #172033;
+      --text-secondary: #64748B;
+      --text-muted: #94A3B8;
+      --success: #16A34A;
+      --warning: #D97706;
+      --danger: #DC2626;
+      --outer-backdrop: #E2E8F0;
+      --device-bezel: #CBD5E1;
+      --shadow-soft: 0 4px 16px rgba(15, 23, 42, 0.05);
+      --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+      --crop-stage-bg: #0F172A;
+    }
+
+    [data-theme="dark"] {
+      --bg-main: #0F172A;
+      --bg-card: #1E293B;
+      --bg-secondary: #334155;
+      --border-color: #334155;
+      --primary: #3B82F6;
+      --primary-hover: #2563EB;
+      --primary-soft: rgba(59, 130, 246, 0.16);
+      --text-main: #F8FAFC;
+      --text-secondary: #CBD5E1;
+      --text-muted: #94A3B8;
+      --success: #16A34A;
+      --warning: #D97706;
+      --danger: #DC2626;
+      --outer-backdrop: #020617;
+      --device-bezel: #1E293B;
+      --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
+      --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.25);
+      --crop-stage-bg: #020617;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--outer-backdrop);
+      color: var(--text-main);
+      font-family: 'IBM Plex Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    /* Frame Mobile 390x844px no Desktop, Full-Screen no Mobile */
+    .device-shell {
+      width: 100%;
+      height: 100dvh;
+      background-color: var(--bg-main);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    @media (min-width: 500px) {
+      .device-shell {
+        width: 390px;
+        height: 844px;
+        border-radius: 38px;
+        border: 7px solid var(--device-bezel);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+      }
+    }
+
+    .card-surface {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-card);
+      transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+    }
+
+    /* Scrollbar discreta */
+    .custom-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 99px;
+    }
+
+    /* Transição suave entre telas respeitando prefers-reduced-motion */
+    .screen-transition {
+      transition: opacity 0.18s ease-out;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .screen-transition, * {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+
+    /* Alças de arraste acessíveis >= 44x44px */
+    .crop-handle {
+      width: 44px;
+      height: 44px;
+      margin-left: -22px;
+      margin-top: -22px;
+      touch-action: none;
+      cursor: grab;
+    }
+    .crop-handle:active {
+      cursor: grabbing;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Inputs ocultos reais para Câmera (traseira) e Galeria -->
+  <input type="file" id="camera-file-input" accept="image/*" capture="environment" class="hidden" onchange="handleRealFileSelected(event, 'CÂMERA')" />
+  <input type="file" id="gallery-file-input" accept="image/*" class="hidden" onchange="handleRealFileSelected(event, 'GALERIA')" />
+
+  <!-- Container Principal (Device Frame) -->
+  <main class="device-shell" id="app" aria-label="Protótipo Interativo MiniScan">
+
+    <!-- Status Bar Limpa -->
+    <header class="px-6 pt-3 pb-2 flex items-center justify-between text-xs font-mono text-textSecondary select-none shrink-0 bg-bgMain z-20">
+      <span class="font-semibold text-textMain">09:41</span>
+      <div class="hidden sm:block w-24 h-4 bg-bgSecondary rounded-full border border-borderColor" aria-hidden="true"></div>
+      <div class="flex items-center gap-1.5">
+        <span class="inline-block w-2 h-2 rounded-full bg-success" title="API FastAPI Conectada"></span>
+        <span>5G</span>
+        <span class="px-1.5 py-0.5 rounded bg-bgSecondary text-[10px] text-textMain font-medium">100%</span>
+      </div>
+    </header>
+
+    <!-- Barra de Navegação Rápida das 4 Telas -->
+    <nav aria-label="Navegação rápida das telas" class="px-4 py-1.5 bg-bgSecondary border-y border-borderColor flex items-center justify-between text-[11px] font-mono shrink-0 z-20">
+      <span class="text-textMuted uppercase tracking-wider font-medium">Etapa:</span>
+      <div class="flex gap-1">
+        <button onclick="navigateTo('home')" id="nav-pill-home" class="px-2.5 py-1 rounded-lg bg-primary text-white font-semibold transition">1.Início</button>
+        <button onclick="navigateTo('crop')" id="nav-pill-crop" class="px-2.5 py-1 rounded-lg text-textSecondary hover:text-textMain transition">2.Recorte</button>
+        <button onclick="navigateTo('editor')" id="nav-pill-editor" class="px-2.5 py-1 rounded-lg text-textSecondary hover:text-textMain transition">3.Filtros</button>
+        <button onclick="navigateTo('export')" id="nav-pill-export" class="px-2.5 py-1 rounded-lg text-textSecondary hover:text-textMain transition">4.PDF</button>
+      </div>
+    </nav>
+
+    <!-- =====================================================================
+         TELA 1: INÍCIO E HISTÓRICO (CLEAN PROFESSIONAL)
+         ===================================================================== -->
+    <section id="screen-home" class="flex-1 flex flex-col overflow-hidden screen-transition">
+      <!-- Cabeçalho Limpo e Elegante -->
+      <div class="px-5 pt-4 pb-3 shrink-0 bg-bgMain">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <!-- Ícone Minimalista de Scanner -->
+            <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-sm shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 7V5a1 1 0 011-1h2M20 7V5a1 1 0 00-1-1h-2M4 17v2a1 1 0 001 1h2M20 17v2a1 1 0 01-1 1h-2M3 12h18" />
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="font-display text-xl font-bold tracking-tight text-textMain">MiniScan</h1>
+                <span class="font-mono text-[10px] px-2 py-0.5 rounded-md bg-primarySoft text-primary font-semibold">PWA</span>
+              </div>
+              <p class="text-xs text-textSecondary">Digitalizador Inteligente & OCR</p>
+            </div>
+          </div>
+
+          <!-- Ações do Cabeçalho: Alternar Tema (Sol/Lua) + Especificações UX -->
+          <div class="flex items-center gap-1.5">
+            <button
+              id="theme-toggle-btn"
+              onclick="toggleTheme()"
+              class="min-w-[42px] min-h-[42px] rounded-xl bg-bgCard hover:bg-bgSecondary border border-borderColor text-textMain flex items-center justify-center transition"
+              aria-label="Alternar entre tema claro e escuro"
+              title="Alternar Tema Claro / Escuro">
+              <!-- Ícone Lua (exibido no tema claro para mudar ao escuro) -->
+              <svg id="icon-moon" class="w-4 h-4 text-textSecondary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+              </svg>
+              <!-- Ícone Sol (exibido no tema escuro para mudar ao claro) -->
+              <svg id="icon-sun" class="w-4 h-4 text-warning hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="5"></circle>
+                <path stroke-linecap="round" d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg>
+            </button>
+
+            <button 
+              onclick="toggleBlueprintModal(true)"
+              class="min-h-[42px] px-3 rounded-xl bg-bgCard hover:bg-bgSecondary border border-borderColor text-xs font-medium text-textMain flex items-center gap-1.5 transition"
+              aria-label="Abrir especificações de UI/UX e arquitetura">
+              <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>UX Spec</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Busca com Fundo Card e Borda Suave -->
+        <div class="mt-4 relative">
+          <label for="search-input" class="sr-only">Buscar documento por título ou texto OCR</label>
+          <svg class="w-4 h-4 text-textMuted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path stroke-linecap="round" d="M21 21l-4.35-4.35"></path>
+          </svg>
+          <input 
+            id="search-input"
+            type="search" 
+            oninput="filterDocuments(this.value)"
+            placeholder="Buscar por título ou texto extraído (OCR)..." 
+            class="w-full h-11 pl-10 pr-4 rounded-xl bg-bgCard border border-borderColor text-sm text-textMain placeholder-textMuted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primarySoft transition"
+          />
+        </div>
+
+        <!-- Status do Repositório em Nuvem -->
+        <div class="mt-3.5 flex items-center justify-between text-[11px] font-medium text-textSecondary">
+          <span id="doc-counter">3 documentos salvos</span>
+          <span class="text-success flex items-center gap-1.5 font-mono text-[10px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-success"></span> Supabase Sincronizado
+          </span>
+        </div>
+      </div>
+
+      <!-- Lista de Documentos Recentes -->
+      <div id="documents-list" class="flex-1 overflow-y-auto px-5 pb-4 space-y-2.5 custom-scroll">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+      <!-- Barra Inferior de Ações Principais -->
+      <div class="p-4 bg-bgCard border-t border-borderColor shrink-0">
+        <div class="grid grid-cols-5 gap-2.5">
+          <!-- Botão Secundário: Galeria -->
+          <button 
+            onclick="startScanFlow('galeria')"
+            class="col-span-2 min-h-[50px] rounded-xl bg-bgSecondary hover:opacity-90 border border-borderColor text-textMain font-semibold text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]">
+            <svg class="w-4 h-4 text-textSecondary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 15l-5-5L5 21"></path>
+            </svg>
+            <span>Galeria</span>
+          </button>
+
+          <!-- Botão Principal: Digitalizar Câmera (Azul Profissional) -->
+          <button 
+            onclick="startScanFlow('camera')"
+            class="col-span-3 min-h-[50px] rounded-xl bg-primary hover:bg-primaryHover text-white font-display font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+              <circle cx="12" cy="13" r="3"></circle>
+            </svg>
+            <span>Digitalizar Câmera</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         TELA 2: AJUSTE DE PERSPECTIVA (HOMOGRAFIA 4 PONTOS EM AZUL)
+         ===================================================================== -->
+    <section id="screen-crop" class="hidden flex-1 flex-col overflow-hidden screen-transition">
+      <!-- Topo Contextual -->
+      <div class="px-4 py-3 flex items-center justify-between border-b border-borderColor bg-bgCard shrink-0">
+        <button onclick="navigateTo('home')" class="min-w-[42px] min-h-[42px] -ml-1 flex items-center justify-center text-textSecondary hover:text-textMain rounded-xl hover:bg-bgSecondary transition" aria-label="Voltar para início">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+        <div class="text-left flex-1 ml-2">
+          <h2 class="font-display font-bold text-base text-textMain">Ajustar Perspectiva</h2>
+          <p class="text-[11px] text-textSecondary">Arraste os 4 cantos para alinhar o documento</p>
+        </div>
+        <span id="crop-source-badge" class="font-mono text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-primarySoft text-primary">CÂMERA</span>
+      </div>
+
+      <!-- Área Escura de Contraste para Destaque da Folha Capturada -->
+      <div class="flex-1 relative flex flex-col items-center justify-center p-4 overflow-hidden select-none" style="background-color: var(--crop-stage-bg);">
+        <!-- Container da Imagem Capturada (Proporção 3:4) -->
+        <div id="crop-stage" class="relative w-full max-w-[300px] aspect-[3/4] rounded-xl overflow-hidden border border-slate-700 shadow-xl bg-slate-900">
+          
+          <!-- Canvas Real que renderiza a foto do usuário ou o documento simulado inclinado -->
+          <canvas id="capture-canvas" width="600" height="800" class="w-full h-full block object-cover"></canvas>
+
+          <!-- Overlay SVG do Polígono de Homografia em Azul Profissional -->
+          <svg id="crop-overlay-svg" viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full pointer-events-none">
+            <defs>
+              <mask id="crop-mask">
+                <rect width="100" height="100" fill="white" />
+                <polygon id="mask-hole" points="16.6,14.5 82,19 88.6,85 10,81" fill="black" />
+              </mask>
+            </defs>
+            <rect width="100" height="100" fill="rgba(15, 23, 42, 0.52)" mask="url(#crop-mask)" />
+            <polygon id="crop-polygon" points="16.6,14.5 82,19 88.6,85 10,81" fill="rgba(37, 99, 235, 0.14)" stroke="#3B82F6" stroke-width="0.9" />
+          </svg>
+
+          <!-- 4 Marcadores Circulares em Azul -->
+          <button type="button" id="handle-tl" data-corner="tl" aria-label="Canto superior esquerdo" class="crop-handle absolute flex items-center justify-center focus:outline-none group">
+            <span class="w-5 h-5 rounded-full bg-primary border-2 border-white shadow-md transition-transform group-active:scale-125"></span>
+          </button>
+          <button type="button" id="handle-tr" data-corner="tr" aria-label="Canto superior direito" class="crop-handle absolute flex items-center justify-center focus:outline-none group">
+            <span class="w-5 h-5 rounded-full bg-primary border-2 border-white shadow-md transition-transform group-active:scale-125"></span>
+          </button>
+          <button type="button" id="handle-br" data-corner="br" aria-label="Canto inferior direito" class="crop-handle absolute flex items-center justify-center focus:outline-none group">
+            <span class="w-5 h-5 rounded-full bg-primary border-2 border-white shadow-md transition-transform group-active:scale-125"></span>
+          </button>
+          <button type="button" id="handle-bl" data-corner="bl" aria-label="Canto inferior esquerdo" class="crop-handle absolute flex items-center justify-center focus:outline-none group">
+            <span class="w-5 h-5 rounded-full bg-primary border-2 border-white shadow-md transition-transform group-active:scale-125"></span>
+          </button>
+        </div>
+
+        <!-- Telemetria de Coordenadas -->
+        <div class="mt-2.5 font-mono text-[10px] text-slate-300 bg-slate-800/90 px-3 py-1 rounded-lg border border-slate-700">
+          Homografia: <span id="coords-readout" class="text-blue-400 font-medium">TL(17,15) TR(82,19) BR(89,85) BL(10,81)</span>
+        </div>
+      </div>
+
+      <!-- Controles de Ajuste + Botão Confirmar Recorte -->
+      <div class="p-4 bg-bgCard border-t border-borderColor shrink-0 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <button onclick="setCropPreset('auto')" class="flex-1 min-h-[42px] px-2.5 rounded-xl bg-bgSecondary hover:opacity-90 border border-borderColor text-xs font-semibold text-textMain flex items-center justify-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+            </svg>
+            <span>Detectar Auto</span>
+          </button>
+
+          <button onclick="setCropPreset('full')" class="flex-1 min-h-[42px] px-2.5 rounded-xl bg-bgSecondary hover:opacity-90 border border-borderColor text-xs font-semibold text-textMain flex items-center justify-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5 text-textSecondary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+            </svg>
+            <span>Tela Inteira</span>
+          </button>
+
+          <!-- Botões Direcionais de Ajuste Fino -->
+          <div class="flex items-center bg-bgSecondary rounded-xl border border-borderColor p-0.5" title="Ajuste fino do vértice selecionado">
+            <button onclick="nudgeActiveCorner(-2, 0)" aria-label="Mover canto para esquerda" class="w-8 h-9 flex items-center justify-center text-textSecondary hover:text-primary font-mono text-xs">◀</button>
+            <button onclick="nudgeActiveCorner(0, -2)" aria-label="Mover canto para cima" class="w-8 h-9 flex items-center justify-center text-textSecondary hover:text-primary font-mono text-xs">▲</button>
+            <button onclick="nudgeActiveCorner(0, 2)" aria-label="Mover canto para baixo" class="w-8 h-9 flex items-center justify-center text-textSecondary hover:text-primary font-mono text-xs">▼</button>
+            <button onclick="nudgeActiveCorner(2, 0)" aria-label="Mover canto para direita" class="w-8 h-9 flex items-center justify-center text-textSecondary hover:text-primary font-mono text-xs">▶</button>
+          </div>
+        </div>
+
+        <!-- CTA Principal Azul -->
+        <button 
+          onclick="applyPerspectiveTransform()"
+          class="w-full min-h-[50px] rounded-xl bg-primary hover:bg-primaryHover text-white font-display font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
+          <span>Confirmar Recorte</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         TELA 3: EDITOR DE FILTROS & OCR
+         ===================================================================== -->
+    <section id="screen-editor" class="hidden flex-1 flex-col overflow-hidden screen-transition relative">
+      <!-- Header -->
+      <div class="px-4 py-3 flex items-center justify-between border-b border-borderColor bg-bgCard shrink-0">
+        <button onclick="navigateTo('crop')" class="min-w-[42px] min-h-[42px] -ml-1 flex items-center justify-center text-textSecondary hover:text-textMain rounded-xl hover:bg-bgSecondary transition" aria-label="Voltar para recorte">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+        <div class="text-left flex-1 ml-2">
+          <h2 class="font-display font-bold text-base text-textMain">Editor & OCR</h2>
+          <p class="text-[11px] text-textSecondary" id="page-indicator">Página 1 de 1 • Retificada</p>
+        </div>
+        <button 
+          onclick="addExtraPage()"
+          class="min-h-[40px] px-3 rounded-xl bg-bgSecondary hover:opacity-90 border border-borderColor text-xs font-semibold text-textMain flex items-center gap-1 transition">
+          <span class="text-primary font-bold text-sm">+</span> Página
+        </button>
+      </div>
+
+      <!-- Área de Visualização do Documento em Destaque -->
+      <div class="flex-1 bg-bgMain p-4 flex flex-col items-center justify-center overflow-hidden relative">
+        <div id="rectified-document" class="w-full max-w-[270px] aspect-[3/4] rounded-xl shadow-md border border-borderColor bg-white overflow-hidden relative flex items-center justify-center">
+          <!-- Canvas com o resultado retificado e filtro real aplicado -->
+          <canvas id="processed-canvas" width="600" height="800" class="w-full h-full block object-contain"></canvas>
+        </div>
+
+        <!-- Badge Discreto do Algoritmo Aplicado -->
+        <div class="mt-3 flex items-center gap-2">
+          <span id="filter-tech-badge" class="font-mono text-[10px] font-medium px-3 py-1 rounded-lg bg-bgCard border border-borderColor text-primary">
+            cv2.adaptiveThreshold(GAUSSIAN_C)
+          </span>
+        </div>
+      </div>
+
+      <!-- Controles de Filtros + OCR + Gerar PDF -->
+      <div class="p-4 bg-bgCard border-t border-borderColor shrink-0 space-y-3">
+        <!-- Seletor Moderno dos 3 Filtros com Destaque Azul -->
+        <div role="radiogroup" aria-label="Filtros de imagem" class="grid grid-cols-3 gap-1.5 bg-bgSecondary p-1.5 rounded-xl border border-borderColor">
+          <button 
+            role="radio" 
+            aria-checked="false"
+            onclick="setDocumentFilter('original')" 
+            id="btn-filter-original"
+            class="min-h-[42px] rounded-lg text-xs font-medium text-textSecondary hover:text-textMain transition">
+            Original
+          </button>
+          <button 
+            role="radio" 
+            aria-checked="false"
+            onclick="setDocumentFilter('grayscale')" 
+            id="btn-filter-grayscale"
+            class="min-h-[42px] rounded-lg text-xs font-medium text-textSecondary hover:text-textMain transition">
+            Cinza
+          </button>
+          <button 
+            role="radio" 
+            aria-checked="true"
+            onclick="setDocumentFilter('bw')" 
+            id="btn-filter-bw"
+            class="min-h-[42px] rounded-lg text-xs font-semibold bg-primary text-white shadow-xs transition">
+            Preto e Branco
+          </button>
+        </div>
+
+        <!-- Linha de Ação: Texto OCR + Gerar PDF -->
+        <div class="grid grid-cols-5 gap-2.5">
+          <button 
+            onclick="toggleOcrDrawer(true)"
+            class="col-span-2 min-h-[48px] rounded-xl bg-bgSecondary hover:opacity-90 border border-borderColor text-textMain font-semibold text-xs flex items-center justify-center gap-1.5 transition">
+            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <span>Texto OCR</span>
+          </button>
+
+          <button 
+            onclick="navigateTo('export')"
+            class="col-span-3 min-h-[48px] rounded-xl bg-primary hover:bg-primaryHover text-white font-display font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
+            <span>Gerar PDF</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- MODAL / GAVETA LIMPA DE TEXTO OCR -->
+      <div id="ocr-drawer" class="hidden absolute inset-0 bg-slate-900/50 backdrop-blur-xs z-30 flex flex-col justify-end">
+        <div class="bg-bgCard border-t border-borderColor rounded-t-2xl p-5 space-y-3 shadow-xl">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-display font-bold text-base text-textMain">Texto Extraído (OCR)</h3>
+                <span class="font-mono text-[10px] font-semibold px-2 py-0.5 rounded-md bg-primarySoft text-primary">98,4% precisão</span>
+              </div>
+              <p class="text-[11px] text-textSecondary mt-0.5">Reconhecimento óptico em Português (pt-BR)</p>
+            </div>
+            <button onclick="toggleOcrDrawer(false)" class="min-w-[40px] min-h-[40px] rounded-xl bg-bgSecondary text-textSecondary hover:text-textMain flex items-center justify-center font-bold" aria-label="Fechar modal OCR">✕</button>
+          </div>
+
+          <label for="ocr-textarea" class="sr-only">Conteúdo textual extraído</label>
+          <textarea 
+            id="ocr-textarea"
+            rows="6"
+            class="w-full p-3.5 rounded-xl bg-bgMain border border-borderColor font-mono text-xs text-textMain leading-relaxed focus:outline-none focus:border-primary focus:ring-2 focus:ring-primarySoft custom-scroll">TERMO DE INICIAÇÃO CIENTÍFICA
+PIBIC / CNPq • Visão Computacional (2026)
+
+Projeto: MiniScan — Digitalização Móvel com Correção de Homografia e Limiarização Adaptativa.
+Resumo Técnico: O pipeline aplica suavização Gaussiana, detecção de bordas de Canny e transformação planar para retificar documentos capturados em ângulo.
+Protocolo: #IC-2026-884</textarea>
+
+          <div class="pt-1">
+            <button 
+              onclick="copyOcrText()"
+              id="btn-copy-ocr"
+              class="w-full min-h-[48px] rounded-xl bg-primary hover:bg-primaryHover text-white font-display font-bold text-xs flex items-center justify-center gap-2 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+              </svg>
+              <span>Copiar Texto</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         TELA 4: EXPORTAÇÃO PDF & COMPARTILHAMENTO
+         ===================================================================== -->
+    <section id="screen-export" class="hidden flex-1 flex-col overflow-hidden screen-transition">
+      <!-- Header -->
+      <div class="px-4 py-3 flex items-center justify-between border-b border-borderColor bg-bgCard shrink-0">
+        <button onclick="navigateTo('editor')" class="min-w-[42px] min-h-[42px] -ml-1 flex items-center justify-center text-textSecondary hover:text-textMain rounded-xl hover:bg-bgSecondary transition" aria-label="Voltar para editor">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+        <div class="text-left flex-1 ml-2">
+          <h2 class="font-display font-bold text-base text-textMain">Exportar PDF</h2>
+          <p class="text-[11px] text-textSecondary">Arquivo pronto para salvar ou compartilhar</p>
+        </div>
+      </div>
+
+      <!-- Conteúdo Organizado -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-4 custom-scroll">
+        <!-- Card de Informações do Arquivo -->
+        <div class="p-4 rounded-2xl card-surface flex items-center gap-4">
+          <div class="w-14 h-16 rounded-xl bg-red-500/10 border border-red-500/25 flex flex-col items-center justify-center shrink-0">
+            <svg class="w-6 h-6 text-danger" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <span class="font-mono font-bold text-[9px] text-danger mt-0.5" id="export-pages-badge">1 PÁG</span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <span class="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold text-success">
+              <span class="w-1.5 h-1.5 rounded-full bg-success"></span> Compilado com sucesso
+            </span>
+            <p id="export-filename-preview" class="font-display font-bold text-sm text-textMain truncate mt-0.5">Termo_IC_MiniScan_2026.pdf</p>
+            <p class="font-mono text-[11px] text-textSecondary mt-1">Tamanho: 418 KB • 300 DPI</p>
+          </div>
+        </div>
+
+        <!-- Campo Editável para Nome do Arquivo -->
+        <div class="p-4 rounded-2xl card-surface space-y-2">
+          <label for="pdf-name-input" class="block text-xs font-semibold text-textMain">Nome do arquivo</label>
+          <div class="relative flex items-center">
+            <input 
+              id="pdf-name-input"
+              type="text" 
+              value="Termo_IC_MiniScan_2026"
+              oninput="updateFilenamePreview(this.value)"
+              class="w-full h-11 pl-3.5 pr-12 rounded-xl bg-bgMain border border-borderColor font-mono text-sm text-textMain focus:outline-none focus:border-primary focus:ring-2 focus:ring-primarySoft transition"
+            />
+            <span class="absolute right-3.5 font-mono text-xs text-textMuted pointer-events-none">.pdf</span>
+          </div>
+        </div>
+
+        <!-- Resumo Técnico do Processamento -->
+        <div class="p-4 rounded-2xl card-surface space-y-2.5">
+          <h3 class="font-mono text-[11px] font-semibold uppercase tracking-wider text-textSecondary">Resumo do Processamento</h3>
+          <div class="grid grid-cols-2 gap-2.5 font-mono">
+            <div class="p-3 rounded-xl bg-bgMain border border-borderColor">
+              <span class="text-[10px] text-textMuted block">Tempo Total</span>
+              <span class="text-sm font-bold text-primary">1,42s</span>
+              <span class="text-[9px] text-textSecondary block">Meta RNF02: &lt; 3s</span>
+            </div>
+            <div class="p-3 rounded-xl bg-bgMain border border-borderColor">
+              <span class="text-[10px] text-textMuted block">Indexação OCR</span>
+              <span class="text-sm font-bold text-textMain">GIN pt-BR</span>
+              <span class="text-[9px] text-textSecondary block">Busca pronta</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botões de Exportação -->
+      <div class="p-4 bg-bgCard border-t border-borderColor shrink-0 space-y-2.5">
+        <button 
+          onclick="triggerNativeShare()"
+          class="w-full min-h-[50px] rounded-xl bg-primary hover:bg-primaryHover text-white font-display font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"></path>
+          </svg>
+          <span>Compartilhar PDF</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <button 
+            onclick="triggerDownloadPdf()"
+            class="min-h-[46px] rounded-xl bg-bgCard hover:bg-bgSecondary border border-borderColor text-textMain font-semibold text-xs flex items-center justify-center gap-1.5 transition">
+            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            <span>Baixar PDF</span>
+          </button>
+
+          <button 
+            onclick="saveAndReturnHome()"
+            class="min-h-[46px] rounded-xl bg-bgSecondary hover:opacity-90 border border-borderColor text-textSecondary hover:text-textMain font-semibold text-xs flex items-center justify-center gap-1.5 transition">
+            <span>Salvar no Histórico</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         MODAL: ESPECIFICAÇÕES DE UI/UX & ARQUITETURA
+         ===================================================================== -->
+    <div id="blueprint-modal" class="hidden absolute inset-0 bg-bgMain/95 backdrop-blur-sm z-40 flex flex-col overflow-hidden">
+      <div class="px-5 py-4 bg-bgCard border-b border-borderColor flex items-center justify-between shrink-0">
+        <div>
+          <span class="font-mono text-[10px] font-semibold text-primary uppercase">Documentação Visual</span>
+          <h2 class="font-display font-bold text-lg text-textMain">Diretrizes Clean Professional</h2>
+        </div>
+        <button onclick="toggleBlueprintModal(false)" class="min-w-[40px] min-h-[40px] rounded-xl bg-bgSecondary text-textMain flex items-center justify-center font-bold" aria-label="Fechar especificações">✕</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-5 space-y-3 text-xs leading-relaxed text-textSecondary custom-scroll">
+        <div class="p-4 rounded-xl card-surface space-y-1.5">
+          <h3 class="font-display font-bold text-sm text-textMain">1. Identidade Visual & Temas</h3>
+          <p>Paleta Clean Professional baseada em branco (<code class="font-mono text-primary">#FFFFFF</code>), cinza neutro (<code class="font-mono text-primary">#F8FAFC</code>) e azul institucional (<code class="font-mono text-primary">#2563EB</code>), com alternância instantânea para o modo escuro (<code class="font-mono text-primary">#0F172A</code>).</p>
+        </div>
+
+        <div class="p-4 rounded-xl card-surface space-y-1.5">
+          <h3 class="font-display font-bold text-sm text-textMain">2. Ergonomia Móvel & Lei de Fitts</h3>
+          <p>Ações principais posicionadas na zona natural do polegar na base da tela com altura mínima de <code class="font-mono text-textMain">48px–50px</code> para toque confortável em iOS e Android.</p>
+        </div>
+
+        <div class="p-4 rounded-xl card-surface space-y-1.5">
+          <h3 class="font-display font-bold text-sm text-textMain">3. Contraste no Editor de Recorte</h3>
+          <p>A área do canvas de perspectiva mantém fundo escuro dedicado para destacar as bordas do papel branco e os marcadores azuis de homografia.</p>
+        </div>
+
+        <div class="p-4 rounded-xl card-surface space-y-1.5">
+          <h3 class="font-display font-bold text-sm text-textMain">4. Escaneabilidade (Padrão F)</h3>
+          <p>Hierarquia alinhada à esquerda com miniatura do documento, filtro aplicado e trecho extraído pelo OCR visíveis imediatamente na listagem.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast de Feedback Global -->
+    <div id="toast" role="status" aria-live="polite" class="pointer-events-none opacity-0 transition-opacity duration-200 absolute bottom-24 left-4 right-4 z-50 flex justify-center">
+      <div id="toast-message" class="px-4 py-2.5 rounded-xl bg-bgCard border border-borderColor text-textMain font-medium text-xs shadow-lg flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-primary"></span>
+        <span>Ação concluída</span>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // =========================================================================
+    // ESTADO DA APLICAÇÃO
+    // =========================================================================
+    const state = {
+      theme: 'light',
+      currentScreen: 'home',
+      captureSource: 'CÂMERA',
+      activeFilter: 'bw',
+      pageCount: 1,
+      activeCorner: 'br',
+      hasRealImage: false,
+      sourceImageElement: null,
+      corners: {
+        tl: { x: 16.6, y: 14.5 },
+        tr: { x: 82.0, y: 19.0 },
+        br: { x: 88.6, y: 85.0 },
+        bl: { x: 10.0, y: 81.0 }
+      },
+      documents: [
+        {
+          id: 'doc-1',
+          title: 'Termo de Compromisso PIBIC',
+          date: 'Hoje, 09:15',
+          pages: 2,
+          filter: 'Preto e Branco',
+          ocrSnippet: 'Termo de compromisso de iniciação científica em visão computacional e processamento de imagens...'
+        },
+        {
+          id: 'doc-2',
+          title: 'Artigo IEEE Visão Computacional',
+          date: 'Ontem, 18:40',
+          pages: 6,
+          filter: 'Cinza',
+          ocrSnippet: 'Adaptive thresholding and planar homography matrix estimation for mobile document scanning...'
+        },
+        {
+          id: 'doc-3',
+          title: 'Comprovante Matrícula 2026-2',
+          date: '14 Nov 2026',
+          pages: 1,
+          filter: 'Original',
+          ocrSnippet: 'Declaração oficial de vínculo acadêmico regular no curso de Engenharia de Software...'
+        }
+      ]
+    };
+
+    // =========================================================================
+    // GERENCIAMENTO DE TEMA (CLARO PADRÃO / ESCURO MANUAL COM LOCALSTORAGE)
+    // =========================================================================
+    function applyTheme(themeName) {
+      state.theme = themeName === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', state.theme);
+      try {
+        localStorage.setItem('miniscan-theme', state.theme);
+      } catch (e) {}
+
+      const iconMoon = document.getElementById('icon-moon');
+      const iconSun = document.getElementById('icon-sun');
+      if (state.theme === 'dark') {
+        iconMoon.classList.add('hidden');
+        iconSun.classList.remove('hidden');
+      } else {
+        iconSun.classList.add('hidden');
+        iconMoon.classList.remove('hidden');
+      }
+    }
+
+    function toggleTheme() {
+      const next = state.theme === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+      showToast(next === 'dark' ? 'Tema escuro ativado' : 'Tema claro ativado');
+    }
+
+    // =========================================================================
+    // NAVEGAÇÃO ENTRE AS 4 TELAS
+    // =========================================================================
+    function navigateTo(screenId) {
+      const screens = ['home', 'crop', 'editor', 'export'];
+      screens.forEach(id => {
+        const el = document.getElementById(`screen-${id}`);
+        const pill = document.getElementById(`nav-pill-${id}`);
+        if (id === screenId) {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+          pill.classList.add('bg-primary', 'text-white', 'font-semibold');
+          pill.classList.remove('text-textSecondary');
+        } else {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+          pill.classList.remove('bg-primary', 'text-white', 'font-semibold');
+          pill.classList.add('text-textSecondary');
+        }
+      });
+
+      state.currentScreen = screenId;
+      if (screenId === 'crop') {
+        drawCaptureCanvas();
+        requestAnimationFrame(renderCropHandles);
+      }
+      if (screenId === 'editor') {
+        renderProcessedDocument();
+      }
+      if (screenId === 'export') {
+        document.getElementById('export-pages-badge').textContent = `${state.pageCount} PÁG`;
+      }
+    }
+
+    // =========================================================================
+    // TELA 1: LISTA E BUSCA DE DOCUMENTOS
+    // =========================================================================
+    function renderDocumentsList(query = '') {
+      const container = document.getElementById('documents-list');
+      const counter = document.getElementById('doc-counter');
+      const q = query.trim().toLowerCase();
+
+      const filtered = state.documents.filter(doc => 
+        doc.title.toLowerCase().includes(q) || 
+        doc.ocrSnippet.toLowerCase().includes(q)
+      );
+
+      counter.textContent = `${filtered.length} ${filtered.length === 1 ? 'documento encontrado' : 'documentos salvos'}`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 rounded-2xl card-surface text-center space-y-1.5 mt-4">
+            <p class="font-display font-bold text-sm text-textMain">Nenhum resultado para "${query}"</p>
+            <p class="text-xs text-textSecondary">A busca verifica tanto o título quanto o conteúdo extraído pelo OCR.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(doc => `
+        <article onclick="openExistingDocument('${doc.id}')" class="p-3.5 rounded-2xl card-surface hover:border-primary/50 cursor-pointer flex items-start gap-3.5 group">
+          <!-- Miniatura Limpa do Documento -->
+          <div class="w-12 h-16 rounded-xl bg-bgSecondary border border-borderColor p-2 flex flex-col justify-between shrink-0">
+            <div class="space-y-1">
+              <div class="w-full h-1 bg-textSecondary/60 rounded-full"></div>
+              <div class="w-3/4 h-0.5 bg-textMuted/60 rounded-full"></div>
+              <div class="w-full h-0.5 bg-textMuted/60 rounded-full"></div>
+              <div class="w-4/5 h-0.5 bg-textMuted/60 rounded-full"></div>
+            </div>
+            <span class="font-mono text-[8px] font-bold text-primary self-end">PDF</span>
+          </div>
+
+          <!-- Informações Organizadas -->
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="font-display font-bold text-sm text-textMain truncate group-hover:text-primary transition">${doc.title}</h2>
+              <span class="font-mono text-[10px] font-medium px-1.5 py-0.5 rounded bg-bgSecondary text-textSecondary shrink-0">${doc.pages} pág</span>
+            </div>
+            <p class="text-[11px] text-textSecondary line-clamp-2 mt-1 leading-snug">“${doc.ocrSnippet}”</p>
+            <div class="mt-2 flex items-center gap-2">
+              <span class="font-mono text-[9px] font-semibold px-2 py-0.5 rounded-md bg-primarySoft text-primary">${doc.filter}</span>
+              <span class="text-[10px] text-textMuted">${doc.date}</span>
+            </div>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function filterDocuments(value) {
+      renderDocumentsList(value);
+    }
+
+    function startScanFlow(source) {
+      state.captureSource = source === 'camera' ? 'CÂMERA' : 'GALERIA';
+      state.pageCount = 1;
+      document.getElementById('crop-source-badge').textContent = state.captureSource;
+      setCropPreset('auto');
+      navigateTo('crop');
+      showToast(source === 'camera' ? 'Imagem capturada • Bordas detectadas' : 'Imagem selecionada da galeria');
+    }
+
+    function handleRealFileSelected(event, sourceLabel) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          state.hasRealImage = true;
+          state.sourceImageElement = img;
+          state.captureSource = sourceLabel;
+          document.getElementById('crop-source-badge').textContent = sourceLabel;
+          setCropPreset('full');
+          navigateTo('crop');
+          showToast('Foto carregada com sucesso');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function openExistingDocument(docId) {
+      const doc = state.documents.find(d => d.id === docId);
+      if (!doc) return;
+      const cleanName = doc.title.replace(/\s+/g, '_');
+      document.getElementById('pdf-name-input').value = cleanName;
+      updateFilenamePreview(cleanName);
+      state.pageCount = doc.pages;
+      navigateTo('export');
+    }
+
+    // =========================================================================
+    // TELA 2: RENDERIZAÇÃO DO CANVAS DE CAPTURA & HOMOGRAFIA 4 PONTOS
+    // =========================================================================
+    function drawCaptureCanvas() {
+      const canvas = document.getElementById('capture-canvas');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (state.hasRealImage && state.sourceImageElement) {
+        ctx.drawImage(state.sourceImageElement, 0, 0, w, h);
+        return;
+      }
+
+      // Fundo neutro escuro de mesa para contraste da folha
+      ctx.fillStyle = '#1E293B';
+      ctx.fillRect(0, 0, w, h);
+
+      // Sombra projetada da folha inclinada
+      ctx.beginPath();
+      ctx.moveTo(112, 128);
+      ctx.lineTo(504, 164);
+      ctx.lineTo(544, 692);
+      ctx.lineTo(72, 660);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.45)';
+      ctx.fill();
+
+      // Folha de papel capturada em ângulo
+      ctx.beginPath();
+      ctx.moveTo(100, 116);
+      ctx.lineTo(492, 152);
+      ctx.lineTo(532, 680);
+      ctx.lineTo(60, 648);
+      ctx.closePath();
+      ctx.fillStyle = '#F8FAFC';
+      ctx.fill();
+
+      // Sombra diagonal suave sobre o canto superior direito
+      ctx.beginPath();
+      ctx.moveTo(300, 134);
+      ctx.lineTo(492, 152);
+      ctx.lineTo(532, 480);
+      ctx.lineTo(370, 420);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(100, 116, 139, 0.16)';
+      ctx.fill();
+
+      // Texto simulado inclinado na folha
+      ctx.save();
+      ctx.translate(132, 176);
+      ctx.rotate(4.2 * Math.PI / 180);
+
+      ctx.fillStyle = '#172033';
+      ctx.font = 'bold 20px "Space Grotesk", sans-serif';
+      ctx.fillText('TERMO DE INICIAÇÃO CIENTÍFICA', 0, 18);
+
+      ctx.fillStyle = '#2563EB';
+      ctx.font = '600 13px "JetBrains Mono", monospace';
+      ctx.fillText('PIBIC / CNPq • Visão Computacional', 0, 40);
+
+      ctx.strokeStyle = '#CBD5E1';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 54);
+      ctx.lineTo(330, 54);
+      ctx.stroke();
+
+      ctx.fillStyle = '#334155';
+      ctx.font = '14px "IBM Plex Sans", sans-serif';
+      const lines = [
+        'Projeto: MiniScan — Digitalização Móvel',
+        'com Correção de Homografia Planar.',
+        '',
+        'O pipeline aplica suavização Gaussiana,',
+        'detecção de bordas de Canny e recorte',
+        'ortogonal antes da extração OCR.',
+        '',
+        'Protocolo: #IC-2026-884'
+      ];
+      lines.forEach((line, idx) => {
+        ctx.fillText(line, 0, 84 + idx * 24);
+      });
+
+      ctx.restore();
+    }
+
+    function renderCropHandles() {
+      const c = state.corners;
+      const pointsStr = `${c.tl.x},${c.tl.y} ${c.tr.x},${c.tr.y} ${c.br.x},${c.br.y} ${c.bl.x},${c.bl.y}`;
+      
+      document.getElementById('crop-polygon').setAttribute('points', pointsStr);
+      document.getElementById('mask-hole').setAttribute('points', pointsStr);
+
+      ['tl', 'tr', 'br', 'bl'].forEach(key => {
+        const handle = document.getElementById(`handle-${key}`);
+        handle.style.left = `${c[key].x}%`;
+        handle.style.top = `${c[key].y}%`;
+        const dot = handle.querySelector('span');
+        if (state.activeCorner === key) {
+          dot.classList.add('ring-4', 'ring-blue-400/50', 'scale-110');
+        } else {
+          dot.classList.remove('ring-4', 'ring-blue-400/50', 'scale-110');
+        }
+      });
+
+      document.getElementById('coords-readout').textContent = 
+        `TL(${Math.round(c.tl.x)},${Math.round(c.tl.y)}) TR(${Math.round(c.tr.x)},${Math.round(c.tr.y)}) BR(${Math.round(c.br.x)},${Math.round(c.br.y)}) BL(${Math.round(c.bl.x)},${Math.round(c.bl.y)})`;
+    }
+
+    function setCropPreset(type) {
+      if (type === 'auto') {
+        state.corners = {
+          tl: { x: 16.6, y: 14.5 },
+          tr: { x: 82.0, y: 19.0 },
+          br: { x: 88.6, y: 85.0 },
+          bl: { x: 10.0, y: 81.0 }
+        };
+        showToast('Bordas da folha detectadas automaticamente');
+      } else if (type === 'full') {
+        state.corners = {
+          tl: { x: 4, y: 4 },
+          tr: { x: 96, y: 4 },
+          br: { x: 96, y: 96 },
+          bl: { x: 4, y: 96 }
+        };
+        showToast('Área completa selecionada');
+      }
+      renderCropHandles();
+    }
+
+    function nudgeActiveCorner(dx, dy) {
+      const corner = state.corners[state.activeCorner];
+      corner.x = Math.max(2, Math.min(98, corner.x + dx));
+      corner.y = Math.max(2, Math.min(98, corner.y + dy));
+      renderCropHandles();
+    }
+
+    function initCropDragHandlers() {
+      const stage = document.getElementById('crop-stage');
+      let draggingCorner = null;
+
+      ['tl', 'tr', 'br', 'bl'].forEach(key => {
+        const handle = document.getElementById(`handle-${key}`);
+        handle.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          draggingCorner = key;
+          state.activeCorner = key;
+          handle.setPointerCapture(e.pointerId);
+          renderCropHandles();
+        });
+
+        handle.addEventListener('pointermove', (e) => {
+          if (draggingCorner !== key) return;
+          const rect = stage.getBoundingClientRect();
+          const relX = ((e.clientX - rect.left) / rect.width) * 100;
+          const relY = ((e.clientY - rect.top) / rect.height) * 100;
+          state.corners[key].x = Math.max(2, Math.min(98, relX));
+          state.corners[key].y = Math.max(2, Math.min(98, relY));
+          renderCropHandles();
+        });
+
+        handle.addEventListener('pointerup', () => {
+          draggingCorner = null;
+        });
+      });
+    }
+
+    function applyPerspectiveTransform() {
+      document.getElementById('page-indicator').textContent = `Página ${state.pageCount} de ${state.pageCount} • Retificada`;
+      navigateTo('editor');
+      showToast('Perspectiva corrigida • Texto OCR extraído');
+    }
+
+    // =========================================================================
+    // TELA 3: EDITOR DE FILTROS & PROCESSAMENTO DE PIXELS
+    // =========================================================================
+    function renderProcessedDocument() {
+      const canvas = document.getElementById('processed-canvas');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (state.hasRealImage && state.sourceImageElement) {
+        const c = state.corners;
+        const minX = Math.min(c.tl.x, c.bl.x) / 100 * state.sourceImageElement.width;
+        const maxX = Math.max(c.tr.x, c.br.x) / 100 * state.sourceImageElement.width;
+        const minY = Math.min(c.tl.y, c.tr.y) / 100 * state.sourceImageElement.height;
+        const maxY = Math.max(c.bl.y, c.br.y) / 100 * state.sourceImageElement.height;
+        ctx.drawImage(
+          state.sourceImageElement,
+          minX, minY, Math.max(10, maxX - minX), Math.max(10, maxY - minY),
+          0, 0, w, h
+        );
+      } else {
+        // Desenha documento perfeitamente retificado (ortogonal)
+        ctx.fillStyle = state.activeFilter === 'original' ? '#F5F2EB' : '#FFFFFF';
+        ctx.fillRect(0, 0, w, h);
+
+        // Sombra suave visível apenas antes da binarização adaptativa
+        if (state.activeFilter !== 'bw') {
+          const grad = ctx.createLinearGradient(w * 0.45, 0, w, h * 0.65);
+          grad.addColorStop(0, 'rgba(100, 116, 139, 0)');
+          grad.addColorStop(1, 'rgba(71, 85, 105, 0.22)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        // Cabeçalho do documento retificado
+        ctx.fillStyle = '#172033';
+        ctx.font = 'bold 26px "Space Grotesk", sans-serif';
+        ctx.fillText('TERMO DE INICIAÇÃO CIENTÍFICA', 44, 76);
+
+        ctx.fillStyle = state.activeFilter === 'original' ? '#2563EB' : '#334155';
+        ctx.font = '600 15px "JetBrains Mono", monospace';
+        ctx.fillText('PIBIC / CNPq • Visão Computacional (2026)', 44, 106);
+
+        ctx.strokeStyle = '#94A3B8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(44, 126);
+        ctx.lineTo(w - 44, 126);
+        ctx.stroke();
+
+        // Corpo do documento
+        ctx.fillStyle = '#1E293B';
+        ctx.font = '18px "IBM Plex Sans", sans-serif';
+        const bodyLines = [
+          'Projeto: MiniScan — Digitalização Móvel com',
+          'Correção de Homografia e Limiarização Adaptativa.',
+          '',
+          'Resumo Técnico: O pipeline aplica suavização',
+          'Gaussiana, detecção de bordas de Canny e matriz',
+          'de transformação planar para retificar folhas',
+          'fotografadas em ângulo inclinado.',
+          '',
+          'Validação OCR: A limiarização local por blocos',
+          'elimina sombras de iluminação e eleva a taxa de',
+          'acerto do motor Tesseract em português.'
+        ];
+        bodyLines.forEach((line, i) => {
+          ctx.fillText(line, 44, 175 + i * 32);
+        });
+
+        // Rodapé institucional
+        ctx.strokeStyle = '#CBD5E1';
+        ctx.beginPath();
+        ctx.moveTo(44, 650);
+        ctx.lineTo(w - 44, 650);
+        ctx.stroke();
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '14px "JetBrains Mono", monospace';
+        ctx.fillText('Protocolo: #IC-2026-884', 44, 686);
+        ctx.fillText('Status: Validado para Banca', 44, 712);
+
+        ctx.beginPath();
+        ctx.moveTo(350, 700);
+        ctx.lineTo(545, 700);
+        ctx.stroke();
+        ctx.font = '12px "IBM Plex Sans", sans-serif';
+        ctx.fillText('Assinatura do Orientador', 378, 720);
+      }
+
+      // Aplica manipulação real de pixels conforme o filtro ativo
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      if (state.activeFilter === 'grayscale') {
+        for (let i = 0; i < data.length; i += 4) {
+          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          // Realce de contraste estilo CLAHE
+          const enhanced = Math.min(255, Math.max(0, (lum - 128) * 1.25 + 132));
+          data[i] = data[i + 1] = data[i + 2] = enhanced;
+        }
+        ctx.putImageData(imgData, 0, 0);
+      } else if (state.activeFilter === 'bw') {
+        for (let i = 0; i < data.length; i += 4) {
+          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          // Limiarização binária limpa estilo documento escaneado
+          const bin = lum > 175 ? 255 : 18;
+          data[i] = data[i + 1] = data[i + 2] = bin;
+        }
+        ctx.putImageData(imgData, 0, 0);
+      }
+    }
+
+    function setDocumentFilter(filterMode) {
+      state.activeFilter = filterMode;
+      const badgeEl = document.getElementById('filter-tech-badge');
+
+      const badges = {
+        original: 'RGB Original + Unsharp Mask',
+        grayscale: 'COLOR_BGR2GRAY + CLAHE',
+        bw: 'cv2.adaptiveThreshold(GAUSSIAN_C)'
+      };
+      badgeEl.textContent = badges[filterMode];
+
+      ['original', 'grayscale', 'bw'].forEach(mode => {
+        const btn = document.getElementById(`btn-filter-${mode}`);
+        const isActive = mode === filterMode;
+        btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+        if (isActive) {
+          btn.className = 'min-h-[42px] rounded-lg text-xs font-semibold bg-primary text-white shadow-xs transition';
+        } else {
+          btn.className = 'min-h-[42px] rounded-lg text-xs font-medium text-textSecondary hover:text-textMain transition';
+        }
+      });
+
+      renderProcessedDocument();
+    }
+
+    function addExtraPage() {
+      state.pageCount += 1;
+      document.getElementById('page-indicator').textContent = `Página ${state.pageCount} de ${state.pageCount} • Retificada`;
+      showToast(`Página ${state.pageCount} adicionada ao documento`);
+    }
+
+    function toggleOcrDrawer(open) {
+      document.getElementById('ocr-drawer').classList.toggle('hidden', !open);
+    }
+
+    function copyOcrText() {
+      const textarea = document.getElementById('ocr-textarea');
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch (e) {}
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(textarea.value).catch(() => {});
+      }
+      showToast('Texto OCR copiado para a área de transferência');
+      setTimeout(() => toggleOcrDrawer(false), 500);
+    }
+
+    // =========================================================================
+    // TELA 4: EXPORTAÇÃO, GERAÇÃO DE PDF REAL & COMPARTILHAMENTO
+    // =========================================================================
+    function updateFilenamePreview(rawName) {
+      const clean = rawName.trim() || 'Documento_MiniScan';
+      document.getElementById('export-filename-preview').textContent = `${clean}.pdf`;
+    }
+
+    function buildValidPdfBlob() {
+      const canvas = document.getElementById('processed-canvas');
+      const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      const base64 = jpegDataUrl.split(',')[1];
+      const rawBin = atob(base64);
+      const imgBytes = new Uint8Array(rawBin.length);
+      for (let i = 0; i < rawBin.length; i++) {
+        imgBytes[i] = rawBin.charCodeAt(i);
+      }
+
+      const enc = new TextEncoder();
+      const parts = [];
+      const offsets = [0];
+      let byteLength = 0;
+
+      const pushStr = (str) => {
+        const b = enc.encode(str);
+        parts.push(b);
+        byteLength += b.length;
+      };
+      const pushBytes = (bytes) => {
+        parts.push(bytes);
+        byteLength += bytes.length;
+      };
+
+      pushStr('%PDF-1.4\n');
+      offsets.push(byteLength);
+      pushStr('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+      offsets.push(byteLength);
+      pushStr('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+      offsets.push(byteLength);
+      pushStr('3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /XObject << /Im1 4 0 R >> >> /MediaBox [0 0 595 842] /Contents 5 0 R >>\nendobj\n');
+      offsets.push(byteLength);
+      pushStr(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`);
+      pushBytes(imgBytes);
+      pushStr('\nendstream\nendobj\n');
+
+      const contentStream = 'q 595 0 0 842 0 0 cm /Im1 Do Q\n';
+      offsets.push(byteLength);
+      pushStr(`5 0 obj\n<< /Length ${contentStream.length} >>\nstream\n${contentStream}endstream\nendobj\n`);
+
+      const xrefStart = byteLength;
+      pushStr(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
+      for (let i = 1; i < offsets.length; i++) {
+        pushStr(String(offsets[i]).padStart(10, '0') + ' 00000 n \n');
+      }
+      pushStr(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`);
+
+      return new Blob(parts, { type: 'application/pdf' });
+    }
+
+    function triggerNativeShare() {
+      const title = document.getElementById('export-filename-preview').textContent;
+      const pdfBlob = buildValidPdfBlob();
+      const pdfFile = new File([pdfBlob], title, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        navigator.share({
+          title: title,
+          text: 'Documento digitalizado pelo MiniScan',
+          files: [pdfFile]
+        }).catch(() => {});
+      } else if (navigator.share) {
+        navigator.share({
+          title: title,
+          text: 'Documento digitalizado pelo MiniScan'
+        }).catch(() => {});
+      } else {
+        showToast(`Compartilhamento preparado para ${title}`);
+      }
+    }
+
+    function triggerDownloadPdf() {
+      const title = document.getElementById('export-filename-preview').textContent;
+      const pdfBlob = buildValidPdfBlob();
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = title;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast(`Download iniciado: ${title}`);
+    }
+
+    function saveAndReturnHome() {
+      const rawTitle = document.getElementById('pdf-name-input').value.trim() || 'Documento Digitalizado';
+      const ocrText = document.getElementById('ocr-textarea').value.trim();
+      const filterNames = { original: 'Original', grayscale: 'Cinza', bw: 'Preto e Branco' };
+
+      state.documents.unshift({
+        id: `doc-${Date.now()}`,
+        title: rawTitle.replace(/_/g, ' '),
+        date: 'Agora mesmo',
+        pages: state.pageCount,
+        filter: filterNames[state.activeFilter],
+        ocrSnippet: ocrText.slice(0, 110) + '...'
+      });
+
+      renderDocumentsList();
+      navigateTo('home');
+      showToast('Documento salvo no histórico');
+    }
+
+    // =========================================================================
+    // UTILITÁRIOS (MODAL UX & TOAST)
+    // =========================================================================
+    function toggleBlueprintModal(open) {
+      document.getElementById('blueprint-modal').classList.toggle('hidden', !open);
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const label = document.getElementById('toast-message').querySelector('span:last-child');
+      label.textContent = msg;
+      toast.classList.remove('opacity-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0');
+      }, 2400);
+    }
+
+    // Inicialização
+    window.addEventListener('DOMContentLoaded', () => {
+      let savedTheme = 'light';
+      try {
+        savedTheme = localStorage.getItem('miniscan-theme') || 'light';
+      } catch (e) {}
+      applyTheme(savedTheme);
+      renderDocumentsList();
+      drawCaptureCanvas();
+      initCropDragHandlers();
+      renderCropHandles();
+    });
+  </script>
+</body>
+</html>
