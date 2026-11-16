@@ -1,17 +1,34 @@
 /** Os mesmos valores aceitos pela API e pela coluna document_pages.filter_applied. */
-export type Filtro = "original" | "grayscale" | "bw";
+export type Filtro = "original" | "grayscale" | "bw" | "whiteboard";
 
 export const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: "original", rotulo: "Original" },
   { valor: "grayscale", rotulo: "Cinza" },
-  { valor: "bw", rotulo: "Preto e branco" },
+  { valor: "bw", rotulo: "P&B" },
+  { valor: "whiteboard", rotulo: "Quadro" },
 ];
 
 export const ROTULO_FILTRO: Record<Filtro, string> = {
   original: "Original",
   grayscale: "Cinza",
   bw: "P&B",
+  whiteboard: "Quadro",
 };
+
+/** Modos da câmera: cada um muda o que acontece depois da foto. */
+export type Modo = "digitalizar" | "texto" | "cartao" | "livro" | "quadro" | "qrcode";
+
+export const MODOS: { valor: Modo; rotulo: string; dica: string }[] = [
+  { valor: "texto", rotulo: "Extrair texto", dica: "Fotografe a página para copiar o texto" },
+  { valor: "cartao", rotulo: "Cartão ID", dica: "Frente e verso numa folha A4, em tamanho real" },
+  { valor: "digitalizar", rotulo: "Digitalizar", dica: "Enquadre o documento" },
+  { valor: "livro", rotulo: "Livro", dica: "Livro aberto: as duas páginas viram páginas separadas" },
+  { valor: "quadro", rotulo: "Quadro branco", dica: "Remove reflexo e realça as canetas" },
+  { valor: "qrcode", rotulo: "QR code", dica: "Aponte para o QR code" },
+];
+
+/** "id": RG, CNH e cartões (ISO ID-1, frente e verso). "passaporte": página de dados. */
+export type FormatoCartao = "id" | "passaporte";
 
 /** Coordenada normalizada (0..1) sobre a foto original. */
 export interface Ponto {
@@ -48,6 +65,8 @@ export interface Pagina {
   detectado: boolean;
   filtro: Filtro;
   processadas: Partial<Record<Filtro, ImagemLocal>>;
+  /** Metade de um livro aberto já separado: não deve ser dividida de novo. */
+  metadeDeLivro: boolean;
   /** Figuras detectadas na página retificada (JSON vindo da API), reaproveitadas no OCR. */
   regioesGraficas: string | null;
   textoOcr: string;

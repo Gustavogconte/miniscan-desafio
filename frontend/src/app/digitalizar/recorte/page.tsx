@@ -7,8 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAviso } from "@/componentes/aviso";
 import { CabecalhoEtapa } from "@/componentes/cabecalho-etapa";
 import { EditorCantos, limitar, NOMES_CANTOS, PASSO_TECLADO } from "@/componentes/editor-cantos";
-import { detectarCantos, mensagemDeErro, processarPagina } from "@/lib/api";
-import { criarImagemLocal, liberarImagens } from "@/lib/estado-digitalizacao";
+import { detectarCantos, mensagemDeErro } from "@/lib/api";
 import { useProcessamento } from "@/lib/processamento";
 import { CANTOS_TELA_INTEIRA, type Cantos } from "@/lib/tipos";
 import { useGuardaDigitalizacao } from "@/lib/usar-guarda";
@@ -18,8 +17,8 @@ const PASSO_SETA = PASSO_TECLADO * 2;
 export default function TelaRecorte() {
   const router = useRouter();
   const avisar = useAviso();
-  const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina } = useGuardaDigitalizacao();
-  const { executarOcr } = useProcessamento();
+  const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina, modo } = useGuardaDigitalizacao();
+  const { confirmarPagina } = useProcessamento();
   const [detectando, setDetectando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [cantoAtivo, setCantoAtivo] = useState(0);
@@ -77,20 +76,8 @@ export default function TelaRecorte() {
   async function confirmar() {
     if (!cantos) return;
     setConfirmando(true);
-    const alvo = pagina!;
     try {
-      const { blob, regioesGraficas } = await processarPagina(alvo.original.blob, cantos, alvo.filtro);
-      // Cantos novos invalidam as versões já processadas, as figuras e o texto lido antes.
-      liberarImagens(Object.values(alvo.processadas));
-      const imagem = criarImagemLocal(blob);
-      atualizarPagina(alvo.id, {
-        processadas: { [alvo.filtro]: imagem },
-        cantosConfirmados: cantos,
-        regioesGraficas,
-        textoOcr: "",
-        estadoOcr: "pendente",
-      });
-      void executarOcr(alvo.id, blob);
+      await confirmarPagina(pagina!.id, cantos);
       router.push("/digitalizar/editor");
     } catch (erro) {
       avisar(mensagemDeErro(erro), "erro");
@@ -99,17 +86,20 @@ export default function TelaRecorte() {
   }
 
   const nomeAtivo = NOMES_CANTOS[cantoAtivo];
+  const livroInteiro = modo === "livro" && !pagina.metadeDeLivro;
   const botaoSeta =
     "flex size-11 items-center justify-center rounded-xl border border-borda bg-secundario text-texto transition hover:text-primaria-texto disabled:opacity-50";
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <CabecalhoEtapa
-        titulo="Ajustar recorte"
+        titulo={livroInteiro ? "Recortar livro aberto" : "Ajustar recorte"}
         subtitulo={
-          paginas.length > 1
-            ? `Página ${indiceAtual + 1} de ${paginas.length} • arraste os 4 cantos`
-            : "Arraste os 4 cantos até as bordas da folha"
+          livroInteiro
+            ? "Inclua as duas páginas; a lombada é achada sozinha"
+            : paginas.length > 1
+              ? `Página ${indiceAtual + 1} de ${paginas.length} • arraste os 4 cantos`
+              : "Arraste os 4 cantos até as bordas da folha"
         }
         voltarPara={voltarPara}
         aoVoltar={aoVoltar}
@@ -201,7 +191,13 @@ export default function TelaRecorte() {
           ) : (
             <Check className="size-5" aria-hidden />
           )}
-          {confirmando ? "Corrigindo perspectiva…" : "Confirmar recorte"}
+          {confirmando
+            ? livroInteiro
+              ? "Separando as páginas…"
+              : "Corrigindo perspectiva…"
+            : livroInteiro
+              ? "Separar as duas páginas"
+              : "Confirmar recorte"}
         </button>
       </div>
     </main>

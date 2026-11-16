@@ -4,13 +4,9 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type ChangeEvent } from "react";
 
 import { useAviso } from "@/componentes/aviso";
-import { criarImagemLocal, useDigitalizacao } from "@/lib/estado-digitalizacao";
+import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { prepararFoto } from "@/lib/imagem";
-
-function novoId(): string {
-  // crypto.randomUUID só existe em contexto seguro (HTTPS); no teste pela rede local não.
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+import { filtroDoModo, novaPagina } from "@/lib/paginas";
 
 /**
  * Entradas de arquivo para câmera e galeria. Usar <input capture> em vez de getUserMedia
@@ -19,7 +15,7 @@ function novoId(): string {
 export function useCapturaFoto() {
   const router = useRouter();
   const avisar = useAviso();
-  const { adicionarPagina } = useDigitalizacao();
+  const { adicionarPagina, modo } = useDigitalizacao();
   const camera = useRef<HTMLInputElement>(null);
   const galeria = useRef<HTMLInputElement>(null);
   const [preparando, setPreparando] = useState(false);
@@ -31,21 +27,7 @@ export function useCapturaFoto() {
     setPreparando(true);
     try {
       const foto = await prepararFoto(arquivo);
-      adicionarPagina({
-        id: novoId(),
-        original: criarImagemLocal(foto.blob),
-        largura: foto.largura,
-        altura: foto.altura,
-        cantos: null,
-        cantosDetectados: null,
-        cantosConfirmados: null,
-        detectado: false,
-        filtro: "bw",
-        processadas: {},
-        regioesGraficas: null,
-        textoOcr: "",
-        estadoOcr: "pendente",
-      });
+      adicionarPagina(novaPagina(foto.blob, foto.largura, foto.altura, { filtro: filtroDoModo(modo) }));
       router.push("/digitalizar/recorte");
     } catch (erro) {
       avisar(erro instanceof Error ? erro.message : "Não foi possível abrir a imagem.", "erro");

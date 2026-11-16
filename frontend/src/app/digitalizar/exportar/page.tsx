@@ -1,6 +1,6 @@
 "use client";
 
-import { CloudUpload, Download, FileText, LoaderCircle, RotateCw, Share2 } from "lucide-react";
+import { CalendarClock, CloudUpload, Download, FileText, LoaderCircle, RotateCw, Share2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -17,6 +17,13 @@ type EstadoPdf = { tipo: "gerando" } | { tipo: "pronto"; blob: Blob } | { tipo: 
 function tituloPadrao(): string {
   const hoje = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date());
   return `Documento ${hoje}`;
+}
+
+/** Data e hora locais no formato aceito pela API: 16/11/2026 14:32. */
+function carimboAgora(): string {
+  const agora = new Date();
+  const dois = (n: number) => String(n).padStart(2, "0");
+  return `${dois(agora.getDate())}/${dois(agora.getMonth() + 1)}/${agora.getFullYear()} ${dois(agora.getHours())}:${dois(agora.getMinutes())}`;
 }
 
 /** Nome de arquivo seguro: sem acentos, barras ou espaços. */
@@ -39,13 +46,15 @@ export default function TelaExportar() {
   const [tituloEditado, setTitulo] = useState<string | null>(null);
   const [pdf, setPdf] = useState<EstadoPdf>({ tipo: "gerando" });
   const [salvando, setSalvando] = useState(false);
+  const [comCarimbo, setComCarimbo] = useState(false);
   const iniciado = useRef(false);
 
-  const gerar = useCallback(async () => {
+  const gerar = useCallback(async (carimbar: boolean) => {
     setPdf({ tipo: "gerando" });
     try {
       const imagens = await Promise.all(paginas.map((p) => garantirProcessada(p.id, p.filtro)));
-      setPdf({ tipo: "pronto", blob: await gerarPdf(imagens.map((i) => i.blob)) });
+      const carimbo = carimbar ? carimboAgora() : undefined;
+      setPdf({ tipo: "pronto", blob: await gerarPdf(imagens.map((i) => i.blob), carimbo) });
     } catch (erro) {
       setPdf({ tipo: "erro", mensagem: mensagemDeErro(erro) });
     }
@@ -54,7 +63,7 @@ export default function TelaExportar() {
   useEffect(() => {
     if (iniciado.current || paginas.length === 0) return;
     iniciado.current = true;
-    void gerar();
+    void gerar(false);
   }, [gerar, paginas.length]);
 
   if (paginas.length === 0) return null;
@@ -156,7 +165,7 @@ export default function TelaExportar() {
           {pdf.tipo === "erro" && (
             <button
               type="button"
-              onClick={gerar}
+              onClick={() => gerar(comCarimbo)}
               aria-label="Tentar gerar o PDF de novo"
               className="flex size-11 items-center justify-center rounded-xl border border-borda text-primaria-texto"
             >
@@ -164,6 +173,24 @@ export default function TelaExportar() {
             </button>
           )}
         </div>
+
+        <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border border-borda bg-cartao p-4 shadow-cartao">
+          <input
+            type="checkbox"
+            checked={comCarimbo}
+            disabled={pdf.tipo === "gerando"}
+            onChange={(evento) => {
+              setComCarimbo(evento.target.checked);
+              void gerar(evento.target.checked);
+            }}
+            className="size-5 shrink-0 accent-[var(--primaria)]"
+          />
+          <CalendarClock className="size-5 shrink-0 text-primaria-texto" aria-hidden />
+          <span className="text-sm">
+            <span className="block font-semibold text-texto">Carimbo de data e hora</span>
+            <span className="block text-xs text-texto-secundario">Escreve a data e a hora atuais no rodapé de cada página</span>
+          </span>
+        </label>
 
         <div className="space-y-2 rounded-2xl border border-borda bg-cartao p-4 shadow-cartao">
           <label htmlFor="titulo" className="block text-xs font-semibold text-texto">

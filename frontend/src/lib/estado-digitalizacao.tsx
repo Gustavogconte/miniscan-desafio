@@ -2,11 +2,14 @@
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
-import type { ImagemLocal, Pagina } from "@/lib/tipos";
+import type { FormatoCartao, ImagemLocal, Modo, Pagina } from "@/lib/tipos";
 
 interface Estado {
   paginas: Pagina[];
   indiceAtual: number;
+  /** Modo escolhido na câmera; decide o que acontece depois da foto. */
+  modo: Modo;
+  formatoCartao: FormatoCartao;
 }
 
 type Acao =
@@ -14,12 +17,16 @@ type Acao =
   | { tipo: "atualizar"; id: string; mudancas: Partial<Pagina> }
   | { tipo: "remover"; id: string }
   | { tipo: "selecionar"; indice: number }
+  | { tipo: "substituir"; id: string; novas: Pagina[] }
+  | { tipo: "configurar"; modo?: Modo; formatoCartao?: FormatoCartao }
   | { tipo: "reiniciar" };
+
+const ESTADO_INICIAL: Estado = { paginas: [], indiceAtual: 0, modo: "digitalizar", formatoCartao: "id" };
 
 function redutor(estado: Estado, acao: Acao): Estado {
   switch (acao.tipo) {
     case "adicionar":
-      return { paginas: [...estado.paginas, acao.pagina], indiceAtual: estado.paginas.length };
+      return { ...estado, paginas: [...estado.paginas, acao.pagina], indiceAtual: estado.paginas.length };
     case "atualizar":
       return {
         ...estado,
@@ -27,12 +34,25 @@ function redutor(estado: Estado, acao: Acao): Estado {
       };
     case "remover": {
       const paginas = estado.paginas.filter((p) => p.id !== acao.id);
-      return { paginas, indiceAtual: Math.min(estado.indiceAtual, Math.max(paginas.length - 1, 0)) };
+      return { ...estado, paginas, indiceAtual: Math.min(estado.indiceAtual, Math.max(paginas.length - 1, 0)) };
     }
+    case "substituir": {
+      // Troca uma página por várias (ex.: livro aberto -> página esquerda e direita).
+      const indice = estado.paginas.findIndex((p) => p.id === acao.id);
+      if (indice < 0) return estado;
+      const paginas = [...estado.paginas.slice(0, indice), ...acao.novas, ...estado.paginas.slice(indice + 1)];
+      return { ...estado, paginas, indiceAtual: indice };
+    }
+    case "configurar":
+      return {
+        ...estado,
+        modo: acao.modo ?? estado.modo,
+        formatoCartao: acao.formatoCartao ?? estado.formatoCartao,
+      };
     case "selecionar":
       return { ...estado, indiceAtual: acao.indice };
     case "reiniciar":
-      return { paginas: [], indiceAtual: 0 };
+      return { ...ESTADO_INICIAL, modo: estado.modo, formatoCartao: estado.formatoCartao };
   }
 }
 
@@ -45,6 +65,9 @@ interface ContextoDigitalizacao extends Estado {
   adicionarPagina: (pagina: Pagina) => void;
   atualizarPagina: (id: string, mudancas: Partial<Pagina>) => void;
   removerPagina: (id: string) => void;
+  /** Troca uma página por outras; a imagem original da antiga só é liberada se não for reaproveitada. */
+  substituirPagina: (id: string, novas: Pagina[]) => void;
+  configurar: (opcoes: { modo?: Modo; formatoCartao?: FormatoCartao }) => void;
   selecionarPagina: (indice: number) => void;
   reiniciar: () => void;
   /** Lê a versão mais recente de uma página (útil depois de chamadas assíncronas). */
@@ -52,8 +75,6 @@ interface ContextoDigitalizacao extends Estado {
 }
 
 const Contexto = createContext<ContextoDigitalizacao | null>(null);
-
-const ESTADO_INICIAL: Estado = { paginas: [], indiceAtual: 0 };
 
 export function ProvedorDigitalizacao({ children }: { children: ReactNode }) {
   const [estado, setEstado] = useState<Estado>(ESTADO_INICIAL);
@@ -88,6 +109,25 @@ export function ProvedorDigitalizacao({ children }: { children: ReactNode }) {
 
   const adicionarPagina = useCallback((pagina: Pagina) => despachar({ tipo: "adicionar", pagina }), [despachar]);
 
+  const substituirPagina = useCallback(
+    (id: string, novas: Pagina[]) => {
+      const antiga = estadoRef.current.paginas.find((p) => p.id === id);
+      if (antiga) {
+        const reaproveitadas = new Set(novas.flatMap(urlsDaPagina));
+        urlsDaPagina(antiga)
+          .filter((url) => !reaproveitadas.has(url))
+          .forEach((url) => URL.revokeObjectURL(url));
+      }
+      despachar({ tipo: "substituir", id, novas });
+    },
+    [despachar],
+  );
+
+  const configurar = useCallback(
+    (opcoes: { modo?: Modo; formatoCartao?: FormatoCartao }) => despachar({ tipo: "configurar", ...opcoes }),
+    [despachar],
+  );
+
   const selecionarPagina = useCallback((indice: number) => despachar({ tipo: "selecionar", indice }), [despachar]);
 
   const lerPagina = useCallback((id: string) => estadoRef.current.paginas.find((p) => p.id === id), []);
@@ -99,11 +139,23 @@ export function ProvedorDigitalizacao({ children }: { children: ReactNode }) {
       adicionarPagina,
       atualizarPagina,
       removerPagina,
+      substituirPagina,
+      configurar,
       selecionarPagina,
       reiniciar,
       lerPagina,
     }),
-    [estado, adicionarPagina, atualizarPagina, removerPagina, selecionarPagina, reiniciar, lerPagina],
+    [
+      estado,
+      adicionarPagina,
+      atualizarPagina,
+      removerPagina,
+      substituirPagina,
+      configurar,
+      selecionarPagina,
+      reiniciar,
+      lerPagina,
+    ],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

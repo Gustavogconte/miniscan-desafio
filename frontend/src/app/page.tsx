@@ -1,6 +1,7 @@
 "use client";
 
-import { Camera, ImageIcon, LoaderCircle, Search } from "lucide-react";
+import { BookOpen, Camera, IdCard, ImageIcon, LoaderCircle, Presentation, QrCode, ScanText, Search, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useCapturaFoto } from "@/componentes/captura-foto";
@@ -9,7 +10,7 @@ import { Logo } from "@/componentes/logo";
 import { BotaoTema } from "@/componentes/tema";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { buscarDocumentos } from "@/lib/supabase";
-import type { DocumentoHistorico } from "@/lib/tipos";
+import type { DocumentoHistorico, Modo } from "@/lib/tipos";
 
 type EstadoLista =
   | { tipo: "carregando" }
@@ -18,8 +19,17 @@ type EstadoLista =
 
 const ATRASO_BUSCA_MS = 300;
 
+const ATALHOS: { modo: Modo; rotulo: string; Icone: LucideIcon }[] = [
+  { modo: "texto", rotulo: "Extrair texto", Icone: ScanText },
+  { modo: "cartao", rotulo: "Cartão ID", Icone: IdCard },
+  { modo: "livro", rotulo: "Livro", Icone: BookOpen },
+  { modo: "quadro", rotulo: "Quadro branco", Icone: Presentation },
+  { modo: "qrcode", rotulo: "QR code", Icone: QrCode },
+];
+
 export default function TelaInicio() {
-  const { paginas, reiniciar } = useDigitalizacao();
+  const router = useRouter();
+  const { paginas, reiniciar, configurar } = useDigitalizacao();
   const captura = useCapturaFoto();
   const [termo, setTermo] = useState("");
   const [lista, setLista] = useState<EstadoLista>({ tipo: "carregando" });
@@ -52,6 +62,11 @@ export default function TelaInicio() {
   }, [termo]);
 
   const quantidade = lista.tipo === "pronto" ? lista.documentos.length : null;
+
+  function abrirCamera(modo: Modo) {
+    configurar({ modo });
+    router.push("/camera");
+  }
   // A lista na tela ainda é de outro termo: a busca nova está em andamento.
   const buscando = lista.tipo === "carregando" || lista.termo !== termo;
 
@@ -95,6 +110,23 @@ export default function TelaInicio() {
           )}
         </div>
 
+        <nav aria-label="Ferramentas" className="-mx-5 mt-3 overflow-x-auto px-5 [scrollbar-width:none]">
+          <ul className="flex w-max gap-2">
+            {ATALHOS.map(({ modo, rotulo, Icone }) => (
+              <li key={modo}>
+                <button
+                  type="button"
+                  onClick={() => abrirCamera(modo)}
+                  className="flex min-h-11 items-center gap-1.5 rounded-xl border border-borda bg-cartao px-3 text-xs font-semibold text-texto transition hover:border-primaria-texto"
+                >
+                  <Icone className="size-4 text-primaria-texto" aria-hidden />
+                  {rotulo}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
         <p className="mt-3 text-xs font-medium text-texto-secundario" aria-live="polite">
           {buscando && termo
             ? "Buscando…"
@@ -137,7 +169,10 @@ export default function TelaInicio() {
       <div className="grid shrink-0 grid-cols-5 gap-2.5 border-t border-borda bg-cartao p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
-          onClick={captura.abrirGaleria}
+          onClick={() => {
+            configurar({ modo: "digitalizar" });
+            captura.abrirGaleria();
+          }}
           disabled={captura.preparando}
           className="col-span-2 flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-borda bg-secundario text-sm font-semibold text-texto transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
         >
@@ -146,7 +181,7 @@ export default function TelaInicio() {
         </button>
         <button
           type="button"
-          onClick={captura.abrirCamera}
+          onClick={() => abrirCamera("digitalizar")}
           disabled={captura.preparando}
           className="col-span-3 flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-primaria font-display text-sm font-bold text-white shadow-sm transition hover:bg-primaria-hover active:scale-[0.98] disabled:opacity-60"
         >
