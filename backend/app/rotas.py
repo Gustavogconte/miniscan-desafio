@@ -19,7 +19,9 @@ from app.esquemas import (
     RespostaCantos,
     RespostaDocumento,
     RespostaErro,
+    RespostaLivro,
     RespostaOcr,
+    RespostaQrcode,
     RespostaSaude,
     validador_cantos,
     validador_metadados,
@@ -34,10 +36,13 @@ from app.persistencia import (
     salvar_documento,
 )
 from app.visao.bordas import detectar_cantos
+from app.visao.cartao import FormatoCartao, compor_cartao
 from app.visao.filtros import Filtro, aplicar_filtro_com_regioes, formato_saida
 from app.visao.imagem import codificar_imagem, decodificar_imagem
 from app.visao.layout import DetectorLayout, Regiao
+from app.visao.livro import dividir_livro
 from app.visao.perspectiva import corrigir_perspectiva
+from app.visao.qrcode import ler_qrcodes
 
 roteador = APIRouter()
 
@@ -167,18 +172,73 @@ def rota_extrair_ocr(
     tags=["pdf"],
     summary="Junta as páginas, na ordem enviada, em um PDF único",
 )
-def rota_gerar_pdf(paginas: Annotated[list[UploadFile], File()]) -> Response:
+def rota_gerar_pdf(
+    paginas: Annotated[list[UploadFile], File()],
+    carimbo: Annotated[
+        str | None, Form(description="Data e hora escritas em cada página, ex.: 16/11/2026 14:32")
+    ] = None,
+) -> Response:
     if len(paginas) > MAXIMO_PAGINAS_PDF:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             f"O PDF aceita no máximo {MAXIMO_PAGINAS_PDF} páginas.",
         )
-    pdf = gerar_pdf([ler_arquivo(pagina) for pagina in paginas])
+    pdf = gerar_pdf([ler_arquivo(pagina) for pagina in paginas], carimbo=carimbo)
     return Response(
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="miniscan.pdf"'},
     )
+
+
+def _pontos(cantos: np.ndarray) -> list[Ponto]:
+    return [Ponto(x=float(x), y=float(y)) for x, y in cantos]
+
+
+@roteador.post(
+    "/dividir-livro",
+    response_model=RespostaLivro,
+    responses=ERROS_ENTRADA,
+    tags=["visao"],
+    summary="Separa as duas páginas de um livro aberto",
+)
+def rota_dividir_livro(
+    imagem: Annotated[UploadFile, File()],
+    cantos: Annotated[str, Form(description="Cantos do livro aberto inteiro (JSON com 4 pontos)")],
+) -> RespostaLivro:
+    matriz = decodificar_imagem(ler_arquivo(imagem))
+    esquerda, direita, lombada = dividir_livro(matriz, ler_cantos(cantos))
+    return RespostaLivro(esquerda=_pontos(esquerda), direita=_pontos(direita), lombada=lombada)
+
+
+@roteador.post(
+    "/compor-cartao",
+    response_class=Response,
+    responses={200: {"content": {"image/jpeg": {}}}, **ERROS_ENTRADA},
+    tags=["visao"],
+    summary="Monta frente e verso do documento numa folha A4, em tamanho real",
+)
+def rota_compor_cartao(
+    frente: Annotated[UploadFile, File(description="Frente já retificada")],
+    formato: Annotated[FormatoCartao, Form()] = "id",
+    verso: Annotated[UploadFile | None, File(description="Verso já retificado")] = None,
+) -> Response:
+    lados = [decodificar_imagem(ler_arquivo(frente))]
+    if verso is not None:
+        lados.append(decodificar_imagem(ler_arquivo(verso)))
+    folha = compor_cartao(lados, formato)
+    return Response(content=codificar_imagem(folha, ".jpg"), media_type="image/jpeg")
+
+
+@roteador.post(
+    "/ler-qrcode",
+    response_model=RespostaQrcode,
+    responses=ERROS_ENTRADA,
+    tags=["visao"],
+    summary="Lê os QR codes de uma foto",
+)
+def rota_ler_qrcode(imagem: Annotated[UploadFile, File()]) -> RespostaQrcode:
+    return RespostaQrcode(textos=ler_qrcodes(decodificar_imagem(ler_arquivo(imagem))))
 
 
 @lru_cache(maxsize=1)

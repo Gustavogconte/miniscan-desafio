@@ -9,8 +9,10 @@ from fastapi.responses import JSONResponse
 
 from app.config import configuracoes
 from app.ocr import MotorOcr, OcrIndisponivelError
+from app.pdf import CarimboInvalidoError
 from app.persistencia import DocumentoInvalidoError, FalhaPersistenciaError
 from app.rotas import roteador
+from app.visao.cartao import CartaoInvalidoError
 from app.visao.imagem import ImagemInvalidaError
 from app.visao.layout import DetectorLayout
 from app.visao.perspectiva import CantosInvalidosError
@@ -59,6 +61,8 @@ def criar_app() -> FastAPI:
     )
     app.add_exception_handler(ImagemInvalidaError, _erro(status.HTTP_422_UNPROCESSABLE_CONTENT))
     app.add_exception_handler(CantosInvalidosError, _erro(status.HTTP_422_UNPROCESSABLE_CONTENT))
+    app.add_exception_handler(CartaoInvalidoError, _erro(status.HTTP_422_UNPROCESSABLE_CONTENT))
+    app.add_exception_handler(CarimboInvalidoError, _erro(status.HTTP_422_UNPROCESSABLE_CONTENT))
     app.add_exception_handler(OcrIndisponivelError, _erro(status.HTTP_503_SERVICE_UNAVAILABLE))
     app.add_exception_handler(DocumentoInvalidoError, _erro(status.HTTP_422_UNPROCESSABLE_CONTENT))
     # A mensagem é genérica de propósito; o detalhe do Supabase fica só no log.

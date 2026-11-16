@@ -28,6 +28,16 @@ class RespostaCantos(BaseModel):
     )
 
 
+class RespostaLivro(BaseModel):
+    esquerda: ListaDeCantos = Field(description="Cantos da página esquerda na foto original")
+    direita: ListaDeCantos = Field(description="Cantos da página direita na foto original")
+    lombada: float = Field(description="Posição da lombada (0..1) na largura do livro aberto")
+
+
+class RespostaQrcode(BaseModel):
+    textos: list[str]
+
+
 class RespostaOcr(BaseModel):
     texto: str
     idioma: str
