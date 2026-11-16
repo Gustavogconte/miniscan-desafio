@@ -13,7 +13,8 @@ FILTROS: tuple[str, ...] = get_args(Filtro)
 
 CLAHE_LIMITE = 2.0
 CLAHE_GRADE = (8, 8)
-LIMIAR_CONSTANTE = 12  # quanto o pixel precisa ser mais escuro que a vizinhança para virar tinta
+LIMIAR_CONSTANTE = 15  # quanto o pixel precisa ser mais escuro que a vizinhança para virar tinta
+BLOCO_MINIMO = 35  # vizinhança mínima da limiarização (ímpar)
 QUADRO_REALCE_COR = 1.6  # quanto a saturação das canetas é reforçada
 QUADRO_GAMA_TRACO = 1.8  # escurece os traços sem escurecer o fundo já branco
 # Filtros que não passam pela detecção de figuras (não há o que preservar ou já é a foto).
@@ -27,9 +28,12 @@ def _para_cinza(imagem: np.ndarray) -> np.ndarray:
 
 
 def _tamanho_bloco(imagem: np.ndarray) -> int:
-    """Vizinhança da limiarização proporcional à página (sempre ímpar, mínimo 11)."""
-    lado = min(imagem.shape[:2]) // 30
-    return max(11, lado | 1)
+    """Vizinhança da limiarização: no mínimo 35 px, crescendo com a página (sempre ímpar).
+
+    Um bloco grande o bastante limpa o papel sem engrossar as letras; crescer com a
+    página evita que títulos grossos fiquem ocos em fotos de alta resolução.
+    """
+    return max(BLOCO_MINIMO, (min(imagem.shape[:2]) // 60) | 1)
 
 
 def _quadro_branco(imagem: np.ndarray) -> np.ndarray:
@@ -66,10 +70,13 @@ def _filtrar(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
         return clahe.apply(cinza)
 
     if filtro == "bw":
-        # A limiarização por blocos compara cada pixel com a sua vizinhança,
-        # por isso apaga sombras da mão ou do celular sobre o papel.
+        # A limiarização por blocos compara cada pixel com a sua vizinhança, por isso
+        # apaga sombras da mão ou do celular. A suavização leve antes evita letras
+        # serrilhadas e pontinhos de ruído no papel. Este filtro é só visual (tela e
+        # PDF): o OCR lê a página retificada original, nunca a binarizada.
+        suave = cv2.GaussianBlur(cinza, (3, 3), 0)
         return cv2.adaptiveThreshold(
-            cinza,
+            suave,
             255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
             cv2.THRESH_BINARY,

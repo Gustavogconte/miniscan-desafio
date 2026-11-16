@@ -177,3 +177,24 @@ def test_cors_aceita_origens_de_previa_por_regex(monkeypatch):
     assert origem_liberada("https://miniscan.vercel.app")
     assert origem_liberada("https://miniscan-git-main-gustavo.vercel.app")
     assert not origem_liberada("https://site-malicioso.com")
+
+
+def test_extrair_ocr_com_cantos_le_a_pagina_retificada_original(foto_documento_jpeg, monkeypatch):
+    recebida = {}
+
+    def ocr_falso(imagem, ignorar_graficos=True, regioes=None):
+        recebida["imagem"] = imagem
+        return "texto"
+
+    monkeypatch.setattr("app.rotas.extrair_texto_ocr", ocr_falso)
+    resposta = cliente.post(
+        "/extrair-ocr",
+        files={"imagem": arquivo(foto_documento_jpeg)},
+        data={"cantos": CANTOS_JSON},
+    )
+    assert resposta.status_code == 200
+    pagina = recebida["imagem"]
+    # Retificada (só a folha, sem a mesa) e colorida: nunca a versão binarizada.
+    assert pagina.ndim == 3 and pagina.shape[1] < 900
+    assert len(np.unique(pagina)) > 2
+    assert pagina[5:40, 5:40].mean() > 200

@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import pytest
 
@@ -86,3 +87,19 @@ class TestDecodificarImagem:
     def test_rejeita_arquivo_invalido(self, dados):
         with pytest.raises(ImagemInvalidaError):
             decodificar_imagem(dados)
+
+
+class TestCalibracaoPretoEBranco:
+    def test_bloco_impar_de_no_minimo_35(self):
+        from app.visao.filtros import _tamanho_bloco
+
+        for lado in (300, 1200, 2400, 4000):
+            bloco = _tamanho_bloco(np.zeros((lado, lado), np.uint8))
+            assert bloco >= 35 and bloco % 2 == 1
+
+    def test_papel_limpo_e_letras_sem_engrossar(self, pagina_plana):
+        resultado = aplicar_filtro(pagina_plana, "bw", preservar_graficos=False)
+        assert resultado[1000:1100, 100:700].min() == 255  # papel vazio sem pontos pretos
+        tinta_original = (cv2.cvtColor(pagina_plana, cv2.COLOR_BGR2GRAY) < 128).sum()
+        tinta_pb = (resultado < 128).sum()
+        assert tinta_pb < tinta_original * 1.25  # o traço não engorda

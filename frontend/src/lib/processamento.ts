@@ -54,24 +54,24 @@ export function useProcessamento() {
   );
 
   /**
-   * Extrai o texto da página já retificada. O PaddleOCR lê bem qualquer filtro,
-   * então reaproveita a versão que já está processada em vez de gerar outra.
+   * Extrai o texto da página a partir da foto original e dos cantos confirmados,
+   * independentemente do filtro escolhido para a tela e o PDF.
    */
   const executarOcr = useCallback(
-    async (id: string, paginaPronta?: Blob): Promise<void> => {
+    async (id: string): Promise<void> => {
       atualizarPagina(id, { estadoOcr: "carregando" });
       try {
         const pagina = lerPagina(id);
-        const jaProcessada = pagina && Object.values(pagina.processadas)[0];
-        const imagem = paginaPronta ?? jaProcessada?.blob ?? (await garantirProcessada(id, "original")).blob;
-        const texto = await extrairOcr(imagem, lerPagina(id)?.regioesGraficas);
+        if (!pagina) return;
+        const cantos = pagina.cantosConfirmados ?? pagina.cantos ?? CANTOS_TELA_INTEIRA;
+        const texto = await extrairOcr(pagina.original.blob, cantos, pagina.regioesGraficas);
         if (lerPagina(id)) atualizarPagina(id, { textoOcr: texto, estadoOcr: "pronto" });
       } catch (erro) {
         if (lerPagina(id)) atualizarPagina(id, { estadoOcr: "erro" });
         console.warn("OCR falhou:", mensagemDeErro(erro));
       }
     },
-    [atualizarPagina, garantirProcessada, lerPagina],
+    [atualizarPagina, lerPagina],
   );
 
   /** Retifica a página com os cantos escolhidos, guarda o resultado e lê o texto em segundo plano. */
@@ -90,7 +90,7 @@ export function useProcessamento() {
         textoOcr: "",
         estadoOcr: "pendente",
       });
-      void executarOcr(id, blob);
+      void executarOcr(id);
     },
     [atualizarPagina, executarOcr, lerPagina],
   );

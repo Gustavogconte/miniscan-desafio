@@ -151,16 +151,25 @@ def ler_regioes(regioes_json: str | None) -> list[Regiao] | None:
     response_model=RespostaOcr,
     responses={**ERROS_ENTRADA, status.HTTP_503_SERVICE_UNAVAILABLE: {"model": RespostaErro}},
     tags=["ocr"],
-    summary="Extrai o texto da página retificada (pt-BR)",
+    summary="Extrai o texto da página (foto original + cantos), em pt-BR",
 )
 def rota_extrair_ocr(
-    imagem: Annotated[UploadFile, File()],
+    imagem: Annotated[UploadFile, File(description="Foto original da página (ou já retificada)")],
+    cantos: Annotated[
+        str | None,
+        Form(description="Cantos da página na foto; com eles a API retifica a foto original"),
+    ] = None,
     regioes: Annotated[
         str | None,
         Form(description="Regiões devolvidas pelo /processar-pagina (evita detectar de novo)"),
     ] = None,
 ) -> RespostaOcr:
     matriz = decodificar_imagem(ler_arquivo(imagem))
+    # O OCR lê sempre a página retificada sem filtro: com os cantos, a própria API
+    # retifica a foto original (mesma função do /processar-pagina, mesmas coordenadas
+    # das regiões gráficas), sem depender do filtro escolhido para exibição.
+    if cantos is not None:
+        matriz = corrigir_perspectiva(matriz, ler_cantos(cantos))
     texto = extrair_texto_ocr(matriz, regioes=ler_regioes(regioes))
     return RespostaOcr(texto=texto, idioma=IDIOMA_OCR)
 

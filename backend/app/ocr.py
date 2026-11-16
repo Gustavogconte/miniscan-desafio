@@ -133,10 +133,12 @@ def ordenar_em_linhas(caixas: Sequence[np.ndarray], textos: Sequence[str]) -> st
 def extrair_texto_ocr(
     imagem: np.ndarray, ignorar_graficos: bool = True, regioes: list[Regiao] | None = None
 ) -> str:
-    """Lê o texto de uma página já retificada (qualquer filtro).
+    """Lê o texto da página retificada ORIGINAL (sem filtro).
 
-    O PaddleOCR se sai melhor com a imagem em tons de cinza do que binarizada,
-    então a página não passa mais pelo filtro preto e branco antes da leitura.
+    A rede do PaddleOCR usa os gradientes suaves (anti-aliasing) das bordas das letras;
+    a binarização do filtro P&B destrói esses gradientes. Com texto pequeno, ler a
+    versão P&B derruba a acurácia de ~99% para ~35%, então o P&B fica só para a
+    tela e o PDF.
     Com `ignorar_graficos`, figuras e fotos são apagadas antes, para não virarem
     caracteres soltos no texto. Se `regioes` vier preenchido (devolvido antes pelo
     /processar-pagina), a detecção de layout não roda de novo.

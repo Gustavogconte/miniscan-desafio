@@ -6,7 +6,7 @@ API em FastAPI que faz o processamento de imagem do MiniScan: detecta os cantos 
 |---|---|---|
 | `POST /detectar-cantos` | `imagem` (arquivo) | `{cantos: [{x, y}] × 4, detectado}`, coordenadas de 0 a 1 |
 | `POST /processar-pagina` | `imagem`, `cantos` (JSON), `filtro` (`original`, `grayscale` ou `bw`), `preservar_graficos` (padrão `true`) | página retificada em JPEG, ou PNG no filtro `bw`; o cabeçalho `X-Regioes-Graficas` traz as figuras detectadas |
-| `POST /extrair-ocr` | `imagem` (página retificada, qualquer filtro) e, opcionalmente, `regioes` (o JSON do cabeçalho acima, para não detectar de novo) | `{texto, idioma}`, com o texto em ordem de leitura |
+| `POST /extrair-ocr` | `imagem` (foto original), `cantos` (JSON; com eles a API retifica a foto e lê a página sem filtro) e, opcionalmente, `regioes` (o JSON do cabeçalho acima, para não detectar de novo). Sem `cantos`, a imagem é tratada como já retificada | `{texto, idioma}`, com o texto em ordem de leitura |
 | `POST /gerar-pdf` | `paginas` (vários arquivos, na ordem) | PDF A4 |
 | `POST /documentos` | `titulo`, `pdf`, `originais` e `processadas` (arquivos, na ordem), `paginas` (JSON com `filtro` e `texto_ocr` de cada página) | `201` com `{id, titulo, pdf_url, total_paginas}` |
 | `GET /saude` | — | `{status, ocr_disponivel, layout_disponivel, persistencia_configurada}` |
