@@ -1,26 +1,30 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_PROJECT_ENVIRONMENT=/opt/venv \
-    PATH="/opt/venv/bin:$PATH"
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Tesseract com o pacote de idioma português para o OCR.
+# Só bibliotecas de sistema do OpenCV/onnxruntime: OCR e layout rodam em ONNX,
+# sem Tesseract nem outros binários externos.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-por libglib2.0-0 \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
-
-COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /bin/uv
 
 WORKDIR /srv
 
 # Dependências primeiro, para aproveitar o cache de camadas do Docker.
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+# requirements.txt é gerado do uv.lock, com versões e hashes fixos.
+COPY requirements.txt .
+RUN pip install --require-hashes -r requirements.txt
 
 COPY app ./app
+# Pasta de modelos: o DocLayout-YOLO (models/doclayout_yolo.onnx) é opcional.
+COPY models ./models
+
+# Baixa os modelos do PaddleOCR (PP-OCRv5 latino) durante o build, para o
+# container nunca depender de download em produção.
+RUN python -c "from app.ocr import MotorOcr; MotorOcr.obter()"
 
 RUN useradd --create-home --uid 1000 miniscan
 USER miniscan
