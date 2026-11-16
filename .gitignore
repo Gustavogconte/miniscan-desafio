@@ -32,3 +32,6 @@ next-env.d.ts
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Modelos ONNX grandes (baixados ou exportados localmente)
+backend/models/*.onnx

@@ -5,6 +5,8 @@ from typing import Literal, get_args
 import cv2
 import numpy as np
 
+from app.visao.layout import DetectorLayout, Regiao, preservar_regioes
+
 # Os mesmos valores aceitos pela coluna document_pages.filter_applied.
 Filtro = Literal["original", "grayscale", "bw"]
 FILTROS: tuple[str, ...] = get_args(Filtro)
@@ -26,8 +28,7 @@ def _tamanho_bloco(imagem: np.ndarray) -> int:
     return max(11, lado | 1)
 
 
-def aplicar_filtro(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
-    """Aplica um dos filtros do MiniScan sobre a página já retificada."""
+def _filtrar(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
     if filtro == "original":
         return imagem
 
@@ -50,6 +51,33 @@ def aplicar_filtro(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
         )
 
     raise ValueError(f"Filtro desconhecido: {filtro!r}. Use um de {FILTROS}.")
+
+
+def aplicar_filtro(
+    imagem: np.ndarray, filtro: Filtro, preservar_graficos: bool = True
+) -> np.ndarray:
+    """Aplica um dos filtros do MiniScan sobre a página já retificada.
+
+    Com `preservar_graficos`, fotos, figuras e assinaturas detectadas pelo modelo de
+    layout continuam com a imagem original sobre o fundo filtrado. Sem o modelo
+    instalado, o filtro é aplicado na página inteira.
+    """
+    return aplicar_filtro_com_regioes(imagem, filtro, preservar_graficos)[0]
+
+
+def aplicar_filtro_com_regioes(
+    imagem: np.ndarray, filtro: Filtro, preservar_graficos: bool = True
+) -> tuple[np.ndarray, list[Regiao] | None]:
+    """Como `aplicar_filtro`, mas devolve também as regiões gráficas usadas.
+
+    As regiões voltam como None quando a detecção não foi feita (filtro original
+    ou preservação desligada), para quem chama saber que ainda precisa detectar.
+    """
+    filtrada = _filtrar(imagem, filtro)
+    if filtro == "original" or not preservar_graficos or imagem.ndim != 3:
+        return filtrada, None
+    regioes = DetectorLayout.obter().detectar(imagem)
+    return preservar_regioes(filtrada, imagem, regioes), regioes
 
 
 def formato_saida(filtro: Filtro) -> tuple[str, str]:
