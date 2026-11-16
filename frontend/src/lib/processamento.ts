@@ -17,26 +17,38 @@ export function useProcessamento() {
       const emCache = pagina.processadas[filtro];
       if (emCache) return emCache;
 
-      const blob = await processarPagina(pagina.original.blob, pagina.cantos ?? CANTOS_TELA_INTEIRA, filtro);
+      const { blob, regioesGraficas } = await processarPagina(
+        pagina.original.blob,
+        pagina.cantos ?? CANTOS_TELA_INTEIRA,
+        filtro,
+      );
       const imagem = criarImagemLocal(blob);
       const atual = lerPagina(id);
       if (!atual) {
         URL.revokeObjectURL(imagem.url); // a página foi descartada enquanto processava
         throw new Error("Página descartada.");
       }
-      atualizarPagina(id, { processadas: { ...atual.processadas, [filtro]: imagem } });
+      atualizarPagina(id, {
+        processadas: { ...atual.processadas, [filtro]: imagem },
+        regioesGraficas: regioesGraficas ?? atual.regioesGraficas,
+      });
       return imagem;
     },
     [lerPagina, atualizarPagina],
   );
 
-  /** Extrai o texto sempre da versão em preto e branco, que dá a melhor leitura. */
+  /**
+   * Extrai o texto da página já retificada. O PaddleOCR lê bem qualquer filtro,
+   * então reaproveita a versão que já está processada em vez de gerar outra.
+   */
   const executarOcr = useCallback(
-    async (id: string, pretoEBrancoPronto?: Blob): Promise<void> => {
+    async (id: string, paginaPronta?: Blob): Promise<void> => {
       atualizarPagina(id, { estadoOcr: "carregando" });
       try {
-        const pretoEBranco = pretoEBrancoPronto ?? (await garantirProcessada(id, "bw")).blob;
-        const texto = await extrairOcr(pretoEBranco);
+        const pagina = lerPagina(id);
+        const jaProcessada = pagina && Object.values(pagina.processadas)[0];
+        const imagem = paginaPronta ?? jaProcessada?.blob ?? (await garantirProcessada(id, "original")).blob;
+        const texto = await extrairOcr(imagem, lerPagina(id)?.regioesGraficas);
         if (lerPagina(id)) atualizarPagina(id, { textoOcr: texto, estadoOcr: "pronto" });
       } catch (erro) {
         if (lerPagina(id)) atualizarPagina(id, { estadoOcr: "erro" });

@@ -59,12 +59,17 @@ export default function TelaRecorte() {
     setConfirmando(true);
     const alvo = pagina!;
     try {
-      const blob = await processarPagina(alvo.original.blob, cantos, alvo.filtro);
-      // Cantos novos invalidam as versões já processadas e o texto lido antes.
+      const { blob, regioesGraficas } = await processarPagina(alvo.original.blob, cantos, alvo.filtro);
+      // Cantos novos invalidam as versões já processadas, as figuras e o texto lido antes.
       liberarImagens(Object.values(alvo.processadas));
       const imagem = criarImagemLocal(blob);
-      atualizarPagina(alvo.id, { processadas: { [alvo.filtro]: imagem }, textoOcr: "", estadoOcr: "pendente" });
-      void executarOcr(alvo.id, alvo.filtro === "bw" ? blob : undefined);
+      atualizarPagina(alvo.id, {
+        processadas: { [alvo.filtro]: imagem },
+        regioesGraficas,
+        textoOcr: "",
+        estadoOcr: "pendente",
+      });
+      void executarOcr(alvo.id, blob);
       router.push("/digitalizar/editor");
     } catch (erro) {
       avisar(mensagemDeErro(erro), "erro");

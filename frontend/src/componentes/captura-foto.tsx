@@ -41,6 +41,7 @@ export function useCapturaFoto() {
         detectado: false,
         filtro: "bw",
         processadas: {},
+        regioesGraficas: null,
         textoOcr: "",
         estadoOcr: "pendente",
       });

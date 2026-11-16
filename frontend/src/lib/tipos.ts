@@ -46,6 +46,8 @@ export interface Pagina {
   detectado: boolean;
   filtro: Filtro;
   processadas: Partial<Record<Filtro, ImagemLocal>>;
+  /** Figuras detectadas na página retificada (JSON vindo da API), reaproveitadas no OCR. */
+  regioesGraficas: string | null;
   textoOcr: string;
   estadoOcr: EstadoOcr;
 }

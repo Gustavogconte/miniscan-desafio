@@ -43,17 +43,26 @@ export async function detectarCantos(imagem: Blob): Promise<{ cantos: Cantos; de
   return (await enviar("/detectar-cantos", corpo)).json();
 }
 
-export async function processarPagina(imagem: Blob, cantos: Cantos, filtro: Filtro): Promise<Blob> {
+export interface PaginaProcessada {
+  blob: Blob;
+  /** JSON das figuras detectadas (cabeçalho X-Regioes-Graficas); null se não houve detecção. */
+  regioesGraficas: string | null;
+}
+
+export async function processarPagina(imagem: Blob, cantos: Cantos, filtro: Filtro): Promise<PaginaProcessada> {
   const corpo = new FormData();
   corpo.append("imagem", imagem, nomeArquivo(imagem, "foto"));
   corpo.append("cantos", JSON.stringify(cantos));
   corpo.append("filtro", filtro);
-  return (await enviar("/processar-pagina", corpo)).blob();
+  const resposta = await enviar("/processar-pagina", corpo);
+  return { blob: await resposta.blob(), regioesGraficas: resposta.headers.get("X-Regioes-Graficas") };
 }
 
-export async function extrairOcr(pagina: Blob): Promise<string> {
+/** Com `regioesGraficas`, a API reaproveita as figuras já detectadas e responde ~2 s mais rápido. */
+export async function extrairOcr(pagina: Blob, regioesGraficas?: string | null): Promise<string> {
   const corpo = new FormData();
   corpo.append("imagem", pagina, nomeArquivo(pagina, "pagina"));
+  if (regioesGraficas) corpo.append("regioes", regioesGraficas);
   const resposta: { texto: string } = await (await enviar("/extrair-ocr", corpo)).json();
   return resposta.texto;
 }
