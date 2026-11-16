@@ -48,3 +48,21 @@ O OpenCV.js (cerca de 11 MB) não vai para o Git. O script `scripts/copiar-openc
 4. Libere o domínio da Vercel no CORS da API (variável `MINISCAN_ORIGENS_CORS` do Space; veja `backend/README.md`).
 
 O `next.config.ts` envia cabeçalhos de segurança (câmera liberada só para o próprio app, bloqueio de iframe) e deixa o OpenCV.js em cache permanente, porque o nome do arquivo já tem a versão. A cada push, o GitHub Actions (`.github/workflows/frontend.yml`) roda lint, tipos, testes e build.
+
+## Testar no celular com um túnel HTTPS (sem deploy)
+
+Para testar a câmera ao vivo no celular sem publicar nada, a API e o app rodam no computador e um túnel gratuito da Cloudflare (`cloudflared`) dá uma URL HTTPS pública. O app é compilado no modo de mesma origem: `/api/*` é encaminhado pelo próprio Next para a API local, então basta um túnel e não há CORS.
+
+```bash
+# 1. API (em backend/)
+uv run uvicorn app.main:app --port 8000 --env-file .env
+
+# 2. App (em frontend/). No Git Bash, MSYS_NO_PATHCONV=1 impede que "/api" vire um caminho do Windows.
+MSYS_NO_PATHCONV=1 MINISCAN_API_INTERNA=http://127.0.0.1:8000 NEXT_PUBLIC_API_URL=/api npm run build
+npx next start -p 3000
+
+# 3. Túnel: imprime uma URL https://....trycloudflare.com para abrir no celular
+cloudflared tunnel --url http://localhost:3000
+```
+
+A URL muda a cada vez que o túnel é aberto e só funciona com o computador ligado e os três processos rodando.

@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  /**
+   * Com MINISCAN_API_INTERNA definida no build, /api/* é encaminhado para a API
+   * (ex.: http://127.0.0.1:8000). Assim o app e a API ficam na mesma origem: basta
+   * um túnel HTTPS para o celular e não há CORS. Sem a variável, nada é reescrito
+   * e o front-end chama a API pelo NEXT_PUBLIC_API_URL.
+   */
+  async rewrites() {
+    const apiInterna = process.env.MINISCAN_API_INTERNA?.replace(/\/$/, "");
+    return apiInterna ? [{ source: "/api/:caminho*", destination: `${apiInterna}/:caminho*` }] : [];
+  },
   async headers() {
     return [
       {
