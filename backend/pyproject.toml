@@ -1,0 +1,35 @@
+[project]
+name = "miniscan-api"
+version = "0.1.0"
+description = "API de visão computacional do MiniScan: detecção de cantos, correção de perspectiva, filtros, OCR e PDF."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+    "opencv-python-headless>=4.10",
+    "numpy>=2.0",
+    "pytesseract>=0.3.13",
+    "img2pdf>=0.5",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.2",
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
