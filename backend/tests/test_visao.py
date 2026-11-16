@@ -65,9 +65,11 @@ class TestFiltros:
     def test_cinza_tem_um_canal(self, pagina_plana):
         assert aplicar_filtro(pagina_plana, "grayscale").ndim == 2
 
-    def test_preto_e_branco_e_binario(self, pagina_plana):
-        resultado = aplicar_filtro(pagina_plana, "bw")
-        assert set(np.unique(resultado)) <= {0, 255}
+    def test_preto_e_branco_quase_binario_e_ampliado(self, pagina_plana):
+        resultado = aplicar_filtro(pagina_plana, "bw", preservar_graficos=False)
+        # Papel e tinta puros; tons intermediários só na borda suave das letras.
+        assert ((resultado > 0) & (resultado < 255)).mean() < 0.05
+        assert max(resultado.shape) >= 2000  # página pequena é ampliada antes
 
     def test_preto_e_branco_remove_sombra(self, pagina_plana):
         # Sombra forte em degradê sobre metade da página, como a da mão sobre o papel.
@@ -99,7 +101,11 @@ class TestCalibracaoPretoEBranco:
 
     def test_papel_limpo_e_letras_sem_engrossar(self, pagina_plana):
         resultado = aplicar_filtro(pagina_plana, "bw", preservar_graficos=False)
-        assert resultado[1000:1100, 100:700].min() == 255  # papel vazio sem pontos pretos
-        tinta_original = (cv2.cvtColor(pagina_plana, cv2.COLOR_BGR2GRAY) < 128).sum()
-        tinta_pb = (resultado < 128).sum()
+        fator = resultado.shape[0] / pagina_plana.shape[0]
+        vazio = resultado[
+            int(1000 * fator) : int(1100 * fator), int(100 * fator) : int(700 * fator)
+        ]
+        assert vazio.min() == 255  # papel vazio sem pontos pretos
+        tinta_original = (cv2.cvtColor(pagina_plana, cv2.COLOR_BGR2GRAY) < 128).mean()
+        tinta_pb = (resultado < 128).mean()
         assert tinta_pb < tinta_original * 1.25  # o traço não engorda

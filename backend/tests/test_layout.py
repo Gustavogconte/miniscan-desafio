@@ -114,8 +114,11 @@ def test_filtro_preserva_figura_detectada(monkeypatch, pagina_plana):
 
     com = aplicar_filtro(pagina, "bw", preservar_graficos=True)
     sem = aplicar_filtro(pagina, "bw", preservar_graficos=False)
-    assert com[750, 250].tolist() == [40, 120, 200]
-    assert sem.ndim == 2 and sem[750, 250] in (0, 255)
+    # O P&B amplia a página pequena; a figura acompanha a mesma escala.
+    fator = com.shape[0] / pagina.shape[0]
+    centro = (int(750 * fator), int(250 * fator))
+    assert com[centro].tolist() == [40, 120, 200]
+    assert sem.ndim == 2 and sem[centro] in (0, 255)
 
 
 def test_cache_evita_inferir_duas_vezes_a_mesma_pagina():
