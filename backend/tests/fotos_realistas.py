@@ -132,3 +132,76 @@ def cenarios_dificeis() -> dict[str, tuple[np.ndarray, np.ndarray]]:
         "dedo_no_canto": (com_dedo, verdade_dedo),
         "canto_dobrado": (dobrada, verdade_dobrada),
     }
+
+
+def _fundo_ocre(cor_bgr, rng: np.random.Generator, veios: bool) -> np.ndarray:
+    base = np.full((ALTURA, LARGURA, 3), cor_bgr, np.float32)
+    if veios:  # madeira clara / MDF: veios suaves da mesma cor
+        xx = np.arange(LARGURA, dtype=np.float32)[None, :]
+        yy = np.arange(ALTURA, dtype=np.float32)[:, None]
+        base += (6 * np.sin(xx / 11 + 4 * np.sin(yy / 160)))[..., None]
+    base += rng.normal(0, 5, base.shape).astype(np.float32)
+    return np.clip(base, 0, 255)
+
+
+def _luz_quente(foto: np.ndarray, intensidade: float = 0.12) -> np.ndarray:
+    """Lâmpada amarelada: tira azul e põe vermelho, deixando o papel branco meio bege."""
+    quente = foto.astype(np.float32) * np.float32([1 - intensidade, 1.0, 1 + intensidade * 0.4])
+    return np.clip(quente, 0, 255).astype(np.uint8)
+
+
+def cenarios_ocre() -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """Fundos ocre/bege parecidos com o papel: o caso mais difícil para a detecção."""
+    rng = np.random.default_rng(21)
+    pagina = _pagina(rng)
+    madeira_clara, v1 = _fotografar(
+        pagina, _fundo_ocre((150, 195, 225), rng, True), INCLINADA, seed=21
+    )
+    mdf_bege, v2 = _fotografar(pagina, _fundo_ocre((175, 205, 222), rng, True), QUASE_RETA, seed=22)
+    ocre, v3 = _fotografar(pagina, _fundo_ocre((95, 160, 205), rng, False), INCLINADA, seed=23)
+    bege_quente, v4 = _fotografar(
+        pagina, _fundo_ocre((185, 210, 228), rng, False), QUASE_RETA, sombra=0.3, seed=24
+    )
+    return {
+        "madeira_clara": (madeira_clara, v1),
+        "mdf_bege": (mdf_bege, v2),
+        "ocre": (ocre, v3),
+        "bege_luz_quente_sombra": (_luz_quente(bege_quente), v4),
+    }
+
+
+def _como_video(foto: np.ndarray, desfoque: int = 5) -> np.ndarray:
+    """Quadro de vídeo de celular: 720p, desfocado, comprimido, depois ampliado de volta."""
+    altura, largura = foto.shape[:2]
+    reduzida = cv2.resize(foto, (540, 720), interpolation=cv2.INTER_AREA)
+    reduzida = cv2.GaussianBlur(reduzida, (desfoque, desfoque), 0)
+    reduzida = cv2.imdecode(
+        cv2.imencode(".jpg", reduzida, [cv2.IMWRITE_JPEG_QUALITY, 55])[1], cv2.IMREAD_COLOR
+    )
+    return cv2.resize(reduzida, (largura, altura), interpolation=cv2.INTER_LINEAR)
+
+
+def cenarios_ocre_dificeis() -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """Papel bege quase da cor da mesa, como sai num quadro de vídeo do celular."""
+    rng = np.random.default_rng(31)
+    pagina_bege = _pagina(rng, cor=(205, 222, 232))  # papel sob luz quente
+    cenarios = {}
+    for nome, fundo, cantos, sombra in [
+        (
+            "bege_sobre_mdf_video",
+            (180, 208, 226),
+            QUASE_RETA,
+            0.0,
+        ),  # brilho ~10 níveis abaixo do papel
+        ("bege_sobre_ocre_video", (140, 190, 222), INCLINADA, 0.0),
+        ("bege_sobre_madeira_clara_sombra", (170, 200, 222), INCLINADA, 0.3),
+    ]:
+        foto, verdade = _fotografar(
+            pagina_bege,
+            _fundo_ocre(fundo, rng, True),
+            cantos,
+            sombra=sombra,
+            seed=len(cenarios) + 31,
+        )
+        cenarios[nome] = (_como_video(foto), verdade)
+    return cenarios
