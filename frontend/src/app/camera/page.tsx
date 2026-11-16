@@ -211,7 +211,8 @@ export default function TelaCamera() {
     if (processando) return processando;
     if (modo === "qrcode") return "Aponte para o QR code";
     if (modo === "cartao") return `Encaixe ${ladoAtual} do documento na moldura`;
-    if (!deteccao.pronto) return "Preparando a detecção…";
+    if (deteccao.falhou) return "Recorte ao vivo indisponível aqui: toque no botão para fotografar";
+    if (!deteccao.pronto) return "Carregando o recorte ao vivo (3,5 MB)…";
     if (capturando) return "Capturando…";
     if (!deteccao.cantos) return MODOS.find((m) => m.valor === modo)?.dica ?? "Enquadre o documento";
     if (!automatico) return "Toque no botão para fotografar";

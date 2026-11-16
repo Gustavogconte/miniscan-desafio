@@ -119,6 +119,8 @@ export interface DeteccaoAoVivo {
   estabilidade: number;
   /** O OpenCV.js terminou de carregar. */
   pronto: boolean;
+  /** O detector não pôde ser carregado neste aparelho (sobra a foto manual). */
+  falhou: boolean;
 }
 
 interface RespostaWorker {
@@ -135,7 +137,12 @@ export function useDetectorAoVivo(
   useEffect(() => {
     retorno.current = aoEstabilizar;
   }, [aoEstabilizar]);
-  const [deteccao, setDeteccao] = useState<DeteccaoAoVivo>({ cantos: null, estabilidade: 0, pronto: false });
+  const [deteccao, setDeteccao] = useState<DeteccaoAoVivo>({
+    cantos: null,
+    estabilidade: 0,
+    pronto: false,
+    falhou: false,
+  });
 
   useEffect(() => {
     if (!ativo) return;
@@ -172,6 +179,13 @@ export function useDetectorAoVivo(
         quadro.data.buffer,
       ]);
     }
+
+    // Falha ao baixar ou iniciar o OpenCV.js (rede, memória, navegador antigo).
+    worker.onerror = (evento) => {
+      evento.preventDefault();
+      parar = true;
+      setDeteccao({ cantos: null, estabilidade: 0, pronto: false, falhou: true });
+    };
 
     worker.onmessage = (evento: MessageEvent<RespostaWorker>) => {
       if (evento.data.tipo === "pronto") {
@@ -217,6 +231,7 @@ export function useDetectorAoVivo(
         cantos: suavizados,
         estabilidade: travado ? 0 : Math.min(1, estaveis / QUADROS_ESTAVEIS),
         pronto: true,
+        falhou: false,
       });
       agendar();
     };
@@ -228,7 +243,7 @@ export function useDetectorAoVivo(
     };
   }, [ativo, video]);
 
-  return ativo ? deteccao : { cantos: null, estabilidade: 0, pronto: deteccao.pronto };
+  return ativo ? deteccao : { cantos: null, estabilidade: 0, pronto: deteccao.pronto, falhou: deteccao.falhou };
 }
 
 // ---------------------------------------------------------------------------
