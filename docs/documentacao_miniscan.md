@@ -48,9 +48,9 @@ flowchart LR
 
 Quando o usuário envia uma foto, o código primeiro redimensiona a imagem para acelerar o cálculo, converte para tons de cinza (cvtColor), aplica um filtro de suavização para tirar ruídos (GaussianBlur) e detecta as bordas da folha (Canny). Com as bordas marcadas, o programa procura os maiores contornos fechados (findContours) e aproxima o formato para um polígono de quatro pontas (approxPolyDP), devolvendo essas coordenadas para a tela caso o usuário precise ajustar os cantos na mão antes de confirmar.
 
-Para deixar o documento reto como se tivesse sido escaneado de frente, a função de transformação de perspectiva (corrigirPerspectiva) ordena os quatro cantos escolhidos, calcula a matriz de homografia (getPerspectiveTransform) e faz o recorte ortogonal da folha (warpPerspective). Já na etapa dos filtros (aplicarFiltros), o modo original mantém as cores da foto corrigida, o modo escala de cinza usa equalização adaptativa de histograma (CLAHE) para equilibrar a luz da página e o modo preto e branco aplica uma limiarização adaptativa (adaptiveThreshold), que calcula o contraste por pequenos blocos de pixels e apaga sombras da mão ou do celular sobre o papel.
+Para deixar o documento reto como se tivesse sido escaneado de frente, a função de transformação de perspectiva (corrigir_perspectiva) ordena os quatro cantos escolhidos, calcula a matriz de homografia (getPerspectiveTransform) e faz o recorte ortogonal da folha (warpPerspective). Já na etapa dos filtros (aplicar_filtro), o modo original mantém as cores da foto corrigida, o modo escala de cinza usa equalização adaptativa de histograma (CLAHE) para equilibrar a luz da página e o modo preto e branco aplica uma limiarização adaptativa (adaptiveThreshold), que calcula o contraste por pequenos blocos de pixels e apaga sombras da mão ou do celular sobre o papel.
 
-Como extra, implementei a extração de texto (extrairTextoOCR) passando a imagem já limpa pelo filtro preto e branco para o motor de reconhecimento óptico (pytesseract configurado em português), porque tirar as sombras antes melhora bastante a leitura das letras. Por fim, o sistema junta todas as páginas processadas em um único arquivo PDF (gerarPDF com img2pdf), envia o arquivo para o armazenamento em nuvem (Supabase Storage) e libera o download ou o menu nativo de compartilhamento do celular (navigator.share).
+Como extra, implementei a extração de texto (extrair_texto_ocr) passando a imagem já limpa pelo filtro preto e branco para o motor de reconhecimento óptico (pytesseract configurado em português), porque tirar as sombras antes melhora bastante a leitura das letras. Por fim, o sistema junta todas as páginas processadas em um único arquivo PDF (gerar_pdf com img2pdf), envia o arquivo para o armazenamento em nuvem (Supabase Storage) e libera o download ou o menu nativo de compartilhamento do celular (navigator.share).
 
 ### Diagrama de Sequência
 
@@ -64,18 +64,25 @@ sequenceDiagram
     participant SB as Supabase (Storage + Postgres)
 
     U->>PWA: Captura foto ou seleciona da galeria
-    PWA->>API: POST /processar-imagem (imagem bruta)
-    API->>API: Canny + approxPolyDP + warpPerspective
-    API->>API: Gera versões (Original, Cinza CLAHE, P&B Adaptativo)
-    API->>OCR: Envia matriz P&B Adaptativa
+    PWA->>API: POST /detectar-cantos (imagem bruta)
+    API->>API: Canny + morphologyEx + findContours + approxPolyDP
+    API-->>PWA: Retorna os 4 cantos normalizados (0..1)
+    U->>PWA: Ajusta os cantos e confirma o recorte
+    PWA->>API: POST /processar-pagina (imagem + cantos + filtro)
+    API->>API: warpPerspective + filtro (Original, Cinza CLAHE ou P&B adaptativo)
+    API-->>PWA: Retorna a página retificada e filtrada
+    PWA->>API: POST /extrair-ocr (página retificada)
+    API->>OCR: Envia matriz P&B adaptativa
     OCR-->>API: Retorna texto extraído (pt-BR)
-    API-->>PWA: Retorna previews e texto OCR
-    U->>PWA: Escolhe filtro e confirma geração de PDF
-    PWA->>API: POST /gerar-pdf (páginas selecionadas)
-    API->>SB: Upload do PDF e imagens no Storage
+    API-->>PWA: Retorna o texto OCR
+    U->>PWA: Confirma a geração do PDF
+    PWA->>API: POST /gerar-pdf (páginas ordenadas)
+    API-->>PWA: Retorna o PDF único (img2pdf)
+    PWA->>API: POST /documentos (PDF, imagens, filtros e textos OCR)
+    API->>SB: Upload do PDF e das imagens no Storage
     SB-->>API: URLs públicas geradas
     API->>SB: INSERT em documents e document_pages
-    API-->>PWA: Retorna URL final do PDF
+    API-->>PWA: Retorna a URL final do PDF
     PWA->>U: Abre menu nativo (navigator.share) ou download
 ```
 
@@ -88,6 +95,8 @@ sequenceDiagram
 Para guardar os arquivos e permitir a pesquisa pelo texto lido dentro das imagens, estruturei o banco relacional (PostgreSQL no Supabase) com duas tabelas ligadas por chave estrangeira, a tabela de documentos (documents), que armazena o identificador único, o título, a data de criação, a data de atualização, a contagem automática de páginas e o link público do PDF gerado, e a tabela de páginas (document_pages), que guarda o vínculo com o documento pai, a ordem da página com restrição de unicidade, os links das imagens original e processada no armazenamento (Supabase Storage), o filtro escolhido e o texto extraído pelo OCR.
 
 Na revisão de segurança e desempenho do banco, ativei a segurança em nível de linha (Row Level Security) em todas as tabelas e no armazenamento de arquivos, criei índices compostos para acelerar as consultas e exclusões em cascata, adicionei índices de busca textual em português (GIN com to_tsvector) para pesquisar documentos pelo conteúdo extraído no OCR, configurei gatilhos automáticos (Triggers) para atualizar o contador de páginas e a data de modificação, e limitei o armazenamento do bucket (miniscan-files) a arquivos de imagem e PDF de até 15 MB.
+
+Como o MVP não tem tela de login, as políticas de acesso desta primeira versão liberam leitura, escrita e exclusão para o papel anônimo, e o bucket de arquivos é público. Isso é suficiente para a demonstração, mas significa que qualquer pessoa com a chave pública do projeto consegue alterar ou apagar o histórico. A evolução prevista é concentrar as gravações na API, que usa a chave de serviço do Supabase, deixar o papel anônimo apenas com leitura e, depois, adotar o login anônimo do Supabase para separar o histórico de cada aparelho.
 
 ### Diagrama Entidade-Relacionamento (DER)
 
