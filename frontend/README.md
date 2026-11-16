@@ -1,0 +1,38 @@
+# MiniScan PWA
+
+Front-end do MiniScan em Next.js 16 (App Router, TypeScript e Tailwind CSS v4), instalável como PWA no Android e no iPhone.
+
+A câmera ao vivo detecta a folha a cada quadro com o OpenCV.js, rodando num Web Worker (`public/workers/`). Ela usa o mesmo pipeline do backend: Canny, fechamento morfológico e quadrilátero convexo. O contorno fica verde quando a folha para, e a foto é tirada sozinha depois de cerca de 0,7 s parada. O recorte final, os filtros, o OCR e o PDF ficam com a API em `../backend`.
+
+Modos da câmera:
+
+- **Digitalizar:** fluxo padrão, uma foto por vez (Único) ou várias seguidas (Lote).
+- **Extrair texto:** abre o texto reconhecido logo depois do recorte.
+- **Cartão ID:** frente e verso de RG, CNH ou cartão, ou a página do passaporte, montados numa folha A4 em tamanho real.
+- **Livro:** uma foto do livro aberto vira duas páginas; a lombada é encontrada sozinha.
+- **Quadro branco:** filtro que tira o reflexo e realça a cor das canetas.
+- **QR code:** leitura ao vivo, com o `BarcodeDetector` do navegador ou, no Safari, pela API.
+
+## Rodando localmente
+
+```bash
+cd frontend
+npm install            # também copia o OpenCV.js para public/vendor/
+cp .env.example .env.local
+npm run dev
+```
+
+No `.env.local`, preencha `NEXT_PUBLIC_API_URL` com o endereço da API e use a chave **publishable** do Supabase em `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Nunca use a chave secreta: o RLS deixa a chave pública só com leitura.
+
+A câmera ao vivo usa a `getUserMedia`, que exige contexto seguro. Ela funciona em `localhost` e em sites HTTPS. No celular, pela rede local em http, a tela oferece a câmera nativa do sistema e a galeria como alternativa.
+
+## Testes e verificações
+
+```bash
+npm test          # detecção de cantos do OpenCV.js (node:test)
+npx tsc --noEmit
+npm run lint
+npm run build
+```
+
+O OpenCV.js (cerca de 11 MB) não vai para o Git. O script `scripts/copiar-opencv.mjs` o copia de `node_modules` antes do `dev` e do `build`.

@@ -56,6 +56,12 @@ A vantagem dessa arquitetura é que a detecção de layout e o OCR passaram a ro
 
 Por fim, o sistema junta todas as páginas processadas em um único arquivo PDF (gerar_pdf com img2pdf), envia o arquivo para o armazenamento em nuvem (Supabase Storage) e libera o download ou o menu nativo de compartilhamento do celular (navigator.share).
 
+### Câmera ao Vivo e Modos de Digitalização
+
+Para a captura ficar parecida com a de um aplicativo nativo, a câmera do celular passou a fazer o recorte ao vivo. O mesmo pipeline de detecção de bordas do servidor (GaussianBlur, Canny, morphologyEx, findContours e approxPolyDP) roda no próprio navegador com o OpenCV.js, dentro de um Web Worker para não travar a interface, analisando uma versão reduzida de cada quadro do vídeo. O contorno encontrado é desenhado por cima da imagem da câmera e suavizado entre os quadros, e quando os quatro cantos ficam parados por cerca de 0,7 segundo a foto é tirada sozinha, já com os cantos detectados. No modo lote várias páginas são fotografadas em sequência, e a mesma folha não é fotografada de novo enquanto não sair do enquadramento.
+
+Além do modo de digitalização comum, criei modos para situações específicas. No modo de cartão de identidade, a frente e o verso do documento são retificados e montados numa folha A4 no tamanho real do cartão (85,6 por 54 milímetros, ou 125 por 88 milímetros no caso do passaporte), como numa cópia autenticada. No modo livro, uma única foto do livro aberto vira duas páginas: o servidor procura a sombra vertical da lombada perto do meio da imagem retificada e leva a linha de corte de volta para a foto original pela homografia inversa, de modo que cada página é recortada direto da foto, sem perder resolução. O modo de quadro branco usa um filtro próprio que estima a iluminação do fundo com uma dilatação seguida de mediana e divide a foto por ela, o que tira o reflexo da lâmpada e deixa o quadro uniformemente branco, e depois reforça a saturação das canetas. Há ainda um modo que extrai o texto direto depois do recorte, a leitura de QR codes ao vivo e a opção de carimbar a data e a hora em cada página do PDF.
+
 ### Diagrama de Sequência
 
 ```mermaid

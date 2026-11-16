@@ -27,6 +27,7 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
    - Paleta Dark: fundo `#0F172A`, cards `#1E293B`, elevado `#334155`, destaque `#3B82F6`, texto `#F8FAFC` / `#CBD5E1`.
    - Tipografia: `Space Grotesk` (títulos), `IBM Plex Sans` (corpo) e `JetBrains Mono` (metadados/OCR).
    - Fluxo validado de 4 telas: (1) Início & Busca OCR, (2) Ajuste de Perspectiva 4 pontos, (3) Editor de Filtros & Gaveta OCR, (4) Exportação & Compartilhamento PDF.
+4. **Câmera ao vivo e modos (`/camera`, Fase 1):** detecção da folha a cada quadro com OpenCV.js num Web Worker (`frontend/public/workers/detectar-cantos.js`, mesmo pipeline de `bordas.py`), captura automática quando a folha fica parada (~0,7 s), Único/Lote e os modos Digitalizar, Extrair texto, Cartão ID (`/compor-cartao`, A4 em tamanho real), Livro (`/dividir-livro`, lombada pela sombra + homografia inversa), Quadro branco (filtro `whiteboard`, migração `20261116000003`) e QR code (`BarcodeDetector` ou `/ler-qrcode`). O PDF aceita carimbo de data e hora. A `getUserMedia` exige HTTPS no celular; sem ela, a tela cai para a câmera nativa e a galeria.
 
 ## 4. Pipeline de Visão Computacional (Especificação para `/backend`)
 
