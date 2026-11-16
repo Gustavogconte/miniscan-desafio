@@ -2,7 +2,7 @@
 
 ## 1. Introdução
 
-Nesse trabalho o objetivo foi desenvolver um aplicativo de digitalização de documentos inspirado no CamScanner, rodando tanto no Android quanto no iPhone a partir de uma aplicação web instalável (PWA) feita em Next.js, integrada com uma API em Python (FastAPI) para o processamento de imagem e reconhecimento de texto (OCR), além do Supabase para salvar os arquivos e o histórico na nuvem. Dividi o projeto em duas camadas principais, a interface do usuário no front-end (Next.js e Tailwind CSS), onde ficam a captura pela câmera ou galeria, o ajuste manual dos pontos de corte, a visualização dos filtros e o compartilhamento do arquivo final, e o servidor no back-end (FastAPI, OpenCV, Tesseract e img2pdf), que recebe a foto e faz todo o tratamento de visão computacional.
+Nesse trabalho o objetivo foi desenvolver um aplicativo de digitalização de documentos inspirado no CamScanner, rodando tanto no Android quanto no iPhone a partir de uma aplicação web instalável (PWA) feita em Next.js, integrada com uma API em Python (FastAPI) para o processamento de imagem e reconhecimento de texto (OCR), além do Supabase para salvar os arquivos e o histórico na nuvem. Dividi o projeto em duas camadas principais, a interface do usuário no front-end (Next.js e Tailwind CSS), onde ficam a captura pela câmera ou galeria, o ajuste manual dos pontos de corte, a visualização dos filtros e o compartilhamento do arquivo final, e o servidor no back-end (FastAPI, OpenCV, PaddleOCR e DocLayout-YOLO em ONNX Runtime, e img2pdf), que recebe a foto e faz todo o tratamento de visão computacional.
 
 ---
 
@@ -50,7 +50,11 @@ Quando o usuário envia uma foto, o código primeiro redimensiona a imagem para 
 
 Para deixar o documento reto como se tivesse sido escaneado de frente, a função de transformação de perspectiva (corrigir_perspectiva) ordena os quatro cantos escolhidos, calcula a matriz de homografia (getPerspectiveTransform) e faz o recorte ortogonal da folha (warpPerspective). Já na etapa dos filtros (aplicar_filtro), o modo original mantém as cores da foto corrigida, o modo escala de cinza usa equalização adaptativa de histograma (CLAHE) para equilibrar a luz da página e o modo preto e branco aplica uma limiarização adaptativa (adaptiveThreshold), que calcula o contraste por pequenos blocos de pixels e apaga sombras da mão ou do celular sobre o papel.
 
-Como extra, implementei a extração de texto (extrair_texto_ocr) passando a imagem já limpa pelo filtro preto e branco para o motor de reconhecimento óptico (pytesseract configurado em português), porque tirar as sombras antes melhora bastante a leitura das letras. Por fim, o sistema junta todas as páginas processadas em um único arquivo PDF (gerar_pdf com img2pdf), envia o arquivo para o armazenamento em nuvem (Supabase Storage) e libera o download ou o menu nativo de compartilhamento do celular (navigator.share).
+Como extra, implementei a extração de texto (extrair_texto_ocr) com o PaddleOCR, usando os modelos PP-OCRv5 latinos em ONNX, que cobrem o português com acentos. Antes da leitura, o modelo DocLayout-YOLO, também em ONNX, localiza as figuras, fotos e assinaturas da página. Essas áreas são apagadas da imagem que vai para o OCR, para não virarem caracteres soltos no texto, e são coladas de volta com a imagem original sobre o fundo filtrado (preservar_regioes), para que a binarização do modo preto e branco não destrua fotos e carimbos. O texto reconhecido é montado na ordem natural de leitura, de cima para baixo e da esquerda para a direita (ordenar_em_linhas).
+
+A vantagem dessa arquitetura é que a detecção de layout e o OCR passaram a rodar na mesma engine leve, o onnxruntime, sem depender de binários instalados no sistema operacional como o Tesseract e sem precisar do PyTorch no servidor, o que deixou a imagem Docker mais simples. A leitura também ficou mais robusta em fotos de celular com iluminação irregular: num teste com uma página com sombra forte, ruído e inclinação de 2,5 graus, o Tesseract leu 66% do texto da foto crua, enquanto o PaddleOCR leu 100%, incluindo todos os acentos. O custo é o tempo, perto de 2 segundos por página em CPU, e por isso o front-end faz a leitura em segundo plano logo depois do recorte.
+
+Por fim, o sistema junta todas as páginas processadas em um único arquivo PDF (gerar_pdf com img2pdf), envia o arquivo para o armazenamento em nuvem (Supabase Storage) e libera o download ou o menu nativo de compartilhamento do celular (navigator.share).
 
 ### Diagrama de Sequência
 
@@ -60,7 +64,7 @@ sequenceDiagram
     actor U as Usuário (iOS/Android)
     participant PWA as Front-end (Next.js PWA)
     participant API as Back-end (FastAPI + OpenCV)
-    participant OCR as Tesseract OCR
+    participant OCR as PaddleOCR + DocLayout-YOLO (ONNX)
     participant SB as Supabase (Storage + Postgres)
 
     U->>PWA: Captura foto ou seleciona da galeria
@@ -69,11 +73,12 @@ sequenceDiagram
     API-->>PWA: Retorna os 4 cantos normalizados (0..1)
     U->>PWA: Ajusta os cantos e confirma o recorte
     PWA->>API: POST /processar-pagina (imagem + cantos + filtro)
-    API->>API: warpPerspective + filtro (Original, Cinza CLAHE ou P&B adaptativo)
+    API->>OCR: DocLayout-YOLO localiza figuras, fotos e assinaturas
+    API->>API: warpPerspective + filtro, preservando as figuras originais
     API-->>PWA: Retorna a página retificada e filtrada
     PWA->>API: POST /extrair-ocr (página retificada)
-    API->>OCR: Envia matriz P&B adaptativa
-    OCR-->>API: Retorna texto extraído (pt-BR)
+    API->>OCR: Envia a página com as figuras mascaradas
+    OCR-->>API: Retorna o texto em ordem de leitura (PP-OCRv5 latino)
     API-->>PWA: Retorna o texto OCR
     U->>PWA: Confirma a geração do PDF
     PWA->>API: POST /gerar-pdf (páginas ordenadas)
@@ -384,3 +389,5 @@ Para o esqueleto visual no Figma (frame mobile 390 x 844 px), o fluxo foi estrut
 ## 6. Desafios e Dificuldades
 
 A parte que deu mais trabalho foi fazer a detecção automática das bordas funcionar quando o documento branco estava em cima de uma mesa clara ou com pouca luz, porque o algoritmo de bordas (Canny) acabava se perdendo e não fechava os quatro cantos da folha. Consegui resolver isso adicionando um fechamento morfológico (morphologyEx) antes de buscar os contornos e deixando o usuário arrastar os quatro vértices na tela do celular sempre que o fundo tiver pouco contraste. Na hora de rodar no iPhone também tive que ter cuidado com o acesso à câmera e o compartilhamento do arquivo pelo Safari, ajustando o manifesto da aplicação (manifest.json) e usando o seletor nativo de captura de mídia no navegador para evitar bloqueios de permissão no iOS.
+
+Outra dificuldade que apareceu na parte de leitura de texto foi o desempenho baixo do Tesseract nas fotos tiradas com a câmera do celular, porque ele falhava quando a folha tinha alguma inclinação, sombra ou quando existiam fotos e carimbos no meio da página que geravam caracteres errados no resultado. Consegui resolver isso trocando o motor de OCR pelo PaddleOCR (via biblioteca rapidocr-onnxruntime), que usa redes neurais para detectar e alinhar as linhas de texto antes de ler, e combinando o pipeline com o modelo DocLayout-YOLO em ONNX para identificar onde estão as figuras da página, mantendo essas imagens originais no PDF final e ignorando essas áreas na hora de extrair o texto.

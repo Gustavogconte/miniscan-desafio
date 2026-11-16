@@ -10,7 +10,7 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
 ## 2. Arquitetura e Stack Definida
 
 - **Front-end (`/frontend`):** Next.js (App Router, TypeScript), Tailwind CSS, configurado como **PWA** instalável no iOS (Safari) e Android (Chrome), utilizando `navigator.share` (Web Share API) para compartilhamento nativo de PDF.
-- **Back-end (`/backend`):** Python + FastAPI + OpenCV (`opencv-python-headless`) + `pytesseract` (idioma `por`) + `img2pdf`, empacotado com `Dockerfile`.
+- **Back-end (`/backend`):** Python + FastAPI + OpenCV (`opencv-python-headless`) + `img2pdf`, com OCR por **PaddleOCR** (modelos PP-OCRv5 latinos em ONNX, via `rapidocr` + `onnxruntime`) e detecção de regiões gráficas por **DocLayout-YOLO** em ONNX (`models/doclayout_yolo.onnx`, opcional). Tudo roda no `onnxruntime`: sem Tesseract, sem binários externos e sem PyTorch no servidor. Empacotado com `Dockerfile` (`python:3.11-slim`).
 - **Banco de Dados e Storage (`/supabase`):** Supabase PostgreSQL + Supabase Storage (bucket `miniscan-files`).
 
 ## 3. O Que Já Foi Concluído (Sprint 1)
@@ -37,10 +37,11 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
   - `grayscale`: Luminância + `cv2.createCLAHE` para uniformizar iluminação.
   - `bw`: `cv2.adaptiveThreshold` (`ADAPTIVE_THRESH_GAUSSIAN_C`) para remover sombras da folha.
 - **OCR e PDF (`POST /extrair-ocr` e `POST /gerar-pdf`):**
-  - Rodar `pytesseract.image_to_string(..., lang='por')` sempre sobre a matriz tratada com `bw` para maior acurácia.
+  - OCR com `RapidOCR` (singleton `MotorOcr` em `app/ocr.py`) sobre a página retificada, sem binarizar (o PaddleOCR lê melhor em cinza). As caixas são ordenadas em linhas, de cima para baixo e da esquerda para a direita (`ordenar_em_linhas`).
+  - Regiões gráficas (`figure`, `picture`, `signature`, `image`, `stamp`) vêm do `DetectorLayout` (singleton em `app/visao/layout.py`, letterbox 1024x1024 + `cv2.dnn.NMSBoxes`). Elas são mantidas com a imagem original sobre o fundo filtrado (`preservar_graficos=True` em `/processar-pagina`) e mascaradas antes do OCR. O `/processar-pagina` devolve as regiões no cabeçalho `X-Regioes-Graficas` e o front-end as reenvia ao `/extrair-ocr` (campo `regioes`), porque a detecção custa ~2 s em CPU; o detector também guarda cache por página. Sem o arquivo `.onnx`, o detector fica desligado e o restante funciona igual.
   - Compilar páginas ordenadas em PDF único usando `img2pdf`.
 - **Persistência (`POST /documentos`):** a API recebe PDF, imagens, filtros e textos OCR, faz o upload no bucket `miniscan-files` com a chave de serviço e insere em `documents` e `document_pages`. Os endpoints de visão continuam sem estado.
-- **Saúde (`GET /saude`):** informa se a API está no ar e se o Tesseract com o idioma `por` está disponível.
+- **Saúde (`GET /saude`):** informa se a API está no ar, se o OCR carregou, se o modelo de layout está instalado e se a persistência está configurada.
 
 ## 5. Convenções de Código e Git
 

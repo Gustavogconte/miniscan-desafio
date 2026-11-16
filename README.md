@@ -2,7 +2,7 @@
 
 O MiniScan é um aplicativo de digitalização de documentos inspirado no CamScanner, desenvolvido como projeto de seleção para Iniciação Científica. Ele roda no Android e no iPhone como aplicação web instalável (PWA) e permite capturar ou importar uma foto, corrigir a perspectiva da folha, aplicar filtros, extrair o texto via OCR em português e gerar um PDF único para baixar ou compartilhar.
 
-A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica em uma API Python (FastAPI, OpenCV, Tesseract e img2pdf), e o histórico e os arquivos ficam no Supabase (PostgreSQL e Storage).
+A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica em uma API Python (FastAPI, OpenCV, PaddleOCR e DocLayout-YOLO em ONNX Runtime, e img2pdf), e o histórico e os arquivos ficam no Supabase (PostgreSQL e Storage).
 
 ## Estrutura do repositório
 
@@ -16,7 +16,7 @@ A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica
 ├── prototype/                 # Protótipo interativo de UI/UX
 ├── supabase/
 │   └── migrations/            # Schema, índices FTS, triggers, RLS e rollback
-├── backend/                   # Sprint 2: FastAPI + OpenCV + Tesseract
+├── backend/                   # FastAPI + OpenCV + PaddleOCR/DocLayout-YOLO (ONNX)
 └── frontend/                  # Sprint 3: Next.js PWA + Supabase
 ```
 
