@@ -1,0 +1,47 @@
+# CLAUDE.md — Contexto do Projeto MiniScan (IC)
+
+## 1. Visão Geral e Escopo do Projeto
+
+O **MiniScan** é um aplicativo de digitalização de documentos inspirado no CamScanner, desenvolvido como projeto de seleção para **Iniciação Científica (IC)** com prazo total de 15 dias.
+
+- **Escopo Obrigatório (MVP):** Capturar ou importar imagens (câmera ou galeria), detectar bordas da folha e corrigir perspectiva (homografia 4 pontos), aplicar filtros (`original`, `grayscale`, `bw`), extrair texto via OCR (pt-BR), compilar páginas em PDF único, e salvar/compartilhar o histórico na nuvem.
+- **Estratégia de Execução:** Implementar 100% do MVP primeiro. Somente se sobrar tempo após o MVP estar testado e implantado, adicionar a extensão de **Segmentação Híbrida (ROI)** para preservar regiões gráficas/fotos coloridas sem degradá-las com a binarização do texto.
+
+## 2. Arquitetura e Stack Definida
+
+- **Front-end (`/frontend`):** Next.js (App Router, TypeScript), Tailwind CSS, configurado como **PWA** instalável no iOS (Safari) e Android (Chrome), utilizando `navigator.share` (Web Share API) para compartilhamento nativo de PDF.
+- **Back-end (`/backend`):** Python + FastAPI + OpenCV (`opencv-python-headless`) + `pytesseract` (idioma `por`) + `img2pdf`, empacotado com `Dockerfile`.
+- **Banco de Dados e Storage (`/supabase`):** Supabase PostgreSQL + Supabase Storage (bucket `miniscan-files`).
+
+## 3. O Que Já Foi Concluído (Sprint 1)
+
+1. **Documentação Técnica (`docs/documentacao_miniscan.md`):** Requisitos Funcionais (RF01–RF06), Não Funcionais (RNF01–RNF03), Casos de Uso e diagramas Mermaid.
+2. **Banco de Dados (`supabase/migrations/20261116000001_init_miniscan_schema.sql`):**
+   - Tabelas `public.documents` (`id`, `title`, `pdf_url`, `page_count`, `created_at`, `updated_at`) e `public.document_pages` (`id`, `document_id`, `page_order`, `original_image_url`, `processed_image_url`, `filter_applied`, `ocr_text`, `created_at`, `updated_at`).
+   - Triggers automáticos para `updated_at` e sincronização de `documents.page_count`.
+   - Busca Full-Text em português via RPC `search_miniscan_documents(search_query TEXT)`.
+   - RLS ativado com políticas para MVP (`anon`, `authenticated`) e bucket `miniscan-files` (limite 15MB, MIME types restritos).
+3. **Design System e Protótipo (`prototype/miniscan_prototype.html` e `docs/figma/`):**
+   - Identidade visual **Clean Professional** com temas Claro (padrão) e Escuro (`data-theme="light"` e `data-theme="dark"`).
+   - Paleta Light: fundo `#F8FAFC`, cards `#FFFFFF`, secundário `#F1F5F9`, bordas `#E2E8F0`, destaque `#2563EB`, texto `#172033` / `#64748B`.
+   - Paleta Dark: fundo `#0F172A`, cards `#1E293B`, elevado `#334155`, destaque `#3B82F6`, texto `#F8FAFC` / `#CBD5E1`.
+   - Tipografia: `Space Grotesk` (títulos), `IBM Plex Sans` (corpo) e `JetBrains Mono` (metadados/OCR).
+   - Fluxo validado de 4 telas: (1) Início & Busca OCR, (2) Ajuste de Perspectiva 4 pontos, (3) Editor de Filtros & Gaveta OCR, (4) Exportação & Compartilhamento PDF.
+
+## 4. Pipeline de Visão Computacional (Especificação para `/backend`)
+
+- **Detecção de Cantos (`POST /detect-corners`):** Redimensionamento proporcional -> `cv2.cvtColor` (cinza) -> `cv2.GaussianBlur` -> `cv2.Canny` -> `cv2.morphologyEx` (fechamento) -> `cv2.findContours` -> `cv2.approxPolyDP` (4 vértices). Retornar coordenadas normalizadas `(0..1)` para o front-end permitir ajuste manual.
+- **Processamento e Filtros (`POST /process-page`):**
+  - Homografia: `cv2.getPerspectiveTransform` + `cv2.warpPerspective`.
+  - `original`: Imagem retificada em RGB.
+  - `grayscale`: Luminância + `cv2.createCLAHE` para uniformizar iluminação.
+  - `bw`: `cv2.adaptiveThreshold` (`ADAPTIVE_THRESH_GAUSSIAN_C`) para remover sombras da folha.
+- **OCR e PDF (`POST /extract-ocr` e `POST /generate-pdf`):**
+  - Rodar `pytesseract.image_to_string(..., lang='por')` sempre sobre a matriz tratada com `bw` para maior acurácia.
+  - Compilar páginas ordenadas em PDF único usando `img2pdf`.
+
+## 5. Convenções de Código e Git
+
+- **Idioma:** Código (variáveis, funções, rotas) em **inglês**; mensagens de commit, textos de interface (UI) e documentação para apresentação em **português (pt-BR)**.
+- **Commits:** Seguir *Conventional Commits* atômicos, com descrição em português (`feat(visao): adiciona detecção de cantos`, `feat(ocr): ...`, `feat(pwa): ...`, `fix(...): ...`).
+- **Estilo de Documentação do Usuário:** Parágrafos diretos e objetivos, sem listas com marcadores excessivos e sem vocabulário genérico de IA.
