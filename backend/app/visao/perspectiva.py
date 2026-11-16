@@ -6,6 +6,9 @@ import numpy as np
 LADO_MAXIMO_SAIDA = 3000  # evita páginas gigantes vindas de câmeras de alta resolução
 LADO_MINIMO_SAIDA = 10
 AREA_MINIMA_RELATIVA = 0.01
+# Apara as bordas depois da retificação: tira a faixa fina de mesa que sobra
+# nas laterais, que no filtro P&B vira uma moldura pontilhada.
+MARGEM_APARO = 0.008
 
 
 class CantosInvalidosError(ValueError):
@@ -66,10 +69,13 @@ def corrigir_perspectiva(imagem: np.ndarray, cantos_normalizados: np.ndarray) ->
         dtype=np.float32,
     )
     matriz = cv2.getPerspectiveTransform(origem, destino)
-    return cv2.warpPerspective(
+    retificada = cv2.warpPerspective(
         imagem,
         matriz,
         (largura_saida, altura_saida),
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_REPLICATE,
     )
+    aparo_x = round(largura_saida * MARGEM_APARO)
+    aparo_y = round(altura_saida * MARGEM_APARO)
+    return retificada[aparo_y : altura_saida - aparo_y, aparo_x : largura_saida - aparo_x]
