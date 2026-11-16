@@ -25,6 +25,14 @@ class OcrIndisponivelError(RuntimeError):
     """O motor de OCR não pôde ser carregado (modelos ausentes ou falha no onnxruntime)."""
 
 
+def _aquecer(motor) -> None:
+    imagem = np.full((80, 360, 3), 255, np.uint8)
+    cv2.putText(imagem, "MiniScan 2026", (12, 55), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 0, 0), 3)
+    resultado = motor(imagem)
+    if not resultado.txts:
+        raise RuntimeError("o OCR não reconheceu o texto de aquecimento")
+
+
 class MotorOcr:
     """Singleton: os modelos ONNX são carregados uma única vez por processo.
 
@@ -47,7 +55,7 @@ class MotorOcr:
         try:
             from rapidocr import LangRec, ModelType, OCRVersion, RapidOCR
 
-            return RapidOCR(
+            motor = RapidOCR(
                 params={
                     "Global.log_level": "error",
                     # Páginas já chegam retificadas e em pé: o classificador de
@@ -60,6 +68,11 @@ class MotorOcr:
                     "Rec.lang_type": LangRec.LATIN,
                 }
             )
+            # O RapidOCR só baixa e carrega os modelos na primeira leitura. Ler uma
+            # imagem com texto aqui força isso agora: no build do Docker os modelos
+            # ficam na imagem, e /saude só diz "disponível" se o OCR funciona mesmo.
+            _aquecer(motor)
+            return motor
         except Exception as erro:
             raise OcrIndisponivelError(f"Não foi possível carregar o OCR: {erro}") from erro
 
