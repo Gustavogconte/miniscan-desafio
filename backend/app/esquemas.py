@@ -4,6 +4,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, TypeAdapter
 
+from app.visao.filtros import Filtro
+
 Coordenada = Annotated[float, Field(ge=0, le=1)]
 
 
@@ -34,6 +36,23 @@ class RespostaOcr(BaseModel):
 class RespostaSaude(BaseModel):
     status: str
     ocr_disponivel: bool
+    persistencia_configurada: bool
+
+
+class MetadadosPagina(BaseModel):
+    filtro: Filtro
+    texto_ocr: Annotated[str, Field(max_length=100_000)] = ""
+
+
+ListaDeMetadados = Annotated[list[MetadadosPagina], Field(min_length=1)]
+validador_metadados = TypeAdapter(ListaDeMetadados)
+
+
+class RespostaDocumento(BaseModel):
+    id: str
+    titulo: str
+    pdf_url: str
+    total_paginas: int
 
 
 class RespostaErro(BaseModel):

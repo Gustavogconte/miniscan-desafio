@@ -15,6 +15,16 @@ def _ler_origens_cors() -> list[str]:
 @dataclass(frozen=True)
 class Configuracoes:
     origens_cors: list[str] = field(default_factory=_ler_origens_cors)
+    supabase_url: str = field(default_factory=lambda: os.getenv("SUPABASE_URL", ""))
+    # Chave de serviço: só existe no servidor, nunca vai para o front-end.
+    supabase_chave_servico: str = field(
+        default_factory=lambda: os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    )
+    bucket: str = field(default_factory=lambda: os.getenv("MINISCAN_BUCKET", "miniscan-files"))
+
+    @property
+    def persistencia_configurada(self) -> bool:
+        return bool(self.supabase_url and self.supabase_chave_servico)
 
 
 configuracoes = Configuracoes()

@@ -4,23 +4,33 @@ As rotas são síncronas de propósito: o processamento com OpenCV e Tesseract u
 e o FastAPI executa rotas síncronas em uma thread separada, sem travar o servidor.
 """
 
+from functools import lru_cache
 from typing import Annotated
 
 import numpy as np
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from pydantic import ValidationError
 
-from app.config import MAXIMO_PAGINAS_PDF, TAMANHO_MAXIMO_ARQUIVO
+from app.config import MAXIMO_PAGINAS_PDF, TAMANHO_MAXIMO_ARQUIVO, configuracoes
 from app.esquemas import (
+    MetadadosPagina,
     Ponto,
     RespostaCantos,
+    RespostaDocumento,
     RespostaErro,
     RespostaOcr,
     RespostaSaude,
     validador_cantos,
+    validador_metadados,
 )
 from app.ocr import IDIOMA_OCR, extrair_texto_ocr, ocr_disponivel
 from app.pdf import gerar_pdf
+from app.persistencia import (
+    PaginaParaSalvar,
+    RepositorioDocumentos,
+    RepositorioSupabase,
+    salvar_documento,
+)
 from app.visao.bordas import detectar_cantos
 from app.visao.filtros import Filtro, aplicar_filtro, formato_saida
 from app.visao.imagem import codificar_imagem, decodificar_imagem
@@ -58,7 +68,11 @@ def ler_cantos(cantos_json: str) -> np.ndarray:
 
 @roteador.get("/saude", response_model=RespostaSaude, tags=["infra"])
 def rota_saude() -> RespostaSaude:
-    return RespostaSaude(status="ok", ocr_disponivel=ocr_disponivel())
+    return RespostaSaude(
+        status="ok",
+        ocr_disponivel=ocr_disponivel(),
+        persistencia_configurada=configuracoes.persistencia_configurada,
+    )
 
 
 @roteador.post(
@@ -129,4 +143,83 @@ def rota_gerar_pdf(paginas: Annotated[list[UploadFile], File()]) -> Response:
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="miniscan.pdf"'},
+    )
+
+
+@lru_cache(maxsize=1)
+def _repositorio_supabase() -> RepositorioSupabase:
+    return RepositorioSupabase(
+        configuracoes.supabase_url, configuracoes.supabase_chave_servico, configuracoes.bucket
+    )
+
+
+def obter_repositorio() -> RepositorioDocumentos:
+    if not configuracoes.persistencia_configurada:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Persistência não configurada: defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.",
+        )
+    return _repositorio_supabase()
+
+
+def ler_metadados(paginas_json: str) -> list[MetadadosPagina]:
+    try:
+        return validador_metadados.validate_json(paginas_json)
+    except ValidationError as erro:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            'Envie "paginas" como JSON: [{"filtro": "original|grayscale|bw", "texto_ocr": "..."}].',
+        ) from erro
+
+
+@roteador.post(
+    "/documentos",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RespostaDocumento,
+    responses={
+        **ERROS_ENTRADA,
+        status.HTTP_502_BAD_GATEWAY: {"model": RespostaErro},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {"model": RespostaErro},
+    },
+    tags=["historico"],
+    summary="Salva PDF, imagens e textos OCR no histórico (Supabase)",
+)
+def rota_salvar_documento(
+    repositorio: Annotated[RepositorioDocumentos, Depends(obter_repositorio)],
+    titulo: Annotated[str, Form()],
+    pdf: Annotated[UploadFile, File()],
+    originais: Annotated[list[UploadFile], File(description="Fotos originais, na ordem")],
+    processadas: Annotated[list[UploadFile], File(description="Páginas filtradas, na ordem")],
+    paginas: Annotated[
+        str, Form(description='JSON na ordem: [{"filtro": "bw", "texto_ocr": "..."}]')
+    ],
+) -> RespostaDocumento:
+    metadados = ler_metadados(paginas)
+    if not len(originais) == len(processadas) == len(metadados):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "Envie a mesma quantidade de originais, processadas e itens em 'paginas'.",
+        )
+    if len(metadados) > MAXIMO_PAGINAS_PDF:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"O documento aceita no máximo {MAXIMO_PAGINAS_PDF} páginas.",
+        )
+
+    salvo = salvar_documento(
+        repositorio,
+        titulo,
+        ler_arquivo(pdf),
+        [
+            PaginaParaSalvar(
+                original=ler_arquivo(original),
+                processada=ler_arquivo(processada),
+                filtro=meta.filtro,
+                texto_ocr=meta.texto_ocr,
+            )
+            for original, processada, meta in zip(originais, processadas, metadados, strict=True)
+        ],
+    )
+    return RespostaDocumento(
+        id=salvo.id, titulo=salvo.titulo, pdf_url=salvo.pdf_url, total_paginas=salvo.total_paginas
     )

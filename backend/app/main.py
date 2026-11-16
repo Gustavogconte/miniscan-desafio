@@ -1,14 +1,19 @@
 """Aplicação FastAPI do MiniScan."""
 
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import configuracoes
 from app.ocr import OcrIndisponivelError
+from app.persistencia import DocumentoInvalidoError, FalhaPersistenciaError
 from app.rotas import roteador
 from app.visao.imagem import ImagemInvalidaError
 from app.visao.perspectiva import CantosInvalidosError
+
+logger = logging.getLogger(__name__)
 
 
 def _erro(codigo: int):
@@ -16,6 +21,11 @@ def _erro(codigo: int):
         return JSONResponse(status_code=codigo, content={"detail": str(erro)})
 
     return tratar
+
+
+async def _falha_persistencia(_: Request, erro: Exception) -> JSONResponse:
+    logger.error("Falha ao salvar documento", exc_info=erro)
+    return JSONResponse(status_code=status.HTTP_502_BAD_GATEWAY, content={"detail": str(erro)})
 
 
 def criar_app() -> FastAPI:
@@ -34,6 +44,9 @@ def criar_app() -> FastAPI:
     app.add_exception_handler(ImagemInvalidaError, _erro(status.HTTP_422_UNPROCESSABLE_CONTENT))
     app.add_exception_handler(CantosInvalidosError, _erro(status.HTTP_422_UNPROCESSABLE_CONTENT))
     app.add_exception_handler(OcrIndisponivelError, _erro(status.HTTP_503_SERVICE_UNAVAILABLE))
+    app.add_exception_handler(DocumentoInvalidoError, _erro(status.HTTP_422_UNPROCESSABLE_CONTENT))
+    # A mensagem é genérica de propósito; o detalhe do Supabase fica só no log.
+    app.add_exception_handler(FalhaPersistenciaError, _falha_persistencia)
     app.include_router(roteador)
     return app
 

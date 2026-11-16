@@ -4,13 +4,16 @@ API em FastAPI que faz o processamento de imagem do MiniScan: detecta os cantos 
 
 | Rota | Entrada | Saída |
 |---|---|---|
-| `GET /saude` | — | `{status, ocr_disponivel}` |
 | `POST /detectar-cantos` | `imagem` (arquivo) | `{cantos: [{x, y}] × 4, detectado}`, coordenadas de 0 a 1 |
 | `POST /processar-pagina` | `imagem`, `cantos` (JSON), `filtro` (`original`, `grayscale` ou `bw`) | página retificada em JPEG, ou PNG no filtro `bw` |
 | `POST /extrair-ocr` | `imagem` (página retificada) | `{texto, idioma}` |
 | `POST /gerar-pdf` | `paginas` (vários arquivos, na ordem) | PDF A4 |
+| `POST /documentos` | `titulo`, `pdf`, `originais` e `processadas` (arquivos, na ordem), `paginas` (JSON com `filtro` e `texto_ocr` de cada página) | `201` com `{id, titulo, pdf_url, total_paginas}` |
+| `GET /saude` | — | `{status, ocr_disponivel, persistencia_configurada}` |
 
 Os cantos seguem sempre a ordem superior esquerdo, superior direito, inferior direito e inferior esquerdo. Cada arquivo pode ter até 15 MB, o mesmo limite do bucket no Supabase.
+
+A rota `/documentos` é a única que grava no Supabase. Ela envia os arquivos para `miniscan-files/documentos/<id>/` e insere as linhas em `documents` e `document_pages`. Se alguma etapa falhar, ela apaga o que já tinha gravado e responde 502. Sem `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` configuradas, a rota responde 503.
 
 ## Rodando localmente
 
@@ -19,7 +22,8 @@ Os cantos seguem sempre a ordem superior esquerdo, superior direito, inferior di
 ```bash
 cd backend
 uv sync
-uv run uvicorn app.main:app --reload
+cp .env.example .env   # preencha a URL e a chave service_role do Supabase
+uv run uvicorn app.main:app --reload --env-file .env
 ```
 
 Para o OCR funcionar fora do Docker, instale o Tesseract com o idioma português. No Windows, use o instalador da UB Mannheim marcando o pacote "Portuguese" e coloque a pasta do Tesseract no `PATH`. No Linux, instale `tesseract-ocr` e `tesseract-ocr-por`. Sem o Tesseract, a rota `/extrair-ocr` responde 503 e as demais funcionam normalmente.
