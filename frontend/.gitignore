@@ -44,3 +44,6 @@ next-env.d.ts
 # arquivos gerados automaticamente para assistentes
 AGENTS.md
 CLAUDE.md
+
+# OpenCV.js copiado de node_modules (scripts/copiar-opencv.mjs)
+/public/vendor/
