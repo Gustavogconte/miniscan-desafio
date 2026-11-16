@@ -39,7 +39,7 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
 - **OCR e PDF (`POST /extrair-ocr` e `POST /gerar-pdf`):**
   - Rodar `pytesseract.image_to_string(..., lang='por')` sempre sobre a matriz tratada com `bw` para maior acurácia.
   - Compilar páginas ordenadas em PDF único usando `img2pdf`.
-- **Persistência (`POST /documentos`, planejado):** a API recebe PDF, imagens, filtros e textos OCR, faz o upload no bucket `miniscan-files` com a chave de serviço e insere em `documents` e `document_pages`. Os endpoints de visão continuam sem estado.
+- **Persistência (`POST /documentos`):** a API recebe PDF, imagens, filtros e textos OCR, faz o upload no bucket `miniscan-files` com a chave de serviço e insere em `documents` e `document_pages`. Os endpoints de visão continuam sem estado.
 - **Saúde (`GET /saude`):** informa se a API está no ar e se o Tesseract com o idioma `por` está disponível.
 
 ## 5. Convenções de Código e Git
