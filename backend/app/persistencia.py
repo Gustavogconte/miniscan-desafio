@@ -1,7 +1,7 @@
 """Gravação do documento digitalizado no Supabase (Storage + Postgres).
 
-A API é a única que grava: usa a chave de serviço, que ignora as políticas RLS,
-e por isso o papel anônimo do front-end pode, no futuro, ficar só com leitura.
+A API é a única que grava: usa a chave de serviço, que ignora as políticas RLS.
+O papel anônimo do front-end só tem leitura (migração 20261116000002).
 """
 
 import logging

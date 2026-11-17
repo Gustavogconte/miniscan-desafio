@@ -81,7 +81,7 @@ sequenceDiagram
     PWA->>API: POST /processar-pagina (imagem + cantos + filtro)
     API->>API: warpPerspective + filtro (Original, Cinza CLAHE, P&B ou Quadro branco)
     API-->>PWA: Retorna a página retificada e filtrada
-    PWA->>API: POST /extrair-ocr (página retificada)
+    PWA->>API: POST /extrair-ocr (foto original + cantos)
     API->>OCR: Envia a página retificada original, sem filtro
     OCR-->>API: Retorna o texto em ordem de leitura (PP-OCRv5 latino)
     API-->>PWA: Retorna o texto OCR

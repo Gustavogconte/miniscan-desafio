@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Só bibliotecas de sistema do OpenCV/onnxruntime: OCR e layout rodam em ONNX,
+# Só bibliotecas de sistema do OpenCV/onnxruntime: o OCR roda em ONNX,
 # sem Tesseract nem outros binários externos.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \

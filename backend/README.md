@@ -7,7 +7,10 @@ API em FastAPI que faz o processamento de imagem do MiniScan: detecta os cantos 
 | `POST /detectar-cantos` | `imagem` (arquivo) | `{cantos: [{x, y}] × 4, detectado}`, coordenadas de 0 a 1 |
 | `POST /processar-pagina` | `imagem`, `cantos` (JSON), `filtro` (`original`, `grayscale`, `bw` ou `whiteboard`) | página retificada em JPEG, ou PNG no filtro `bw` |
 | `POST /extrair-ocr` | `imagem` (foto original), `cantos` (JSON; com eles a API retifica a foto e lê a página sem filtro). Sem `cantos`, a imagem é tratada como já retificada | `{texto, idioma}`, com o texto em ordem de leitura |
-| `POST /gerar-pdf` | `paginas` (vários arquivos, na ordem) | PDF A4 |
+| `POST /gerar-pdf` | `paginas` (vários arquivos, na ordem), `carimbo` opcional (data e hora escritas em cada página) | PDF A4 |
+| `POST /dividir-livro` | `imagem`, `cantos` do livro aberto inteiro (JSON) | `{esquerda, direita, lombada}`: cantos de cada página na foto e posição da lombada (0 a 1) |
+| `POST /compor-cartao` | `frente` e `verso` opcional (já retificados), `formato` (`id` ou `passaporte`) | folha A4 em JPEG com o cartão em tamanho real |
+| `POST /ler-qrcode` | `imagem` | `{textos}` com o conteúdo de cada QR code encontrado |
 | `POST /documentos` | `titulo`, `pdf`, `originais` e `processadas` (arquivos, na ordem), `paginas` (JSON com `filtro` e `texto_ocr` de cada página) | `201` com `{id, titulo, pdf_url, total_paginas}` |
 | `GET /saude` | — | `{status, ocr_disponivel, persistencia_configurada}` |
 
@@ -27,7 +30,6 @@ uv run uvicorn app.main:app --reload --env-file .env
 ```
 
 Na primeira execução, o RapidOCR baixa os modelos do PaddleOCR (cerca de 15 MB) e guarda no ambiente virtual. Os modelos são carregados uma única vez, na subida do servidor.
-
 
 ## Testes e lint
 
