@@ -6,6 +6,7 @@ binários instalados no sistema operacional e sem PyTorch.
 
 import logging
 import threading
+import time
 from collections.abc import Sequence
 
 import cv2
@@ -17,6 +18,9 @@ IDIOMA_OCR = "latin"  # modelo multilíngue latino: português, espanhol, inglê
 # Duas caixas estão na mesma linha quando o centro vertical difere menos que
 # esta fração da altura mediana das caixas.
 TOLERANCIA_LINHA = 0.5
+# Depois de uma falha ao carregar o OCR, espera este tempo antes de tentar de novo,
+# em vez de recarregar o modelo a cada /saude ou /extrair-ocr.
+ESPERA_APOS_FALHA_S = 60
 
 
 class OcrIndisponivelError(RuntimeError):
@@ -34,18 +38,34 @@ def _aquecer(motor) -> None:
 class MotorOcr:
     """Singleton: os modelos ONNX são carregados uma única vez por processo.
 
-    A trava também serializa as chamadas, porque o FastAPI executa rotas síncronas
-    em várias threads e o OCR já usa todos os núcleos da CPU sozinho.
+    Há duas travas. A de carga garante que o modelo seja carregado uma vez só. A de
+    leitura serializa o OCR, porque o FastAPI executa rotas síncronas em várias threads
+    e o OCR já usa todos os núcleos da CPU sozinho. Separadas, o /saude não fica
+    esperando atrás de um lote de páginas.
     """
 
     _instancia = None
-    _trava = threading.Lock()
+    _ultima_falha = 0.0
+    _trava_carga = threading.Lock()
+    _trava_leitura = threading.Lock()
+
+    @classmethod
+    def carregado(cls) -> bool:
+        return cls._instancia is not None
 
     @classmethod
     def obter(cls):
-        with cls._trava:
+        if cls._instancia is not None:
+            return cls._instancia
+        with cls._trava_carga:
             if cls._instancia is None:
-                cls._instancia = cls._carregar()
+                if time.monotonic() - cls._ultima_falha < ESPERA_APOS_FALHA_S:
+                    raise OcrIndisponivelError("O OCR está indisponível no momento.")
+                try:
+                    cls._instancia = cls._carregar()
+                except OcrIndisponivelError:
+                    cls._ultima_falha = time.monotonic()
+                    raise
             return cls._instancia
 
     @staticmethod
@@ -72,21 +92,25 @@ class MotorOcr:
             _aquecer(motor)
             return motor
         except Exception as erro:
-            raise OcrIndisponivelError(f"Não foi possível carregar o OCR: {erro}") from erro
+            # O detalhe fica no log; o cliente recebe uma mensagem genérica.
+            logger.exception("Falha ao carregar o OCR")
+            raise OcrIndisponivelError("O OCR está indisponível no momento.") from erro
 
     @classmethod
     def ler(cls, imagem: np.ndarray):
         motor = cls.obter()
-        with cls._trava:
+        with cls._trava_leitura:
             return motor(imagem)
 
 
 def ocr_disponivel() -> bool:
+    """Não espera nenhuma leitura em andamento; tenta carregar só se ainda não carregou."""
+    if MotorOcr.carregado():
+        return True
     try:
         MotorOcr.obter()
         return True
     except OcrIndisponivelError:
-        logger.exception("Motor de OCR indisponível")
         return False
 
 
@@ -143,7 +167,8 @@ def extrair_texto_ocr(imagem: np.ndarray) -> str:
     except OcrIndisponivelError:
         raise
     except Exception as erro:
-        raise OcrIndisponivelError(f"Falha ao executar o OCR: {erro}") from erro
+        logger.exception("Falha ao executar o OCR")
+        raise OcrIndisponivelError("Não foi possível ler o texto desta página.") from erro
     if resultado.boxes is None or resultado.txts is None:
         return ""
     return ordenar_em_linhas(list(resultado.boxes), list(resultado.txts))
