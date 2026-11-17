@@ -21,7 +21,13 @@ self.onmessage = async function (evento) {
   var inicio = performance.now();
   var resultado = null;
   try {
-    resultado = detectarCantosCv(cv, new Uint8ClampedArray(dados.pixels), dados.largura, dados.altura);
+    resultado = detectarCantosCv(
+      cv,
+      new Uint8ClampedArray(dados.pixels),
+      dados.largura,
+      dados.altura,
+      dados.anterior || null,
+    );
   } catch {
     resultado = null; // quadro problemático: trata como "sem folha"
   }

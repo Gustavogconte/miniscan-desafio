@@ -151,7 +151,8 @@ const LADO_ANALISE = 360; // quadro reduzido enviado ao worker: rápido e sufici
 const INTERVALO_MINIMO_MS = 70; // no máximo ~14 análises por segundo
 const LIMIAR_MOVIMENTO = 0.012; // deslocamento máximo de um canto (fração da imagem) para contar como parado
 const QUADROS_ESTAVEIS = 8; // ~0,7 s parado = pronto para a captura automática
-const QUADROS_PERDIDOS = 4; // tolera falhas curtas sem apagar o contorno
+const QUADROS_PERDIDOS = 8; // tolera falhas curtas (~0,6 s) sem apagar o contorno
+const JANELA_MEDIANA = 5; // o contorno exibido é a mediana das últimas detecções
 const SUAVIZACAO = 0.5;
 // Depois de uma captura automática, só captura de novo quando a folha some ou se
 // move bastante (outra página no lugar): evita fotografar a mesma página duas vezes.
@@ -166,6 +167,18 @@ export interface DeteccaoAoVivo {
   pronto: boolean;
   /** O detector não pôde ser carregado neste aparelho (sobra a foto manual). */
   falhou: boolean;
+}
+
+/** Mediana coordenada a coordenada: descarta uma detecção errada isolada sem atrasar o movimento. */
+function medianaDosCantos(historico: Cantos[]): Cantos {
+  const mediana = (valores: number[]) => {
+    const ordenados = [...valores].sort((a, b) => a - b);
+    return ordenados[Math.floor(ordenados.length / 2)];
+  };
+  return [0, 1, 2, 3].map((i) => ({
+    x: mediana(historico.map((c) => c[i].x)),
+    y: mediana(historico.map((c) => c[i].y)),
+  })) as Cantos;
 }
 
 interface RespostaWorker {
@@ -204,6 +217,7 @@ export function useDetectorAoVivo(
     let perdidos = 0;
     let travado = false;
     let cantosDaCaptura: Cantos | null = null;
+    let historico: Cantos[] = [];
 
     function agendar(espera = Math.max(0, INTERVALO_MINIMO_MS - (performance.now() - ultimoEnvio))) {
       if (!parar) temporizador = setTimeout(enviar, espera);
@@ -220,9 +234,11 @@ export function useDetectorAoVivo(
       const quadro = contexto.getImageData(0, 0, tela.width, tela.height);
       ocupado = true;
       ultimoEnvio = performance.now();
-      worker.postMessage({ largura: tela.width, altura: tela.height, pixels: quadro.data.buffer }, [
-        quadro.data.buffer,
-      ]);
+      // `anterior` dá continuidade: o worker prefere a folha perto do contorno atual.
+      worker.postMessage(
+        { largura: tela.width, altura: tela.height, pixels: quadro.data.buffer, anterior: suavizados },
+        [quadro.data.buffer],
+      );
     }
 
     // Falha ao baixar ou iniciar o OpenCV.js (rede, memória, navegador antigo).
@@ -238,9 +254,11 @@ export function useDetectorAoVivo(
         return agendar(0);
       }
       ocupado = false;
-      const novos = evento.data.resultado?.cantos ?? null;
-      if (novos) {
+      const detectados = evento.data.resultado?.cantos ?? null;
+      if (detectados) {
         perdidos = 0;
+        historico = [...historico, detectados].slice(-JANELA_MEDIANA);
+        const novos = medianaDosCantos(historico);
         const movimento = anteriores
           ? Math.max(...novos.map((c, i) => Math.hypot(c.x - anteriores![i].x, c.y - anteriores![i].y)))
           : 1;
@@ -259,12 +277,14 @@ export function useDetectorAoVivo(
             })) as Cantos)
           : novos;
       } else {
+        // Um quadro ruim isolado só pausa a contagem; zera quando a folha some de vez.
         perdidos += 1;
-        estaveis = 0;
         if (perdidos >= QUADROS_PERDIDOS) {
           suavizados = null;
           anteriores = null;
           travado = false;
+          estaveis = 0;
+          historico = [];
         }
       }
       if (!travado && suavizados && estaveis >= QUADROS_ESTAVEIS && retorno.current) {

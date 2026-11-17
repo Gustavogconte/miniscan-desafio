@@ -29,6 +29,18 @@ var BUSCA_PERPENDICULAR = 4;
 var FATOR_RUIDO = 2;
 var MARGEM_DOS_CANTOS = 0.12;
 var CRESCIMENTO_MAXIMO = 1.35;
+// Continuidade no vídeo: um candidato perto da folha do quadro anterior é preferido
+// e precisa de menos apoio de borda para continuar valendo, o que evita o contorno
+// "pular" para outro objeto num quadro ruim (desfoque, reflexo, exposição).
+var DISTANCIA_CONTINUIDADE = 0.06;
+var APOIO_PARA_MANTER = 0.6;
+var BONUS_CONTINUIDADE = 1.3;
+
+function distanciaMaxima(a, b) {
+  var maior = 0;
+  for (var i = 0; i < 4; i++) maior = Math.max(maior, Math.hypot(a[i].x - b[i].x, a[i].y - b[i].y));
+  return maior;
+}
 var AMOSTRAS_POR_LADO = 60;
 
 function ordenarCantos(pontos) {
@@ -185,7 +197,11 @@ function apoioDeBorda(quad, campos, largura, altura, limiar) {
 /**
  * @returns {{cantos: {x:number,y:number}[], area: number} | null} cantos normalizados (0..1)
  */
-function detectarCantosCv(cv, pixels, largura, altura) {
+/**
+ * @param anterior cantos normalizados da folha no quadro anterior (opcional), para dar
+ *   continuidade no vídeo.
+ */
+function detectarCantosCv(cv, pixels, largura, altura, anterior) {
   var mats = [];
   function guardar(mat) {
     mats.push(mat);
@@ -263,6 +279,7 @@ function detectarCantosCv(cv, pixels, largura, altura) {
     var areaMinima = AREA_MINIMA_RELATIVA * largura * altura;
     var melhor = null;
     var melhorArea = 0;
+    var melhorNota = 0;
     mascaras.forEach(function (mascara) {
       var contornos = new cv.MatVector();
       var hierarquia = new cv.Mat();
@@ -286,9 +303,22 @@ function detectarCantosCv(cv, pixels, largura, altura) {
           var quad = quadrilatero(cv, atual);
           if (quad) {
             var area = areaPoligono(quad);
-            if (area > melhorArea && apoioDeBorda(quad, campos, largura, altura, limiar) >= APOIO_MINIMO) {
+            var continua =
+              anterior &&
+              distanciaMaxima(
+                ordenarCantos(
+                  quad.map(function (p) {
+                    return { x: p.x / (largura - 1), y: p.y / (altura - 1) };
+                  }),
+                ),
+                anterior,
+              ) < DISTANCIA_CONTINUIDADE;
+            var nota = area * (continua ? BONUS_CONTINUIDADE : 1);
+            var apoioMinimo = continua ? APOIO_PARA_MANTER : APOIO_MINIMO;
+            if (nota > melhorNota && apoioDeBorda(quad, campos, largura, altura, limiar) >= apoioMinimo) {
               melhor = quad;
               melhorArea = area;
+              melhorNota = nota;
             }
           }
         }
