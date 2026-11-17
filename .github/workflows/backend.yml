@@ -28,5 +28,4 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      # O modelo de layout (.onnx) não está no Git: os testes cobrem o detector com uma sessão simulada.
       - run: uv run pytest

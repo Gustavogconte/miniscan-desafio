@@ -66,7 +66,7 @@ class TestFiltros:
         assert aplicar_filtro(pagina_plana, "grayscale").ndim == 2
 
     def test_preto_e_branco_quase_binario_e_ampliado(self, pagina_plana):
-        resultado = aplicar_filtro(pagina_plana, "bw", preservar_graficos=False)
+        resultado = aplicar_filtro(pagina_plana, "bw")
         # Papel e tinta puros; tons intermediários só na borda suave das letras.
         assert ((resultado > 0) & (resultado < 255)).mean() < 0.05
         assert max(resultado.shape) >= 2000  # página pequena é ampliada antes
@@ -100,7 +100,7 @@ class TestCalibracaoPretoEBranco:
             assert bloco >= 35 and bloco % 2 == 1
 
     def test_papel_limpo_e_letras_sem_engrossar(self, pagina_plana):
-        resultado = aplicar_filtro(pagina_plana, "bw", preservar_graficos=False)
+        resultado = aplicar_filtro(pagina_plana, "bw")
         fator = resultado.shape[0] / pagina_plana.shape[0]
         vazio = resultado[
             int(1000 * fator) : int(1100 * fator), int(100 * fator) : int(700 * fator)

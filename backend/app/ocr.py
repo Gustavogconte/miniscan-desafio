@@ -11,8 +11,6 @@ from collections.abc import Sequence
 import cv2
 import numpy as np
 
-from app.visao.layout import DetectorLayout, Regiao, mascarar_regioes
-
 logger = logging.getLogger(__name__)
 
 IDIOMA_OCR = "latin"  # modelo multilíngue latino: português, espanhol, inglês, francês...
@@ -130,25 +128,16 @@ def ordenar_em_linhas(caixas: Sequence[np.ndarray], textos: Sequence[str]) -> st
     )
 
 
-def extrair_texto_ocr(
-    imagem: np.ndarray, ignorar_graficos: bool = True, regioes: list[Regiao] | None = None
-) -> str:
+def extrair_texto_ocr(imagem: np.ndarray) -> str:
     """Lê o texto da página retificada ORIGINAL (sem filtro).
 
     A rede do PaddleOCR usa os gradientes suaves (anti-aliasing) das bordas das letras;
     a binarização do filtro P&B destrói esses gradientes. Com texto pequeno, ler a
     versão P&B derruba a acurácia de ~99% para ~35%, então o P&B fica só para a
     tela e o PDF.
-    Com `ignorar_graficos`, figuras e fotos são apagadas antes, para não virarem
-    caracteres soltos no texto. Se `regioes` vier preenchido (devolvido antes pelo
-    /processar-pagina), a detecção de layout não roda de novo.
     """
     if imagem.ndim == 2:
         imagem = cv2.cvtColor(imagem, cv2.COLOR_GRAY2BGR)
-    if ignorar_graficos:
-        if regioes is None:
-            regioes = DetectorLayout.obter().detectar(imagem)
-        imagem = mascarar_regioes(imagem, regioes)
     try:
         resultado = MotorOcr.ler(imagem)
     except OcrIndisponivelError:

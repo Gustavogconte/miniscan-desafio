@@ -19,8 +19,6 @@ COPY requirements.txt .
 RUN pip install --require-hashes -r requirements.txt
 
 COPY app ./app
-# Pasta de modelos: o DocLayout-YOLO (models/doclayout_yolo.onnx) é opcional.
-COPY models ./models
 
 # Baixa os modelos do PaddleOCR (PP-OCRv5 latino) durante o build, para o
 # container nunca depender de download em produção.

@@ -43,32 +43,23 @@ export async function detectarCantos(imagem: Blob): Promise<{ cantos: Cantos; de
   return (await enviar("/detectar-cantos", corpo)).json();
 }
 
-export interface PaginaProcessada {
-  blob: Blob;
-  /** JSON das figuras detectadas (cabeçalho X-Regioes-Graficas); null se não houve detecção. */
-  regioesGraficas: string | null;
-}
-
-export async function processarPagina(imagem: Blob, cantos: Cantos, filtro: Filtro): Promise<PaginaProcessada> {
+export async function processarPagina(imagem: Blob, cantos: Cantos, filtro: Filtro): Promise<Blob> {
   const corpo = new FormData();
   corpo.append("imagem", imagem, nomeArquivo(imagem, "foto"));
   corpo.append("cantos", JSON.stringify(cantos));
   corpo.append("filtro", filtro);
-  const resposta = await enviar("/processar-pagina", corpo);
-  return { blob: await resposta.blob(), regioesGraficas: resposta.headers.get("X-Regioes-Graficas") };
+  return (await enviar("/processar-pagina", corpo)).blob();
 }
 
-/** Com `regioesGraficas`, a API reaproveita as figuras já detectadas e responde ~2 s mais rápido. */
 /**
  * Lê o texto da página. Envia a FOTO ORIGINAL e os cantos: a API retifica e lê a
  * versão sem filtro, porque o OCR erra muito na versão binarizada (P&B), que serve
  * só para a tela e o PDF.
  */
-export async function extrairOcr(fotoOriginal: Blob, cantos: Cantos, regioesGraficas?: string | null): Promise<string> {
+export async function extrairOcr(fotoOriginal: Blob, cantos: Cantos): Promise<string> {
   const corpo = new FormData();
   corpo.append("imagem", fotoOriginal, nomeArquivo(fotoOriginal, "foto"));
   corpo.append("cantos", JSON.stringify(cantos));
-  if (regioesGraficas) corpo.append("regioes", regioesGraficas);
   const resposta: { texto: string } = await (await enviar("/extrair-ocr", corpo)).json();
   return resposta.texto;
 }

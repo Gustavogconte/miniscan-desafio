@@ -32,7 +32,6 @@ export function novaPagina(blob: Blob, largura: number, altura: number, opcoes: 
     filtro: opcoes.filtro ?? "bw",
     processadas: {},
     metadeDeLivro: opcoes.metadeDeLivro ?? false,
-    regioesGraficas: null,
     textoOcr: "",
     estadoOcr: "pendente",
   };

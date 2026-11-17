@@ -67,8 +67,6 @@ export interface Pagina {
   processadas: Partial<Record<Filtro, ImagemLocal>>;
   /** Metade de um livro aberto já separado: não deve ser dividida de novo. */
   metadeDeLivro: boolean;
-  /** Figuras detectadas na página retificada (JSON vindo da API), reaproveitadas no OCR. */
-  regioesGraficas: string | null;
   textoOcr: string;
   estadoOcr: EstadoOcr;
 }

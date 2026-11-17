@@ -119,48 +119,6 @@ def test_extrair_ocr(pagina_plana_png):
     assert "MINISCAN" in resposta.json()["texto"].upper()
 
 
-def test_processar_pagina_devolve_regioes_no_cabecalho(foto_documento_jpeg):
-    resposta = cliente.post(
-        "/processar-pagina",
-        files={"imagem": arquivo(foto_documento_jpeg)},
-        data={"cantos": CANTOS_JSON, "filtro": "bw"},
-    )
-    assert resposta.status_code == 200
-    assert isinstance(json.loads(resposta.headers["x-regioes-graficas"]), list)
-
-    sem_preservar = cliente.post(
-        "/processar-pagina",
-        files={"imagem": arquivo(foto_documento_jpeg)},
-        data={"cantos": CANTOS_JSON, "filtro": "bw", "preservar_graficos": "false"},
-    )
-    assert "x-regioes-graficas" not in sem_preservar.headers
-
-
-def test_extrair_ocr_valida_regioes(pagina_plana_png, monkeypatch):
-    recebidas = {}
-
-    def ocr_falso(_imagem, ignorar_graficos=True, regioes=None):
-        recebidas["regioes"] = regioes
-        return "texto"
-
-    monkeypatch.setattr("app.rotas.extrair_texto_ocr", ocr_falso)
-    regioes = json.dumps([{"x0": 1, "y0": 2, "x1": 30, "y1": 40}])
-    resposta = cliente.post(
-        "/extrair-ocr",
-        files={"imagem": arquivo(pagina_plana_png, "p.png", "image/png")},
-        data={"regioes": regioes},
-    )
-    assert resposta.status_code == 200
-    assert (recebidas["regioes"][0].x1, recebidas["regioes"][0].y1) == (30, 40)
-
-    invalida = cliente.post(
-        "/extrair-ocr",
-        files={"imagem": arquivo(pagina_plana_png, "p.png", "image/png")},
-        data={"regioes": '[{"x0": -5}]'},
-    )
-    assert invalida.status_code == 422
-
-
 def test_cors_aceita_origens_de_previa_por_regex(monkeypatch):
     from app import main
     from app.config import Configuracoes
@@ -182,7 +140,7 @@ def test_cors_aceita_origens_de_previa_por_regex(monkeypatch):
 def test_extrair_ocr_com_cantos_le_a_pagina_retificada_original(foto_documento_jpeg, monkeypatch):
     recebida = {}
 
-    def ocr_falso(imagem, ignorar_graficos=True, regioes=None):
+    def ocr_falso(imagem):
         recebida["imagem"] = imagem
         return "texto"
 

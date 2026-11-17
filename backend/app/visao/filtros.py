@@ -5,8 +5,6 @@ from typing import Literal, get_args
 import cv2
 import numpy as np
 
-from app.visao.layout import DetectorLayout, Regiao, preservar_regioes
-
 # Os mesmos valores aceitos pela coluna document_pages.filter_applied.
 Filtro = Literal["original", "grayscale", "bw", "whiteboard"]
 FILTROS: tuple[str, ...] = get_args(Filtro)
@@ -22,8 +20,6 @@ PB_PRETO = 150
 PB_BRANCO = 215
 QUADRO_REALCE_COR = 1.6  # quanto a saturação das canetas é reforçada
 QUADRO_GAMA_TRACO = 1.8  # escurece os traços sem escurecer o fundo já branco
-# Filtros que não passam pela detecção de figuras (não há o que preservar ou já é a foto).
-SEM_PRESERVACAO = frozenset({"original", "whiteboard"})
 
 
 def _para_cinza(imagem: np.ndarray) -> np.ndarray:
@@ -103,53 +99,9 @@ def _filtrar(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
     raise ValueError(f"Filtro desconhecido: {filtro!r}. Use um de {FILTROS}.")
 
 
-def aplicar_filtro(
-    imagem: np.ndarray, filtro: Filtro, preservar_graficos: bool = True
-) -> np.ndarray:
-    """Aplica um dos filtros do MiniScan sobre a página já retificada.
-
-    Com `preservar_graficos`, fotos, figuras e assinaturas detectadas pelo modelo de
-    layout continuam com a imagem original sobre o fundo filtrado. Sem o modelo
-    instalado, o filtro é aplicado na página inteira.
-    """
-    return aplicar_filtro_com_regioes(imagem, filtro, preservar_graficos)[0]
-
-
-def aplicar_filtro_com_regioes(
-    imagem: np.ndarray, filtro: Filtro, preservar_graficos: bool = True
-) -> tuple[np.ndarray, list[Regiao] | None]:
-    """Como `aplicar_filtro`, mas devolve também as regiões gráficas usadas.
-
-    As regiões voltam como None quando a detecção não foi feita (filtro original
-    ou preservação desligada), para quem chama saber que ainda precisa detectar.
-    """
-    filtrada = _filtrar(imagem, filtro)
-    if filtro in SEM_PRESERVACAO or not preservar_graficos or imagem.ndim != 3:
-        return filtrada, None
-    regioes = DetectorLayout.obter().detectar(imagem)
-    if not regioes:
-        return filtrada, regioes
-    # O P&B pode ampliar a página: as figuras são coladas na mesma escala. As regiões
-    # devolvidas continuam na escala da página retificada, a mesma que o OCR lê.
-    fator = filtrada.shape[1] / imagem.shape[1]
-    base = imagem
-    escaladas = regioes
-    if fator != 1:
-        base = cv2.resize(
-            imagem, (filtrada.shape[1], filtrada.shape[0]), interpolation=cv2.INTER_CUBIC
-        )
-        escaladas = [
-            Regiao(
-                round(r.x0 * fator),
-                round(r.y0 * fator),
-                round(r.x1 * fator),
-                round(r.y1 * fator),
-                r.classe,
-                r.confianca,
-            )
-            for r in regioes
-        ]
-    return preservar_regioes(filtrada, base, escaladas), regioes
+def aplicar_filtro(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
+    """Aplica um dos filtros do MiniScan sobre a página já retificada."""
+    return _filtrar(imagem, filtro)
 
 
 def formato_saida(filtro: Filtro) -> tuple[str, str]:

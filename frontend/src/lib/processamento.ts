@@ -33,21 +33,14 @@ export function useProcessamento() {
       const emCache = pagina.processadas[filtro];
       if (emCache) return emCache;
 
-      const { blob, regioesGraficas } = await processarPagina(
-        pagina.original.blob,
-        pagina.cantos ?? CANTOS_TELA_INTEIRA,
-        filtro,
-      );
+      const blob = await processarPagina(pagina.original.blob, pagina.cantos ?? CANTOS_TELA_INTEIRA, filtro);
       const imagem = criarImagemLocal(blob);
       const atual = lerPagina(id);
       if (!atual) {
         URL.revokeObjectURL(imagem.url); // a página foi descartada enquanto processava
         throw new Error("Página descartada.");
       }
-      atualizarPagina(id, {
-        processadas: { ...atual.processadas, [filtro]: imagem },
-        regioesGraficas: regioesGraficas ?? atual.regioesGraficas,
-      });
+      atualizarPagina(id, { processadas: { ...atual.processadas, [filtro]: imagem } });
       return imagem;
     },
     [lerPagina, atualizarPagina],
@@ -64,7 +57,7 @@ export function useProcessamento() {
         const pagina = lerPagina(id);
         if (!pagina) return;
         const cantos = pagina.cantosConfirmados ?? pagina.cantos ?? CANTOS_TELA_INTEIRA;
-        const texto = await extrairOcr(pagina.original.blob, cantos, pagina.regioesGraficas);
+        const texto = await extrairOcr(pagina.original.blob, cantos);
         if (lerPagina(id)) atualizarPagina(id, { textoOcr: texto, estadoOcr: "pronto" });
       } catch (erro) {
         if (lerPagina(id)) atualizarPagina(id, { estadoOcr: "erro" });
@@ -79,14 +72,13 @@ export function useProcessamento() {
     async (id: string, cantos: Cantos): Promise<void> => {
       const pagina = lerPagina(id);
       if (!pagina) return;
-      const { blob, regioesGraficas } = await processarPagina(pagina.original.blob, cantos, pagina.filtro);
-      // Cantos novos invalidam as versões já processadas, as figuras e o texto lido antes.
+      const blob = await processarPagina(pagina.original.blob, cantos, pagina.filtro);
+      // Cantos novos invalidam as versões já processadas e o texto lido antes.
       liberarImagens(Object.values(pagina.processadas));
       atualizarPagina(id, {
         cantos,
         cantosConfirmados: cantos,
         processadas: { [pagina.filtro]: criarImagemLocal(blob) },
-        regioesGraficas,
         textoOcr: "",
         estadoOcr: "pendente",
       });
@@ -146,7 +138,7 @@ export function useProcessamento() {
       const retificados = await Promise.all(
         lados.map(async (lado) => {
           const cantos = lado.cantos ?? (await detectarCantos(lado.blob)).cantos;
-          return (await processarPagina(lado.blob, cantos, "original")).blob;
+          return processarPagina(lado.blob, cantos, "original");
         }),
       );
       const folha = await comporCartao(retificados[0], retificados[1] ?? null, formato);

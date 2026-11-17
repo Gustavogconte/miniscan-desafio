@@ -4,7 +4,6 @@ As rotas são síncronas de propósito: o processamento com OpenCV e onnxruntime
 e o FastAPI executa rotas síncronas em uma thread separada, sem travar o servidor.
 """
 
-import json
 from functools import lru_cache
 from typing import Annotated
 
@@ -25,7 +24,6 @@ from app.esquemas import (
     RespostaSaude,
     validador_cantos,
     validador_metadados,
-    validador_regioes,
 )
 from app.ocr import IDIOMA_OCR, extrair_texto_ocr, ocr_disponivel
 from app.pdf import gerar_pdf
@@ -37,16 +35,14 @@ from app.persistencia import (
 )
 from app.visao.bordas import detectar_cantos
 from app.visao.cartao import FormatoCartao, compor_cartao
-from app.visao.filtros import Filtro, aplicar_filtro_com_regioes, formato_saida
+from app.visao.filtros import Filtro, aplicar_filtro, formato_saida
 from app.visao.imagem import codificar_imagem, decodificar_imagem
-from app.visao.layout import DetectorLayout, Regiao
 from app.visao.livro import dividir_livro
 from app.visao.perspectiva import corrigir_perspectiva
 from app.visao.qrcode import ler_qrcodes
 
 roteador = APIRouter()
 
-CABECALHO_REGIOES = "X-Regioes-Graficas"
 
 ERROS_ENTRADA = {
     status.HTTP_413_CONTENT_TOO_LARGE: {"model": RespostaErro},
@@ -81,7 +77,6 @@ def rota_saude() -> RespostaSaude:
     return RespostaSaude(
         status="ok",
         ocr_disponivel=ocr_disponivel(),
-        layout_disponivel=DetectorLayout.obter().disponivel,
         persistencia_configurada=configuracoes.persistencia_configurada,
     )
 
@@ -116,34 +111,12 @@ def rota_processar_pagina(
     imagem: Annotated[UploadFile, File()],
     cantos: Annotated[str, Form(description='JSON com 4 pontos, ex.: [{"x":0.1,"y":0.1}, ...]')],
     filtro: Annotated[Filtro, Form()] = "original",
-    preservar_graficos: Annotated[
-        bool, Form(description="Mantém fotos e figuras originais sobre o fundo filtrado")
-    ] = True,
 ) -> Response:
     matriz = decodificar_imagem(ler_arquivo(imagem))
     retificada = corrigir_perspectiva(matriz, ler_cantos(cantos))
-    filtrada, regioes = aplicar_filtro_com_regioes(retificada, filtro, preservar_graficos)
+    filtrada = aplicar_filtro(retificada, filtro)
     extensao, tipo_mime = formato_saida(filtro)
-    cabecalhos = {}
-    if regioes is not None:
-        # Reenviado pelo front-end ao /extrair-ocr para não repetir a detecção (~2 s).
-        cabecalhos[CABECALHO_REGIOES] = json.dumps([r.para_dict() for r in regioes])
-    return Response(
-        content=codificar_imagem(filtrada, extensao), media_type=tipo_mime, headers=cabecalhos
-    )
-
-
-def ler_regioes(regioes_json: str | None) -> list[Regiao] | None:
-    if regioes_json is None:
-        return None
-    try:
-        itens = validador_regioes.validate_json(regioes_json)
-    except ValidationError as erro:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            'Envie "regioes" como o JSON devolvido no cabeçalho X-Regioes-Graficas.',
-        ) from erro
-    return [Regiao(**item.model_dump()) for item in itens]
+    return Response(content=codificar_imagem(filtrada, extensao), media_type=tipo_mime)
 
 
 @roteador.post(
@@ -159,18 +132,14 @@ def rota_extrair_ocr(
         str | None,
         Form(description="Cantos da página na foto; com eles a API retifica a foto original"),
     ] = None,
-    regioes: Annotated[
-        str | None,
-        Form(description="Regiões devolvidas pelo /processar-pagina (evita detectar de novo)"),
-    ] = None,
 ) -> RespostaOcr:
     matriz = decodificar_imagem(ler_arquivo(imagem))
     # O OCR lê sempre a página retificada sem filtro: com os cantos, a própria API
-    # retifica a foto original (mesma função do /processar-pagina, mesmas coordenadas
-    # das regiões gráficas), sem depender do filtro escolhido para exibição.
+    # retifica a foto original (mesma função do /processar-pagina), sem depender do
+    # filtro escolhido para exibição.
     if cantos is not None:
         matriz = corrigir_perspectiva(matriz, ler_cantos(cantos))
-    texto = extrair_texto_ocr(matriz, regioes=ler_regioes(regioes))
+    texto = extrair_texto_ocr(matriz)
     return RespostaOcr(texto=texto, idioma=IDIOMA_OCR)
 
 

@@ -8,8 +8,7 @@ Uso (de dentro de backend/), depois de entrar na conta com `uvx hf auth login`:
         --enviar-segredos
 
 - Cria o Space (público, SDK Docker) se ainda não existir.
-- Envia a pasta backend/ com o Dockerfile, o código e o modelo de layout
-  (models/doclayout_yolo.onnx, se existir localmente). O .env, a .venv e os testes ficam de fora.
+- Envia a pasta backend/ com o Dockerfile e o código. O .env, a .venv e os testes ficam de fora.
 - Gera o README.md exigido pelo Spaces, com o cabeçalho de configuração.
 - Com --enviar-segredos, lê SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY do backend/.env
   e cadastra como Secrets do Space (os valores nunca são impressos).
@@ -50,8 +49,8 @@ short_description: Recorte de documentos, filtros, OCR em português e PDF
 
 # MiniScan API
 
-API do MiniScan: detecção de cantos, correção de perspectiva, filtros com preservação de
-figuras (DocLayout-YOLO), OCR em português (PaddleOCR) e geração de PDF.
+API do MiniScan: detecção de cantos, correção de perspectiva, filtros, OCR em português
+(PaddleOCR) e geração de PDF.
 
 A documentação interativa fica em `/docs`. O código-fonte está no repositório do projeto,
 na pasta `backend/`.
@@ -100,11 +99,6 @@ def main() -> int:
     api = HfApi()
     print(f"Conta: {api.whoami()['name']}")
     api.create_repo(args.space, repo_type="space", space_sdk="docker", private=False, exist_ok=True)
-
-    modelo = BACKEND / "models" / "doclayout_yolo.onnx"
-    print(
-        "Modelo de layout:", "incluído" if modelo.exists() else "ausente (a API funciona sem ele)"
-    )
 
     if args.origens:
         api.add_space_variable(args.space, "MINISCAN_ORIGENS_CORS", args.origens)
