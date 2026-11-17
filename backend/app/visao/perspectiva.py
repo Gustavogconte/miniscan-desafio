@@ -9,6 +9,9 @@ AREA_MINIMA_RELATIVA = 0.01
 # Apara as bordas depois da retificação: tira a faixa fina de mesa que sobra
 # nas laterais, que no filtro P&B vira uma moldura pontilhada.
 MARGEM_APARO = 0.008
+# Ângulo interno máximo de um canto: acima disso, três cantos estão quase alinhados.
+ANGULO_MAXIMO = 170
+CANTOS_IMAGEM_INTEIRA = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float32)
 
 
 class CantosInvalidosError(ValueError):
@@ -40,7 +43,26 @@ def validar_cantos_normalizados(cantos: np.ndarray) -> np.ndarray:
     ordenados = ordenar_cantos(cantos)
     if cv2.contourArea(ordenados) < AREA_MINIMA_RELATIVA:
         raise CantosInvalidosError("Os cantos formam uma área pequena demais para recortar.")
+    if not _quadrilatero_valido(ordenados):
+        raise CantosInvalidosError(
+            "Os cantos não formam um quadrilátero: afaste os pontos que estão alinhados."
+        )
     return ordenados
+
+
+def _quadrilatero_valido(cantos: np.ndarray) -> bool:
+    """Convexo e sem ângulo quase raso (três cantos quase alinhados viram um triângulo)."""
+    if not cv2.isContourConvex(cantos.reshape(-1, 1, 2)):
+        return False
+    for i in range(4):
+        anterior = cantos[i - 1] - cantos[i]
+        seguinte = cantos[(i + 1) % 4] - cantos[i]
+        cosseno = float(np.dot(anterior, seguinte)) / (
+            float(np.linalg.norm(anterior) * np.linalg.norm(seguinte)) + 1e-9
+        )
+        if cosseno < np.cos(np.radians(ANGULO_MAXIMO)):
+            return False
+    return True
 
 
 def corrigir_perspectiva(imagem: np.ndarray, cantos_normalizados: np.ndarray) -> np.ndarray:
@@ -76,6 +98,10 @@ def corrigir_perspectiva(imagem: np.ndarray, cantos_normalizados: np.ndarray) ->
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_REPLICATE,
     )
+    # Com os cantos na imagem inteira ("Foto inteira" ou a folha A4 do Cartão ID) não
+    # há mesa na borda: aparar só encolheria a página (o cartão sairia 1,6% maior).
+    if np.allclose(cantos, CANTOS_IMAGEM_INTEIRA, atol=1e-4):
+        return retificada
     aparo_x = round(largura_saida * MARGEM_APARO)
     aparo_y = round(altura_saida * MARGEM_APARO)
     return retificada[aparo_y : altura_saida - aparo_y, aparo_x : largura_saida - aparo_x]
