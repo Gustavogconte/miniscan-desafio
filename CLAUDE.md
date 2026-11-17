@@ -10,7 +10,7 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
 ## 2. Arquitetura e Stack Definida
 
 - **Front-end (`/frontend`):** Next.js (App Router, TypeScript), Tailwind CSS, configurado como **PWA** instalável no iOS (Safari) e Android (Chrome), utilizando `navigator.share` (Web Share API) para compartilhamento nativo de PDF.
-- **Back-end (`/backend`):** Python + FastAPI + OpenCV (`opencv-python-headless`) + `img2pdf`, com OCR por **PaddleOCR** (modelos PP-OCRv5 latinos em ONNX, via `rapidocr` + `onnxruntime`) e detecção de regiões gráficas por **DocLayout-YOLO** em ONNX (`models/doclayout_yolo.onnx`, opcional). Tudo roda no `onnxruntime`: sem Tesseract, sem binários externos e sem PyTorch no servidor. Empacotado com `Dockerfile` (`python:3.11-slim`).
+- **Back-end (`/backend`):** Python + FastAPI + OpenCV (`opencv-python-headless`) + `img2pdf`, com OCR por **PaddleOCR** (modelos PP-OCRv5 latinos em ONNX, via `rapidocr` + `onnxruntime`). O OCR roda no `onnxruntime`: sem Tesseract, sem binários externos e sem PyTorch no servidor. Empacotado com `Dockerfile` (`python:3.11-slim`).
 - **Banco de Dados e Storage (`/supabase`):** Supabase PostgreSQL + Supabase Storage (bucket `miniscan-files`).
 
 ## 3. O Que Já Foi Concluído (Sprint 1)
@@ -39,10 +39,9 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
   - `bw`: P&B "suave" de scanner: amplia páginas com lado < 2000 px (`INTER_CUBIC`), nivela a iluminação dividindo pelo papel estimado (`cv2.dilate` + `cv2.medianBlur`) e aplica uma curva íngreme (abaixo de 150 preto, acima de 215 branco). Sem corte seco, as letras não serrilham em fotos de baixa resolução. É uma camada **só visual** (tela e PDF): o OCR nunca lê esta versão.
 - **OCR e PDF (`POST /extrair-ocr` e `POST /gerar-pdf`):**
   - OCR com `RapidOCR` (singleton `MotorOcr` em `app/ocr.py`) sempre sobre a **página retificada original**, sem filtro: a rede do PaddleOCR depende dos gradientes suaves (anti-aliasing) das bordas das letras, que a binarização destrói. O front-end envia ao `/extrair-ocr` a foto original + os cantos confirmados, e a API retifica com a mesma `corrigir_perspectiva` do `/processar-pagina`. Medido: com texto pequeno, a leitura cai de ~99% (original) para ~35% (P&B) e ~55% (CLAHE). As caixas são ordenadas em linhas, de cima para baixo e da esquerda para a direita (`ordenar_em_linhas`).
-  - Regiões gráficas (`figure`, `picture`, `signature`, `image`, `stamp`) vêm do `DetectorLayout` (singleton em `app/visao/layout.py`, letterbox 1024x1024 + `cv2.dnn.NMSBoxes`). Elas são mantidas com a imagem original sobre o fundo filtrado (`preservar_graficos=True` em `/processar-pagina`) e mascaradas antes do OCR. O `/processar-pagina` devolve as regiões no cabeçalho `X-Regioes-Graficas` e o front-end as reenvia ao `/extrair-ocr` (campo `regioes`), porque a detecção custa ~2 s em CPU; o detector também guarda cache por página. Sem o arquivo `.onnx`, o detector fica desligado e o restante funciona igual.
   - Compilar páginas ordenadas em PDF único usando `img2pdf`.
 - **Persistência (`POST /documentos`):** a API recebe PDF, imagens, filtros e textos OCR, faz o upload no bucket `miniscan-files` com a chave de serviço e insere em `documents` e `document_pages`. Os endpoints de visão continuam sem estado.
-- **Saúde (`GET /saude`):** informa se a API está no ar, se o OCR carregou, se o modelo de layout está instalado e se a persistência está configurada.
+- **Saúde (`GET /saude`):** informa se a API está no ar, se o OCR carregou e se a persistência está configurada.
 
 ## 5. Convenções de Código e Git
 
@@ -52,6 +51,6 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
 
 ## 6. Pendências e Próximos Passos
 
-- **Preservação de figuras (DocLayout-YOLO) em revisão:** num teste real, um RG inteiro foi classificado como `figure` por causa da foto 3x4, e o filtro preservou o documento todo em cores. Decidir entre remover a preservação de figuras, deixá-la desligada por padrão (`preservar_graficos=False`) ou exigir que a região ocupe só parte da página. Os pontos de entrada são `aplicar_filtro_com_regioes` em `backend/app/visao/filtros.py` e `DetectorLayout` em `backend/app/visao/layout.py`.
+- **Preservação de figuras removida (2026-11-17):** a extensão de Segmentação Híbrida (DocLayout-YOLO) foi retirada. Num teste real ela classificou um RG inteiro como figura por causa da foto 3x4, e sem ela a API caiu de ~1 GB para ~400 MB de pico de memória, o P&B de 2,4 s para 0,08 s e o OCR de 4,9 s para 2,7 s por página. Não reintroduzir sem resolver o falso positivo em documentos com foto.
 - **Hospedagem da API:** o Hugging Face passou a cobrar por Spaces com Docker, e a API usa ~1 GB de RAM no pico (planos gratuitos de 512 MB não comportam). Hoje o teste no celular é feito com a API no computador e um túnel HTTPS (`frontend/README.md`). Para a entrega, falta escolher entre Google Cloud Run, Railway ou Hugging Face PRO (`backend/scripts/publicar_space.py` já está pronto).
 - **Validação com fotos reais:** a detecção de bordas e o P&B foram calibrados com cenários sintéticos (`backend/tests/fotos_realistas.py`). Falta confirmar com fotos tiradas no celular, principalmente em fundo ocre/bege, e conferir a resolução real que o iPhone entrega na câmera ao vivo (mostrada na barra superior da tela `/camera`).

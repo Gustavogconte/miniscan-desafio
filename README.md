@@ -4,7 +4,7 @@ O MiniScan é um aplicativo de digitalização de documentos inspirado no CamSca
 
 A câmera faz o recorte ao vivo: a folha é detectada a cada quadro, direto no navegador, e a foto é tirada sozinha quando o documento fica parado. Há também modos para extrair texto, digitalizar cartões de identidade em tamanho real, separar as duas páginas de um livro aberto, realçar quadros brancos e ler QR codes.
 
-A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica em uma API Python (FastAPI, OpenCV, PaddleOCR e DocLayout-YOLO em ONNX Runtime, e img2pdf), e o histórico e os arquivos ficam no Supabase (PostgreSQL e Storage).
+A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica em uma API Python (FastAPI, OpenCV, PaddleOCR em ONNX Runtime e img2pdf), e o histórico e os arquivos ficam no Supabase (PostgreSQL e Storage).
 
 ## Estrutura do repositório
 
@@ -18,7 +18,7 @@ A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica
 ├── prototype/                 # Protótipo interativo de UI/UX
 ├── supabase/
 │   └── migrations/            # Schema, índices FTS, triggers, RLS e rollback
-├── backend/                   # FastAPI + OpenCV + PaddleOCR/DocLayout-YOLO (ONNX)
+├── backend/                   # FastAPI + OpenCV + PaddleOCR (ONNX)
 └── frontend/                  # Next.js PWA: câmera ao vivo (OpenCV.js), modos e histórico
 ```
 
