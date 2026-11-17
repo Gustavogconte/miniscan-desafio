@@ -19,6 +19,31 @@ export interface QuadroCapturado {
 
 type CapacidadesComLanterna = MediaTrackCapabilities & { torch?: boolean };
 
+// 4:3 é o formato nativo do sensor: mostra o campo de visão inteiro. Em 16:9 (ex.: 4K)
+// muitos celulares recortam o sensor e a imagem parece com zoom. Resolução alta evita
+// página pequena e letras serrilhadas no P&B.
+const QUALIDADE: MediaTrackConstraints = {
+  width: { ideal: 2560 },
+  height: { ideal: 1920 },
+  aspectRatio: { ideal: 4 / 3 },
+};
+
+// Câmeras "virtuais" (Dupla/Tripla no iPhone) trocam de lente sozinhas ao chegar perto
+// da folha e parecem dar zoom; a teleobjetiva e a ultra-angular também não servem.
+const LENTES_EVITADAS = /ultra|tele|dual|dupla|tripl|macro|wide angle|grande-angular/i;
+const TRASEIRA = /back|rear|traseira|environment/i;
+
+/**
+ * Procura a câmera traseira principal (a "1x" do app Câmera) pelo nome. Os nomes só
+ * aparecem depois que a permissão foi concedida, por isso roda após o primeiro acesso.
+ */
+async function idDaCameraPrincipal(): Promise<string | null> {
+  const dispositivos = await navigator.mediaDevices.enumerateDevices();
+  const traseiras = dispositivos.filter((d) => d.kind === "videoinput" && TRASEIRA.test(d.label));
+  const principal = traseiras.find((d) => !LENTES_EVITADAS.test(d.label));
+  return principal?.deviceId || null;
+}
+
 /**
  * Abre a câmera traseira em tela cheia. `getUserMedia` exige contexto seguro:
  * funciona em https e em localhost; num IP da rede local via http fica "indisponivel"
@@ -30,6 +55,8 @@ export function useCameraAoVivo() {
   const [estado, setEstado] = useState<EstadoCamera>("iniciando");
   const [lanternaSuportada, setLanternaSuportada] = useState(false);
   const [lanternaLigada, setLanternaLigada] = useState(false);
+  /** Nome da câmera em uso (ex.: "Câmera Traseira"), para diagnosticar zoom. */
+  const [nomeCamera, setNomeCamera] = useState("");
   const trilha = useRef<MediaStreamTrack | null>(null);
 
   useEffect(() => {
@@ -44,16 +71,18 @@ export function useCameraAoVivo() {
       try {
         fluxo = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          // 4:3 é o formato nativo do sensor: mostra o campo de visão inteiro. Em 16:9
-          // (ex.: 4K) muitos celulares recortam o sensor e a imagem parece com zoom.
-          // Resolução alta evita página pequena e letras serrilhadas no P&B.
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 2560 },
-            height: { ideal: 1920 },
-            aspectRatio: { ideal: 4 / 3 },
-          },
+          video: { facingMode: { ideal: "environment" }, ...QUALIDADE },
         });
+        // Se o navegador escolheu uma câmera virtual ou outra lente, troca pela principal.
+        const principal = await idDaCameraPrincipal().catch(() => null);
+        const atual = fluxo.getVideoTracks()[0]?.getSettings().deviceId;
+        if (principal && principal !== atual && !cancelado) {
+          fluxo.getTracks().forEach((t) => t.stop());
+          fluxo = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { deviceId: { exact: principal }, ...QUALIDADE },
+          });
+        }
         if (cancelado || !video.current) {
           fluxo.getTracks().forEach((t) => t.stop());
           return;
@@ -61,6 +90,7 @@ export function useCameraAoVivo() {
         video.current.srcObject = fluxo;
         await video.current.play();
         trilha.current = fluxo.getVideoTracks()[0] ?? null;
+        setNomeCamera(trilha.current?.label ?? "");
         const capacidades = trilha.current?.getCapabilities?.() as CapacidadesComLanterna | undefined;
         setLanternaSuportada(Boolean(capacidades?.torch));
         // Foco contínuo onde existir (Chrome no Android); o Safari já faz sozinho.
@@ -110,7 +140,7 @@ export function useCameraAoVivo() {
     return { blob, largura: tela.width, altura: tela.height };
   }, []);
 
-  return { video, estado, lanternaSuportada, lanternaLigada, alternarLanterna, capturarQuadro };
+  return { video, estado, nomeCamera, lanternaSuportada, lanternaLigada, alternarLanterna, capturarQuadro };
 }
 
 // ---------------------------------------------------------------------------

@@ -65,6 +65,7 @@ export default function TelaCamera() {
   const {
     video,
     estado: estadoCamera,
+    nomeCamera,
     lanternaSuportada,
     lanternaLigada,
     alternarLanterna,
@@ -253,8 +254,9 @@ export default function TelaCamera() {
         </Link>
         {estadoCamera === "ativa" && tamanhoVideo.largura > 1 && (
           // Resolução real entregue pela câmera: ajuda a entender fotos com pouca nitidez.
-          <span className="mr-auto rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white/80">
+          <span className="mr-auto max-w-[55%] truncate rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white/80">
             {tamanhoVideo.largura}×{tamanhoVideo.altura}
+            {nomeCamera && ` · ${nomeCamera}`}
           </span>
         )}
         <div className="flex items-center gap-2">
