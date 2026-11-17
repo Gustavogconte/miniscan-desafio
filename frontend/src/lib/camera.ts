@@ -234,11 +234,9 @@ export function useDetectorAoVivo(
       const quadro = contexto.getImageData(0, 0, tela.width, tela.height);
       ocupado = true;
       ultimoEnvio = performance.now();
-      // `anterior` dá continuidade: o worker prefere a folha perto do contorno atual.
-      worker.postMessage(
-        { largura: tela.width, altura: tela.height, pixels: quadro.data.buffer, anterior: suavizados },
-        [quadro.data.buffer],
-      );
+      worker.postMessage({ largura: tela.width, altura: tela.height, pixels: quadro.data.buffer }, [
+        quadro.data.buffer,
+      ]);
     }
 
     // Falha ao baixar ou iniciar o OpenCV.js (rede, memória, navegador antigo).
