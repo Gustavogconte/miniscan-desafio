@@ -126,8 +126,16 @@ def cenarios_dificeis() -> dict[str, tuple[np.ndarray, np.ndarray]]:
     cv2.fillPoly(dobrada, [canto], (55, 55, 60))
     cv2.fillPoly(dobrada, [np.int32([[880, 148], [962, 235], [890, 230]])], (205, 205, 200))
 
+    # Fita adesiva amarela presa na borda de cima, sobre madeira escura: o calombo da
+    # fita não pode virar a borda da folha (prolongar o trecho fita-canto erra o canto).
+    madeira_escura = np.clip(_fundo("madeira", rng) * 0.45, 0, 255)
+    com_fita, verdade_fita = _fotografar(pagina, madeira_escura, QUASE_RETA, seed=12)
+    fita = np.int32([[560, 95], [660, 92], [664, 200], [564, 203]])
+    cv2.fillPoly(com_fita, [fita], (40, 200, 235))
+
     return {
         **base,
+        "fita_adesiva": (com_fita, verdade_fita),
         "borda_ondulada": (ondulada, verdade_ondulada),
         "dedo_no_canto": (com_dedo, verdade_dedo),
         "canto_dobrado": (dobrada, verdade_dobrada),
