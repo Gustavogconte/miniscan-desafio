@@ -12,10 +12,22 @@ import {
 } from "@/lib/api";
 import { criarImagemLocal, liberarImagens, useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { novaPagina } from "@/lib/paginas";
-import { CANTOS_TELA_INTEIRA, type Cantos, type Filtro, type FormatoCartao, type ImagemLocal } from "@/lib/tipos";
+import {
+  CANTOS_TELA_INTEIRA,
+  type Cantos,
+  type Filtro,
+  type FormatoCartao,
+  type ImagemLocal,
+  type Pagina,
+} from "@/lib/tipos";
 
 /** Tamanho, em pixels, da folha A4 a 300 dpi devolvida pelo /compor-cartao. */
 const A4_300DPI = { largura: 2480, altura: 3508 };
+
+/** Cantos que o OCR usa: os confirmados no recorte (a mesma referência enquanto não mudam). */
+function cantosDoOcr(pagina: Pagina): Cantos {
+  return pagina.cantosConfirmados ?? pagina.cantos ?? CANTOS_TELA_INTEIRA;
+}
 
 export interface LadoDoCartao {
   blob: Blob;
@@ -40,6 +52,11 @@ export function useProcessamento() {
         URL.revokeObjectURL(imagem.url); // a página foi descartada enquanto processava
         throw new Error("Página descartada.");
       }
+      const chegouAntes = atual.processadas[filtro];
+      if (chegouAntes) {
+        URL.revokeObjectURL(imagem.url); // outra requisição do mesmo filtro terminou primeiro
+        return chegouAntes;
+      }
       atualizarPagina(id, { processadas: { ...atual.processadas, [filtro]: imagem } });
       return imagem;
     },
@@ -52,15 +69,20 @@ export function useProcessamento() {
    */
   const executarOcr = useCallback(
     async (id: string): Promise<void> => {
+      const pagina = lerPagina(id);
+      if (!pagina) return;
+      const cantos = cantosDoOcr(pagina);
+      // Só grava se a página ainda existe e não foi recortada de novo enquanto lia.
+      const aindaValida = () => {
+        const atual = lerPagina(id);
+        return atual ? cantosDoOcr(atual) === cantos : false;
+      };
       atualizarPagina(id, { estadoOcr: "carregando" });
       try {
-        const pagina = lerPagina(id);
-        if (!pagina) return;
-        const cantos = pagina.cantosConfirmados ?? pagina.cantos ?? CANTOS_TELA_INTEIRA;
         const texto = await extrairOcr(pagina.original.blob, cantos);
-        if (lerPagina(id)) atualizarPagina(id, { textoOcr: texto, estadoOcr: "pronto" });
+        if (aindaValida()) atualizarPagina(id, { textoOcr: texto, estadoOcr: "pronto" });
       } catch (erro) {
-        if (lerPagina(id)) atualizarPagina(id, { estadoOcr: "erro" });
+        if (aindaValida()) atualizarPagina(id, { estadoOcr: "erro" });
         console.warn("OCR falhou:", mensagemDeErro(erro));
       }
     },
@@ -73,8 +95,10 @@ export function useProcessamento() {
       const pagina = lerPagina(id);
       if (!pagina) return;
       const blob = await processarPagina(pagina.original.blob, cantos, pagina.filtro);
+      const atual = lerPagina(id);
+      if (!atual) return; // descartada enquanto processava
       // Cantos novos invalidam as versões já processadas e o texto lido antes.
-      liberarImagens(Object.values(pagina.processadas));
+      liberarImagens(Object.values(atual.processadas));
       atualizarPagina(id, {
         cantos,
         cantosConfirmados: cantos,
