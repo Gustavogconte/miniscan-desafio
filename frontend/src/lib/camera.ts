@@ -44,9 +44,15 @@ export function useCameraAoVivo() {
       try {
         fluxo = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          // Pede até 4K: o navegador entrega o máximo que a câmera suporta. Resolução
-          // baixa deixa a página retificada pequena e as letras do P&B serrilhadas.
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+          // 4:3 é o formato nativo do sensor: mostra o campo de visão inteiro. Em 16:9
+          // (ex.: 4K) muitos celulares recortam o sensor e a imagem parece com zoom.
+          // Resolução alta evita página pequena e letras serrilhadas no P&B.
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 2560 },
+            height: { ideal: 1920 },
+            aspectRatio: { ideal: 4 / 3 },
+          },
         });
         if (cancelado || !video.current) {
           fluxo.getTracks().forEach((t) => t.stop());

@@ -23,9 +23,12 @@ interface Tamanho {
   altura: number;
 }
 
-/** Converte coordenadas entre o vídeo (0..1) e a tela, considerando o object-cover do <video>. */
+/**
+ * Converte coordenadas entre o vídeo (0..1) e a tela, considerando o object-contain do
+ * <video>: o quadro inteiro da câmera aparece, sem corte (e sem parecer zoom).
+ */
 function geometria(tela: Tamanho, video: Tamanho) {
-  const escala = Math.max(tela.largura / video.largura, tela.altura / video.altura);
+  const escala = Math.min(tela.largura / video.largura, tela.altura / video.altura);
   const largura = video.largura * escala;
   const altura = video.altura * escala;
   const dx = (tela.largura - largura) / 2;
@@ -289,7 +292,7 @@ export default function TelaCamera() {
           onLoadedMetadata={(e) =>
             setTamanhoVideo({ largura: e.currentTarget.videoWidth, altura: e.currentTarget.videoHeight })
           }
-          className="absolute inset-0 size-full object-cover"
+          className="absolute inset-0 size-full object-contain"
         />
 
         {ativa && (
