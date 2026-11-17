@@ -1,0 +1,52 @@
+# API do MiniScan numa VPS compartilhada com outros projetos.
+#
+# - Projeto Compose próprio (miniscan), com rede própria e nome de container único.
+#   Não usa a rede de nenhum outro projeto.
+# - O banco e o Storage ficam no Supabase Cloud: a API só faz conexões de saída.
+# - O reverse proxy da VPS (Caddy) chega na API pelo IP público e pela porta 8020,
+#   e é ele que serve o HTTPS. A mesma API também responde em HTTP nessa porta.
+# - Travas de memória (a VPS não tem swap), de processador e do tamanho dos logs.
+#   Se a API passar de 1 GB, só ela é encerrada e o Docker a reinicia.
+#
+# O .env com SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e MINISCAN_BUCKET fica nesta
+# pasta, só na VPS (permissão 600). Ele está no .gitignore.
+#
+# Atualizar depois de um push: git pull na raiz do repositório e, nesta pasta,
+# docker compose up -d --build
+
+name: miniscan
+
+services:
+  miniscan-api:
+    build:
+      context: ../../backend
+      # Permite apagar só as imagens antigas deste projeto depois de uma atualização:
+      # docker image prune -f --filter label=projeto=miniscan
+      labels:
+        projeto: miniscan
+    image: miniscan-api:local
+    container_name: miniscan-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Produção e prévias do projeto "miniscan-desafio" na Vercel
+      # (miniscan-desafio.vercel.app e miniscan-desafio-<hash>-<conta>.vercel.app).
+      # O "$$" é um "$" literal para o Compose.
+      MINISCAN_ORIGENS_CORS: http://localhost:3000
+      MINISCAN_ORIGENS_CORS_REGEX: '^https://miniscan-desafio(-[a-z0-9-]+)?\.vercel\.app$$'
+    ports:
+      - "8020:8000"
+    mem_limit: 1g
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      # A primeira consulta também carrega o OCR, para a primeira página não esperar por ele.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/saude', timeout=20)"]
+      interval: 60s
+      timeout: 30s
+      start_period: 60s
+      retries: 3

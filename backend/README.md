@@ -50,6 +50,20 @@ docker run --rm -p 8000:8000 -e MINISCAN_ORIGENS_CORS=http://localhost:3000 mini
 
 A imagem usa `python:3.11-slim`, instala as dependências do `requirements.txt` (gerado do `uv.lock`, com versões e hashes fixos) e baixa os modelos do PaddleOCR durante o build. A imagem respeita a variável `PORT` das plataformas de hospedagem. Depois de mudar dependências, regenere o `requirements.txt` com `uv export --no-dev --format requirements-txt --no-emit-project -o requirements.txt`.
 
+## Deploy numa VPS com Docker Compose
+
+O `deploy/vps/docker-compose.yml`, na raiz do repositório, sobe a API num projeto Compose próprio (`miniscan`), com reinício automático e travas de 1 GB de RAM, 1 núcleo e 30 MB de log. A API escuta na porta 8020 do host, e um reverse proxy da VPS (Caddy, Nginx) serve o HTTPS e encaminha para ela. O `.env` com `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `MINISCAN_BUCKET` fica ao lado do compose, só na VPS. O CORS já vem no compose e aceita o projeto `miniscan-desafio` da Vercel, tanto a produção quanto as prévias.
+
+```bash
+git clone https://github.com/Gustavogconte/miniscan-desafio.git /opt/miniscan
+cd /opt/miniscan/deploy/vps
+# copie o .env para esta pasta e rode chmod 600 .env
+docker compose config --quiet && docker compose up -d --build
+curl -s http://127.0.0.1:8020/saude
+```
+
+Para atualizar depois de um push: `git pull` na raiz e `docker compose up -d --build` em `deploy/vps`.
+
 ## Deploy no Hugging Face Spaces
 
 A API roda no Hugging Face Spaces com o próprio Dockerfile: o plano gratuito tem 2 vCPU, 16 GB de RAM e HTTPS. Depois de 48 horas sem uso o Space hiberna, e a primeira requisição seguinte leva cerca de um minuto para acordá-lo.
