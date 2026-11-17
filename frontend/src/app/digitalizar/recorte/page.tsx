@@ -81,6 +81,9 @@ export default function TelaRecorte() {
       router.push("/digitalizar/editor");
     } catch (erro) {
       avisar(mensagemDeErro(erro), "erro");
+    } finally {
+      // O Next mantém esta tela montada (escondida) ao navegar: sem isto, ao voltar
+      // pelo botão "Recortar" do editor o botão continuaria em "Corrigindo perspectiva…".
       setConfirmando(false);
     }
   }
