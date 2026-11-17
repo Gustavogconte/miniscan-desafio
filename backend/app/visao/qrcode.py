@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 
 LADO_MINIMO = 640  # QR pequenos na foto são lidos melhor depois de ampliar
+LADO_MAXIMO = 2400  # a ampliação nunca passa disso (imagem 1x2000 px viraria 640x1.280.000)
 
 
 def _detector():
@@ -16,8 +17,8 @@ def _detector():
 def ler_qrcodes(imagem: np.ndarray) -> list[str]:
     """Textos de todos os QR codes legíveis na imagem, sem repetição, na ordem encontrada."""
     cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY) if imagem.ndim == 3 else imagem
-    if min(cinza.shape) < LADO_MINIMO:
-        fator = LADO_MINIMO / min(cinza.shape)
+    fator = min(LADO_MINIMO / min(cinza.shape), LADO_MAXIMO / max(cinza.shape))
+    if fator > 1:
         cinza = cv2.resize(cinza, None, fx=fator, fy=fator, interpolation=cv2.INTER_CUBIC)
 
     detector = _detector()

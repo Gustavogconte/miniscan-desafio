@@ -6,7 +6,7 @@ import cv2
 import img2pdf
 import numpy as np
 
-from app.visao.imagem import ImagemInvalidaError, codificar_imagem
+from app.visao.imagem import codificar_imagem, decodificar
 
 ASSINATURA_JPEG = b"\xff\xd8\xff"
 ASSINATURA_PNG = b"\x89PNG\r\n\x1a\n"
@@ -63,9 +63,7 @@ def _normalizar_pagina(dados: bytes, numero: int, carimbo: str | None) -> bytes:
     PNG com canal alfa são convertidos para JPEG. Com carimbo, a página é redesenhada
     mantendo o formato (PNG continua PNG, para o P&B não ganhar artefatos).
     """
-    imagem = cv2.imdecode(np.frombuffer(dados, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-    if imagem is None:
-        raise ImagemInvalidaError(f"A página {numero} não é uma imagem válida.")
+    imagem = decodificar(dados, cv2.IMREAD_UNCHANGED, f"A página {numero} não é uma imagem válida.")
 
     tem_alfa = imagem.ndim == 3 and imagem.shape[2] == 4
     if tem_alfa:

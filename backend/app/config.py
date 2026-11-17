@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 
 TAMANHO_MAXIMO_ARQUIVO = 15 * 1024 * 1024  # mesmo limite do bucket miniscan-files
 MAXIMO_PAGINAS_PDF = 50
+# Teto do corpo inteiro da requisição (todos os arquivos somados). Sem ele, uma
+# requisição com dezenas de arquivos de 15 MB derrubaria a API por falta de memória.
+TAMANHO_MAXIMO_REQUISICAO = 100 * 1024 * 1024
 
 
 def _ler_origens_cors() -> list[str]:
