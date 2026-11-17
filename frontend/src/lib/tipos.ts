@@ -51,7 +51,7 @@ export interface ImagemLocal {
   url: string;
 }
 
-export type EstadoOcr = "pendente" | "carregando" | "pronto" | "erro";
+type EstadoOcr = "pendente" | "carregando" | "pronto" | "erro";
 
 export interface Pagina {
   id: string;

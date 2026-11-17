@@ -241,7 +241,8 @@ def ler_metadados(paginas_json: str) -> list[MetadadosPagina]:
     except ValidationError as erro:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
-            'Envie "paginas" como JSON: [{"filtro": "original|grayscale|bw", "texto_ocr": "..."}].',
+            'Envie "paginas" como JSON: [{"filtro": "original|grayscale|bw|whiteboard", '
+            '"texto_ocr": "..."}].',
         ) from erro
 
 

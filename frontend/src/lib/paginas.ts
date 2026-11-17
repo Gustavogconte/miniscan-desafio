@@ -1,7 +1,7 @@
 import { criarImagemLocal } from "@/lib/estado-digitalizacao";
 import type { Cantos, Filtro, Modo, Pagina } from "@/lib/tipos";
 
-export function novoId(): string {
+function novoId(): string {
   // crypto.randomUUID só existe em contexto seguro (HTTPS); no teste pela rede local não.
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

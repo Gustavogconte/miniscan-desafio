@@ -2,7 +2,7 @@ import type { Cantos, Filtro, FormatoCartao } from "@/lib/tipos";
 
 const URL_API = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
-export class ErroApi extends Error {
+class ErroApi extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -101,7 +101,6 @@ export async function salvarDocumento(dados: DadosDocumento): Promise<DocumentoS
 }
 
 export function mensagemDeErro(erro: unknown): string {
-  if (erro instanceof ErroApi) return erro.message;
   if (erro instanceof Error) return erro.message;
   return "Algo deu errado. Tente novamente.";
 }

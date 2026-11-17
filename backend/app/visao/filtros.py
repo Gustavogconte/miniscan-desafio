@@ -79,29 +79,23 @@ def _quadro_branco(imagem: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
 
 
-def _filtrar(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
+def aplicar_filtro(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
+    """Aplica um dos filtros do MiniScan sobre a página já retificada."""
     if filtro == "original":
         return imagem
 
     if filtro == "whiteboard":
         return _quadro_branco(imagem)
 
-    cinza = _para_cinza(imagem)
-
     if filtro == "grayscale":
         clahe = cv2.createCLAHE(clipLimit=CLAHE_LIMITE, tileGridSize=CLAHE_GRADE)
-        return clahe.apply(cinza)
+        return clahe.apply(_para_cinza(imagem))
 
     if filtro == "bw":
         # Só visual (tela e PDF): o OCR lê a página retificada original, nunca esta.
         return _preto_e_branco(imagem)
 
     raise ValueError(f"Filtro desconhecido: {filtro!r}. Use um de {FILTROS}.")
-
-
-def aplicar_filtro(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
-    """Aplica um dos filtros do MiniScan sobre a página já retificada."""
-    return _filtrar(imagem, filtro)
 
 
 def formato_saida(filtro: Filtro) -> tuple[str, str]:

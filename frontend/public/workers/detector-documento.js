@@ -25,5 +25,5 @@ self.onmessage = async function (evento) {
   } catch {
     resultado = null; // quadro problemático: trata como "sem folha"
   }
-  self.postMessage({ tipo: "cantos", id: dados.id, resultado: resultado, ms: performance.now() - inicio });
+  self.postMessage({ tipo: "cantos", resultado: resultado, ms: performance.now() - inicio });
 };

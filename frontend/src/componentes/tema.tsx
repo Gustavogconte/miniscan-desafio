@@ -36,7 +36,7 @@ function assinar(ouvinte: () => void) {
   return () => ouvintes.delete(ouvinte);
 }
 
-export function useTema() {
+function useTema() {
   const tema = useSyncExternalStore(assinar, lerTema, () => "light" as Tema);
   return { tema, alternar: () => aplicarTema(tema === "dark" ? "light" : "dark") };
 }

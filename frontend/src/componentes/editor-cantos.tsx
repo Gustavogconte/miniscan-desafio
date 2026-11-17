@@ -5,7 +5,6 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Cantos, Ponto } from "@/lib/tipos";
 
 export const NOMES_CANTOS = ["superior esquerdo", "superior direito", "inferior direito", "inferior esquerdo"];
-const NOMES = NOMES_CANTOS;
 export const PASSO_TECLADO = 0.005;
 const PASSO_TECLADO_RAPIDO = 0.03;
 const ZOOM_LUPA = 2.5;
@@ -105,9 +104,9 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar, cant
 
         {cantos.map((canto, indice) => (
           <button
-            key={NOMES[indice]}
+            key={NOMES_CANTOS[indice]}
             type="button"
-            aria-label={`Canto ${NOMES[indice]}, ${Math.round(canto.x * 100)}% da largura e ${Math.round(canto.y * 100)}% da altura`}
+            aria-label={`Canto ${NOMES_CANTOS[indice]}, ${Math.round(canto.x * 100)}% da largura e ${Math.round(canto.y * 100)}% da altura`}
             aria-pressed={cantoAtivo === indice}
             onFocus={() => aoSelecionarCanto(indice)}
             onPointerDown={(e) => aoPressionar(indice, e)}
