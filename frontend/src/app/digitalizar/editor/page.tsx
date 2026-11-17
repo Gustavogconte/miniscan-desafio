@@ -17,7 +17,7 @@ import { useGuardaDigitalizacao } from "@/lib/usar-guarda";
 const DESCRICAO_FILTRO: Record<Filtro, string> = {
   original: "Cores da foto, só com a perspectiva corrigida",
   grayscale: "Tons de cinza com equalização de luz (CLAHE)",
-  bw: "Limiarização adaptativa: remove sombras",
+  bw: "Preto e branco de scanner: nivela a luz e remove sombras",
   whiteboard: "Quadro branco: tira reflexo e realça as canetas",
 };
 
@@ -63,7 +63,9 @@ export default function TelaEditor() {
   // Enquanto o novo filtro carrega, mostra a versão anterior esmaecida.
   const imagem = pagina.processadas[pagina.filtro];
   const imagemExibida = imagem ?? Object.values(pagina.processadas)[0];
-  const todasConfirmadas = paginas.every((p) => Object.keys(p.processadas).length > 0);
+  // Página que voltou da câmera sem recorte confirmado (ex.: gesto de voltar do sistema).
+  const indicePendente = paginas.findIndex((p) => Object.keys(p.processadas).length === 0);
+  const todasConfirmadas = indicePendente === -1;
   const rotuloFiltro = FILTROS.find((f) => f.valor === pagina.filtro)?.rotulo ?? pagina.filtro;
 
   function confirmarDescarte(evento: MouseEvent<HTMLAnchorElement>) {
@@ -133,8 +135,24 @@ export default function TelaEditor() {
                 </button>
               )}
             </div>
-          ) : (
+          ) : confirmada ? (
             <LoaderCircle className="size-8 animate-spin text-texto-suave" aria-hidden />
+          ) : (
+            <div className="relative flex max-h-full max-w-full items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element -- imagem local (blob) */}
+              <img
+                src={pagina.original.url}
+                alt={`Página ${indiceAtual + 1}, ainda sem recorte`}
+                className="max-h-full max-w-full rounded-lg border border-borda object-contain opacity-40"
+              />
+              <Link
+                href="/digitalizar/recorte"
+                className="absolute flex min-h-11 items-center gap-1.5 rounded-xl bg-primaria px-4 text-xs font-semibold text-white shadow-md"
+              >
+                <Crop className="size-4" aria-hidden />
+                Recortar esta página
+              </Link>
+            </div>
           )}
         </div>
         <p className="font-mono text-[11px] text-texto-secundario [@media(max-height:700px)]:hidden">
@@ -243,6 +261,16 @@ export default function TelaEditor() {
             </label>
           ))}
         </fieldset>
+
+        {!todasConfirmadas && indicePendente !== indiceAtual && (
+          <button
+            type="button"
+            onClick={() => selecionarPagina(indicePendente)}
+            className="w-full text-center text-xs font-semibold text-primaria-texto underline underline-offset-2"
+          >
+            Falta recortar a página {indicePendente + 1} para gerar o PDF
+          </button>
+        )}
 
         <div className="grid grid-cols-5 gap-2.5">
           <button
