@@ -33,7 +33,6 @@ interface Arraste {
 
 export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Props) {
   const palco = useRef<HTMLDivElement>(null);
-  const botoes = useRef<(HTMLButtonElement | null)[]>([]);
   const [arraste, setArraste] = useState<Arraste | null>(null);
   const [tamanhoPalco, setTamanhoPalco] = useState({ largura: 0, altura: 0 });
   const proporcao = largura / altura;
@@ -67,13 +66,14 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
     return escolhido;
   }
 
+  // O toque não dá foco ao botão do canto: o contorno de foco aparecia como um círculo azul em volta da bolinha.
+  // Pelo teclado, o Tab ainda chega em cada canto e as setas o movem.
   function aoPressionar(evento: PointerEvent<HTMLDivElement>) {
     const indice = cantoMaisPerto(evento);
     const ponto = pontoDoEvento(evento);
     if (indice === null || !ponto) return;
     evento.preventDefault();
     evento.currentTarget.setPointerCapture(evento.pointerId);
-    botoes.current[indice]?.focus();
     setTamanhoPalco({ largura: palco.current?.clientWidth ?? 0, altura: palco.current?.clientHeight ?? 0 });
     const canto = cantos[indice];
     setArraste({ indice, ponteiro: evento.pointerId, deslocamento: { x: canto.x - ponto.x, y: canto.y - ponto.y } });
@@ -156,9 +156,6 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
           {cantos.map((canto, indice) => (
             <button
               key={NOMES_CANTOS[indice]}
-              ref={(elemento) => {
-                botoes.current[indice] = elemento;
-              }}
               type="button"
               aria-label={`Canto ${NOMES_CANTOS[indice]}, ${Math.round(canto.x * 100)}% da largura e ${Math.round(canto.y * 100)}% da altura`}
               onKeyDown={(e) => aoTeclar(indice, e)}
