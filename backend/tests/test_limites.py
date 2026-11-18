@@ -2,6 +2,7 @@
 
 import json
 import threading
+import time
 
 import cv2
 import numpy as np
@@ -136,8 +137,25 @@ def test_nao_tenta_carregar_o_ocr_de_novo_logo_depois_de_uma_falha(monkeypatch):
         raise main.OcrIndisponivelError("sem modelos")
 
     monkeypatch.setattr(MotorOcr, "_instancia", None)
-    monkeypatch.setattr(MotorOcr, "_ultima_falha", 0.0)
+    monkeypatch.setattr(MotorOcr, "_ultima_falha", None)
     monkeypatch.setattr(MotorOcr, "_carregar", staticmethod(falhar))
     assert ocr_disponivel() is False
     assert ocr_disponivel() is False
     assert len(tentativas) == 1
+
+
+def test_carrega_o_ocr_logo_depois_do_boot_da_maquina(monkeypatch):
+    # Depois de um reinício da VPS, o contêiner sobe uns 20 s após o boot, e o relógio
+    # monotônico conta desde o boot. Sem nenhuma falha anterior, o OCR tem que carregar.
+    tentativas = []
+
+    def carregar():
+        tentativas.append(1)
+        return object()
+
+    monkeypatch.setattr(MotorOcr, "_instancia", None)
+    monkeypatch.setattr(MotorOcr, "_ultima_falha", None)
+    monkeypatch.setattr(MotorOcr, "_carregar", staticmethod(carregar))
+    monkeypatch.setattr(time, "monotonic", lambda: 20.0)
+    assert ocr_disponivel() is True
+    assert tentativas == [1]

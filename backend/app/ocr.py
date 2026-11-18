@@ -45,7 +45,10 @@ class MotorOcr:
     """
 
     _instancia = None
-    _ultima_falha = 0.0
+    # Momento da última carga que falhou (time.monotonic), ou None se nunca falhou. Não
+    # pode começar em 0: o relógio monotônico conta desde o boot da máquina, e uma API
+    # que sobe logo depois de um reinício da VPS recusaria o OCR no primeiro minuto.
+    _ultima_falha: float | None = None
     _trava_carga = threading.Lock()
     _trava_leitura = threading.Lock()
 
@@ -59,7 +62,11 @@ class MotorOcr:
             return cls._instancia
         with cls._trava_carga:
             if cls._instancia is None:
-                if time.monotonic() - cls._ultima_falha < ESPERA_APOS_FALHA_S:
+                falhou_ha_pouco = (
+                    cls._ultima_falha is not None
+                    and time.monotonic() - cls._ultima_falha < ESPERA_APOS_FALHA_S
+                )
+                if falhou_ha_pouco:
                     raise OcrIndisponivelError("O OCR está indisponível no momento.")
                 try:
                     cls._instancia = cls._carregar()
