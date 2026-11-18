@@ -1,6 +1,8 @@
 # MiniScan API
 
-API em FastAPI que faz o processamento de imagem do MiniScan: detecta os cantos da folha, corrige a perspectiva, aplica os filtros, extrai o texto em português com o PaddleOCR e junta as páginas em um PDF. O OCR (modelos PP-OCRv5 latinos) roda no `onnxruntime`, sem binários externos e sem PyTorch. Os endpoints de visão não guardam estado. A documentação interativa fica em `/docs` quando o servidor está rodando.
+API em FastAPI que faz o processamento de imagem do MiniScan: detecta os cantos da folha, corrige a perspectiva, aplica os filtros, extrai o texto em português com o PaddleOCR e junta as páginas em um PDF. O OCR (modelos PP-OCRv5 latinos) roda no `onnxruntime`, sem binários externos e sem PyTorch. Os endpoints de visão não guardam estado.
+
+Os cantos da folha vêm primeiro do modelo [DocAligner](https://github.com/DocsaidLab/DocAligner), do DocsaidLab (FastViT-SA24 em ONNX, licença Apache-2.0 para o código e os pesos), que também roda no `onnxruntime` (`app/visao/docaligner.py`). Quando o modelo não acha a folha, fica com confiança abaixo de 0,7 ou devolve um quadrilátero que o recorte recusaria, a API usa o pipeline clássico com OpenCV (`app/visao/bordas.py`). Os testes que levaram a essa combinação estão na seção 3 da `docs/documentacao_miniscan.md`. A documentação interativa fica em `/docs` quando o servidor está rodando.
 
 | Rota | Entrada | Saída |
 |---|---|---|
@@ -10,7 +12,7 @@ API em FastAPI que faz o processamento de imagem do MiniScan: detecta os cantos 
 | `POST /gerar-pdf` | `paginas` (vários arquivos, na ordem), `carimbo` opcional (data e hora escritas em cada página) | PDF A4 |
 | `POST /compor-cartao` | `frente` e `verso` opcional (já retificados), `formato` (`id` ou `passaporte`) | folha A4 em JPEG com o cartão em tamanho real |
 | `POST /documentos` | `titulo`, `pdf`, `originais` e `processadas` (arquivos, na ordem), `paginas` (JSON com `filtro` e `texto_ocr` de cada página) | `201` com `{id, titulo, pdf_url, total_paginas}` |
-| `GET /saude` | — | `{status, ocr_disponivel, persistencia_configurada}` |
+| `GET /saude` | — | `{status, ocr_disponivel, docaligner_disponivel, persistencia_configurada}` |
 
 Os cantos seguem sempre a ordem superior esquerdo, superior direito, inferior direito e inferior esquerdo. Cada arquivo pode ter até 15 MB, o mesmo limite do bucket no Supabase. A requisição inteira pode ter até 100 MB, e cada imagem até 50 megapixels: a API confere as dimensões pelo cabeçalho antes de decodificar, porque um PNG de 100 KB pode descrever 10000 x 10000 pixels e ocupar centenas de MB na memória. Acima desses limites, a resposta é 413. O PDF aceita até 50 páginas, e o título de um documento salvo, até 200 caracteres.
 
@@ -23,11 +25,12 @@ A rota `/documentos` é a única que grava no Supabase. Ela envia os arquivos pa
 ```bash
 cd backend
 uv sync
+uv run python -m app.visao.docaligner   # baixa o modelo de cantos (83 MB) para backend/modelos/
 cp .env.example .env   # preencha a URL e a chave secreta do Supabase
 uv run uvicorn app.main:app --reload --env-file .env
 ```
 
-Na primeira execução, o RapidOCR baixa os modelos do PaddleOCR (cerca de 15 MB) e guarda no ambiente virtual. Os modelos são carregados uma única vez, na subida do servidor.
+Na primeira execução, o RapidOCR baixa os modelos do PaddleOCR (cerca de 15 MB) e guarda no ambiente virtual. O modelo de cantos vem da versão 1.1.1 publicada no GitHub do DocAligner, com o hash SHA-256 conferido, e fica em `backend/modelos/`, fora do Git. Sem ele, a API funciona e detecta os cantos só com o OpenCV, e o `/saude` mostra `docaligner_disponivel: false`. Os modelos são carregados uma única vez, na subida do servidor.
 
 ## Testes e lint
 
@@ -37,7 +40,7 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-Os testes geram fotos sintéticas de uma folha inclinada, sem depender de arquivos externos, e incluem a leitura de palavras acentuadas pelo OCR.
+Os testes geram fotos sintéticas de uma folha inclinada, sem depender de arquivos externos, e incluem a leitura de palavras acentuadas pelo OCR. As cenas de detecção rodam com o detector combinado e com o OpenCV sozinho. Sem o modelo de cantos baixado, os testes que precisam dele são pulados; no CI ele é obrigatório, e o `conftest.py` recusa rodar sem ele.
 
 ## Docker
 
@@ -46,7 +49,7 @@ docker build -t miniscan-api .
 docker run --rm -p 8000:8000 -e MINISCAN_ORIGENS_CORS=http://localhost:3000 miniscan-api
 ```
 
-A imagem usa `python:3.11-slim`, instala as dependências do `requirements.txt` (gerado do `uv.lock`, com versões e hashes fixos) e baixa os modelos do PaddleOCR durante o build. A imagem respeita a variável `PORT` das plataformas de hospedagem. Depois de mudar dependências, regenere o `requirements.txt` com `uv export --no-dev --format requirements-txt --no-emit-project -o requirements.txt`.
+A imagem usa `python:3.11-slim`, instala as dependências do `requirements.txt` (gerado do `uv.lock`, com versões e hashes fixos) e baixa durante o build os modelos do PaddleOCR e o modelo de cantos, que fica em `/srv/modelos`. A imagem respeita a variável `PORT` das plataformas de hospedagem. Depois de mudar dependências, regenere o `requirements.txt` com `uv export --no-dev --format requirements-txt --no-emit-project -o requirements.txt`.
 
 ## Deploy numa VPS com Docker Compose
 

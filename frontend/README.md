@@ -2,7 +2,7 @@
 
 Front-end do MiniScan em Next.js 16 (App Router, TypeScript e Tailwind CSS v4), instalável como PWA no Android e no iPhone.
 
-A câmera mostra o vídeo ao vivo e fotografa quando a pessoa toca no botão. Logo na captura, a foto vai para a API em `../backend`, que acha os cantos da folha com o modelo DocAligner e, quando ele não acha, com o pipeline OpenCV. A tela de recorte abre com esses cantos para a pessoa conferir. O recorte final, os filtros, o OCR e o PDF também ficam com a API.
+A câmera mostra o vídeo ao vivo na maior resolução 4:3 que o aparelho oferece (`maximizarResolucao`, em `src/lib/camera.ts`) e fotografa quando a pessoa toca no botão. Logo na captura, uma cópia de até 1280 px vai para a API em `../backend`, que acha os cantos da folha com o modelo DocAligner e, quando ele não acha, com o pipeline OpenCV. A tela de recorte abre com esses cantos para a pessoa conferir. O recorte final, os filtros, o OCR e o PDF também ficam com a API, que recebe a foto inteira. A foto da galeria sobe com até 3200 px no lado maior.
 
 O app já teve um recorte ao vivo, com o OpenCV.js num Web Worker e captura automática quando a folha parava. Ele saiu porque errava muito nas fotos reais e baixava 11 MB de OpenCV.js no celular. A detecção depois da captura, no servidor, acerta bem mais.
 
