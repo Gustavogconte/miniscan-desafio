@@ -40,6 +40,10 @@ export async function prepararFoto(arquivo: File): Promise<FotoPreparada> {
   tela.height = altura;
   const contexto = tela.getContext("2d");
   if (!contexto) throw new Error("Seu navegador não conseguiu processar a imagem.");
+  // O JPEG não tem transparência: sem um fundo branco, a parte transparente de um PNG
+  // (assinatura, print recortado) viraria preto e confundiria o recorte e o OCR.
+  contexto.fillStyle = "#ffffff";
+  contexto.fillRect(0, 0, largura, altura);
   contexto.drawImage(imagem, 0, 0, largura, altura);
 
   const blob = await new Promise<Blob | null>((resolver) => tela.toBlob(resolver, "image/jpeg", QUALIDADE_JPEG));
