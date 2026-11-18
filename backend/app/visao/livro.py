@@ -15,10 +15,12 @@ def encontrar_lombada(retificada: np.ndarray) -> float:
 
     A dobra do livro cria uma faixa vertical mais escura (sombra da curvatura).
     Procura a coluna mais escura perto do meio; sem sombra clara, divide ao meio.
+    O brilho de cada coluna é o do papel (percentil 90), e não a média: uma figura
+    escura perto do meio puxava a média e a lombada caía dentro dela.
     """
     cinza = cv2.cvtColor(retificada, cv2.COLOR_BGR2GRAY) if retificada.ndim == 3 else retificada
     largura = cinza.shape[1]
-    perfil = cinza.mean(axis=0)
+    perfil = np.percentile(cinza, 90, axis=0)
     janela = max(5, largura // 60)
     suave = np.convolve(perfil, np.ones(janela) / janela, mode="same")
     inicio, fim = (int(largura * f) for f in FAIXA_LOMBADA)
