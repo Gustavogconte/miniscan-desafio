@@ -138,11 +138,13 @@ def corrigir_perspectiva(imagem: np.ndarray, cantos_normalizados: np.ndarray) ->
         dtype=np.float32,
     )
     matriz = cv2.getPerspectiveTransform(origem, destino)
+    # Cúbica: a parte da folha mais longe da câmera é ampliada na retificação, e a
+    # interpolação linear deixava as letras dali mais moles.
     retificada = cv2.warpPerspective(
         imagem,
         matriz,
         (largura_saida, altura_saida),
-        flags=cv2.INTER_LINEAR,
+        flags=cv2.INTER_CUBIC,
         borderMode=cv2.BORDER_REPLICATE,
     )
     # Com os cantos na imagem inteira ("Foto inteira" ou a folha A4 do Cartão ID) não

@@ -7,7 +7,10 @@ import cv2
 import numpy as np
 from PIL import Image
 
-QUALIDADE_JPEG = 90
+# A página já chega em JPEG do celular: regravar com 90 somava uma segunda perda visível
+# nas letras pequenas. Com 95, a página cresce cerca de 45% (perto de 1 MB numa folha
+# A4 de 3000 px) e a perda some.
+QUALIDADE_JPEG = 95
 # Teto de pixels de uma imagem enviada. Cobre a foto de 48 MP dos celulares mais
 # recentes; acima disso, um PNG de poucos KB (10000x10000 px de uma cor só) ocuparia
 # centenas de MB na memória ao ser decodificado.
