@@ -8,6 +8,7 @@ import { useAviso } from "@/componentes/aviso";
 import { CabecalhoEtapa } from "@/componentes/cabecalho-etapa";
 import { gerarPdf, mensagemDeErro, salvarDocumento } from "@/lib/api";
 import { baixarArquivo, compartilharPdf, nomeDoArquivo } from "@/lib/arquivo";
+import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { formatarTamanho } from "@/lib/imagem";
 import { useProcessamento } from "@/lib/processamento";
 import { ROTULO_FILTRO } from "@/lib/tipos";
@@ -28,6 +29,12 @@ function carimboAgora(): string {
 }
 
 export default function TelaExportar() {
+  // Documento novo, tela nova: título, carimbo e PDF não passam de um documento a outro.
+  const { sessao } = useDigitalizacao();
+  return <ConteudoExportar key={sessao} />;
+}
+
+function ConteudoExportar() {
   const router = useRouter();
   const avisar = useAviso();
   const { paginas, reiniciar } = useGuardaDigitalizacao();
@@ -37,24 +44,39 @@ export default function TelaExportar() {
   const [pdf, setPdf] = useState<EstadoPdf>({ tipo: "gerando" });
   const [salvando, setSalvando] = useState(false);
   const [comCarimbo, setComCarimbo] = useState(false);
-  const iniciado = useRef(false);
+  // Só a geração mais recente pode mostrar o resultado (uma antiga pode terminar depois).
+  const geracao = useRef(0);
 
   const gerar = useCallback(async (carimbar: boolean) => {
+    if (paginas.length === 0) return;
+    const minha = ++geracao.current;
     setPdf({ tipo: "gerando" });
     try {
       const imagens = await Promise.all(paginas.map((p) => garantirProcessada(p.id, p.filtro)));
       const carimbo = carimbar ? carimboAgora() : undefined;
-      setPdf({ tipo: "pronto", blob: await gerarPdf(imagens.map((i) => i.blob), carimbo) });
+      const blob = await gerarPdf(imagens.map((i) => i.blob), carimbo);
+      if (minha === geracao.current) setPdf({ tipo: "pronto", blob });
     } catch (erro) {
-      setPdf({ tipo: "erro", mensagem: mensagemDeErro(erro) });
+      if (minha === geracao.current) setPdf({ tipo: "erro", mensagem: mensagemDeErro(erro) });
     }
   }, [paginas, garantirProcessada]);
 
+  // O Next guarda esta tela escondida ao navegar. O PDF é gerado de novo cada vez que
+  // ela aparece: o guardado podia ser de antes de o usuário mudar um filtro ou uma página.
+  const gerarAoAparecer = useRef(gerar);
+  const carimboAtual = useRef(comCarimbo);
   useEffect(() => {
-    if (iniciado.current || paginas.length === 0) return;
-    iniciado.current = true;
-    void gerar(false);
-  }, [gerar, paginas.length]);
+    gerarAoAparecer.current = gerar;
+    carimboAtual.current = comCarimbo;
+  });
+  useEffect(() => {
+    void gerarAoAparecer.current(carimboAtual.current);
+    return () => {
+      geracao.current += 1;
+      setPdf({ tipo: "gerando" });
+      setSalvando(false);
+    };
+  }, []);
 
   if (paginas.length === 0) return null;
 

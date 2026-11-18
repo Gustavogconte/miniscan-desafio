@@ -10,6 +10,11 @@ interface Estado {
   /** Modo escolhido na câmera; decide o que acontece depois da foto. */
   modo: Modo;
   formatoCartao: FormatoCartao;
+  /**
+   * Sobe a cada documento novo (reiniciar). O Next guarda as telas escondidas entre
+   * uma visita e outra; com esta chave, editor e exportação recomeçam do zero.
+   */
+  sessao: number;
 }
 
 type Acao =
@@ -21,7 +26,13 @@ type Acao =
   | { tipo: "configurar"; modo?: Modo; formatoCartao?: FormatoCartao }
   | { tipo: "reiniciar" };
 
-const ESTADO_INICIAL: Estado = { paginas: [], indiceAtual: 0, modo: "digitalizar", formatoCartao: "id" };
+const ESTADO_INICIAL: Estado = {
+  paginas: [],
+  indiceAtual: 0,
+  modo: "digitalizar",
+  formatoCartao: "id",
+  sessao: 0,
+};
 
 function redutor(estado: Estado, acao: Acao): Estado {
   switch (acao.tipo) {
@@ -52,7 +63,12 @@ function redutor(estado: Estado, acao: Acao): Estado {
     case "selecionar":
       return { ...estado, indiceAtual: acao.indice };
     case "reiniciar":
-      return { ...ESTADO_INICIAL, modo: estado.modo, formatoCartao: estado.formatoCartao };
+      return {
+        ...ESTADO_INICIAL,
+        modo: estado.modo,
+        formatoCartao: estado.formatoCartao,
+        sessao: estado.sessao + 1,
+      };
   }
 }
 
