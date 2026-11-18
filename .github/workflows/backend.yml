@@ -20,12 +20,14 @@ jobs:
           python-version: "3.11"
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
-      # Modelos do PaddleOCR (~15 MB) baixados na primeira execução dos testes.
+      - run: uv sync --locked
+      # Modelos do PaddleOCR (~15 MB) baixados na primeira execução dos testes. O cache
+      # vem DEPOIS do uv sync: restaurado antes, ele criava um .venv sem Python e o
+      # uv sync falhava em toda execução seguinte com o mesmo uv.lock.
       - uses: actions/cache@v4
         with:
           path: backend/.venv/lib/python3.11/site-packages/rapidocr/models
           key: modelos-rapidocr-${{ hashFiles('backend/uv.lock') }}
-      - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest
