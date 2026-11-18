@@ -24,8 +24,12 @@ import {
 /** Tamanho, em pixels, da folha A4 a 300 dpi devolvida pelo /compor-cartao. */
 const A4_300DPI = { largura: 2480, altura: 3508 };
 
-/** Cantos que o OCR usa: os confirmados no recorte (a mesma referência enquanto não mudam). */
-function cantosDoOcr(pagina: Pagina): Cantos {
+/**
+ * Cantos do último recorte confirmado, usados pelos filtros e pelo OCR. São a mesma
+ * referência enquanto o recorte não muda: comparar com `!==` diz se a página foi
+ * recortada de novo durante uma requisição.
+ */
+function cantosDoRecorte(pagina: Pagina): Cantos {
   return pagina.cantosConfirmados ?? pagina.cantos ?? CANTOS_TELA_INTEIRA;
 }
 
@@ -40,25 +44,34 @@ export function useProcessamento() {
   /** Devolve a página retificada no filtro pedido, chamando a API só se ainda não estiver em cache. */
   const garantirProcessada = useCallback(
     async (id: string, filtro: Filtro): Promise<ImagemLocal> => {
-      const pagina = lerPagina(id);
-      if (!pagina) throw new Error("Página não encontrada.");
-      const emCache = pagina.processadas[filtro];
-      if (emCache) return emCache;
+      // Repete quando a página é recortada de novo durante a requisição: a resposta
+      // traria o recorte antigo para este filtro, ao lado dos outros já no recorte novo.
+      for (;;) {
+        const pagina = lerPagina(id);
+        if (!pagina) throw new Error("Página não encontrada.");
+        const emCache = pagina.processadas[filtro];
+        if (emCache) return emCache;
 
-      const blob = await processarPagina(pagina.original.blob, pagina.cantos ?? CANTOS_TELA_INTEIRA, filtro);
-      const imagem = criarImagemLocal(blob);
-      const atual = lerPagina(id);
-      if (!atual) {
-        URL.revokeObjectURL(imagem.url); // a página foi descartada enquanto processava
-        throw new Error("Página descartada.");
+        const cantos = cantosDoRecorte(pagina);
+        const blob = await processarPagina(pagina.original.blob, cantos, filtro);
+        const imagem = criarImagemLocal(blob);
+        const atual = lerPagina(id);
+        if (!atual) {
+          URL.revokeObjectURL(imagem.url); // a página foi descartada enquanto processava
+          throw new Error("Página descartada.");
+        }
+        if (cantosDoRecorte(atual) !== cantos) {
+          URL.revokeObjectURL(imagem.url);
+          continue;
+        }
+        const chegouAntes = atual.processadas[filtro];
+        if (chegouAntes) {
+          URL.revokeObjectURL(imagem.url); // outra requisição do mesmo filtro terminou primeiro
+          return chegouAntes;
+        }
+        atualizarPagina(id, { processadas: { ...atual.processadas, [filtro]: imagem } });
+        return imagem;
       }
-      const chegouAntes = atual.processadas[filtro];
-      if (chegouAntes) {
-        URL.revokeObjectURL(imagem.url); // outra requisição do mesmo filtro terminou primeiro
-        return chegouAntes;
-      }
-      atualizarPagina(id, { processadas: { ...atual.processadas, [filtro]: imagem } });
-      return imagem;
     },
     [lerPagina, atualizarPagina],
   );
@@ -71,11 +84,11 @@ export function useProcessamento() {
     async (id: string): Promise<void> => {
       const pagina = lerPagina(id);
       if (!pagina) return;
-      const cantos = cantosDoOcr(pagina);
+      const cantos = cantosDoRecorte(pagina);
       // Só grava se a página ainda existe e não foi recortada de novo enquanto lia.
       const aindaValida = () => {
         const atual = lerPagina(id);
-        return atual ? cantosDoOcr(atual) === cantos : false;
+        return atual ? cantosDoRecorte(atual) === cantos : false;
       };
       atualizarPagina(id, { estadoOcr: "carregando" });
       try {
