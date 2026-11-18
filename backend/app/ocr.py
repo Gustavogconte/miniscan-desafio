@@ -18,6 +18,9 @@ IDIOMA_OCR = "latin"  # modelo multilíngue latino: português, espanhol, inglê
 # Duas caixas estão na mesma linha quando o centro vertical difere menos que
 # esta fração da altura mediana das caixas.
 TOLERANCIA_LINHA = 0.5
+# Inclinação máxima (rad, ~10°) desfeita antes de agrupar as linhas. Acima disso não é
+# página torta, é página de lado, e girar as caixas não ajudaria.
+INCLINACAO_MAXIMA = 0.17
 # Depois de uma falha ao carregar o OCR, espera este tempo antes de tentar de novo,
 # em vez de recarregar o modelo a cada /saude ou /extrair-ocr.
 ESPERA_APOS_FALHA_S = 60
@@ -121,15 +124,35 @@ def ocr_disponivel() -> bool:
         return False
 
 
+def _desfazer_inclinacao(pontos: list[np.ndarray]) -> list[np.ndarray]:
+    """Gira as caixas pela inclinação mediana do texto, para as linhas ficarem horizontais.
+
+    Numa página torta só 2°, duas colunas de uma tabela a ~1200 px uma da outra ficam
+    com mais de meia linha de diferença de altura, e o valor ia para a linha de baixo.
+    """
+    angulos = [np.arctan2(p[1, 1] - p[0, 1], p[1, 0] - p[0, 0]) for p in pontos if len(p) >= 2]
+    if not angulos:
+        return pontos
+    angulo = float(np.clip(np.median(angulos), -INCLINACAO_MAXIMA, INCLINACAO_MAXIMA))
+    if abs(angulo) < 1e-3:
+        return pontos
+    cosseno, seno = np.cos(angulo), np.sin(angulo)
+    giro = np.array([[cosseno, -seno], [seno, cosseno]], dtype=np.float32)
+    return [p @ giro for p in pontos]
+
+
 def ordenar_em_linhas(caixas: Sequence[np.ndarray], textos: Sequence[str]) -> str:
     """Monta o texto na ordem natural de leitura: de cima para baixo, da esquerda para a direita.
 
-    O detector devolve caixas soltas. Caixas com centro vertical próximo formam uma
-    linha; dentro da linha, a ordem é pela borda esquerda.
+    O detector devolve caixas soltas. Depois de desfazer a inclinação da página, caixas
+    com centro vertical próximo formam uma linha; dentro da linha, a ordem é pela
+    borda esquerda.
     """
     if not textos:
         return ""
-    pontos = [np.asarray(caixa, dtype=np.float32).reshape(-1, 2) for caixa in caixas]
+    pontos = _desfazer_inclinacao(
+        [np.asarray(caixa, dtype=np.float32).reshape(-1, 2) for caixa in caixas]
+    )
     itens = [
         {
             "texto": texto.strip(),
