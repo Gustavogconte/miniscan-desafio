@@ -22,7 +22,6 @@ type Acao =
   | { tipo: "atualizar"; id: string; mudancas: Partial<Pagina> }
   | { tipo: "remover"; id: string }
   | { tipo: "selecionar"; indice: number }
-  | { tipo: "substituir"; id: string; novas: Pagina[] }
   | { tipo: "configurar"; modo?: Modo; formatoCartao?: FormatoCartao }
   | { tipo: "reiniciar" };
 
@@ -46,13 +45,6 @@ function redutor(estado: Estado, acao: Acao): Estado {
     case "remover": {
       const paginas = estado.paginas.filter((p) => p.id !== acao.id);
       return { ...estado, paginas, indiceAtual: Math.min(estado.indiceAtual, Math.max(paginas.length - 1, 0)) };
-    }
-    case "substituir": {
-      // Troca uma página por várias (ex.: livro aberto -> página esquerda e direita).
-      const indice = estado.paginas.findIndex((p) => p.id === acao.id);
-      if (indice < 0) return estado;
-      const paginas = [...estado.paginas.slice(0, indice), ...acao.novas, ...estado.paginas.slice(indice + 1)];
-      return { ...estado, paginas, indiceAtual: indice };
     }
     case "configurar":
       return {
@@ -81,8 +73,6 @@ interface ContextoDigitalizacao extends Estado {
   adicionarPagina: (pagina: Pagina) => void;
   atualizarPagina: (id: string, mudancas: Partial<Pagina>) => void;
   removerPagina: (id: string) => void;
-  /** Troca uma página por outras; a imagem original da antiga só é liberada se não for reaproveitada. */
-  substituirPagina: (id: string, novas: Pagina[]) => void;
   configurar: (opcoes: { modo?: Modo; formatoCartao?: FormatoCartao }) => void;
   selecionarPagina: (indice: number) => void;
   reiniciar: () => void;
@@ -125,20 +115,6 @@ export function ProvedorDigitalizacao({ children }: { children: ReactNode }) {
 
   const adicionarPagina = useCallback((pagina: Pagina) => despachar({ tipo: "adicionar", pagina }), [despachar]);
 
-  const substituirPagina = useCallback(
-    (id: string, novas: Pagina[]) => {
-      const antiga = estadoRef.current.paginas.find((p) => p.id === id);
-      if (antiga) {
-        const reaproveitadas = new Set(novas.flatMap(urlsDaPagina));
-        urlsDaPagina(antiga)
-          .filter((url) => !reaproveitadas.has(url))
-          .forEach((url) => URL.revokeObjectURL(url));
-      }
-      despachar({ tipo: "substituir", id, novas });
-    },
-    [despachar],
-  );
-
   const configurar = useCallback(
     (opcoes: { modo?: Modo; formatoCartao?: FormatoCartao }) => despachar({ tipo: "configurar", ...opcoes }),
     [despachar],
@@ -155,7 +131,6 @@ export function ProvedorDigitalizacao({ children }: { children: ReactNode }) {
       adicionarPagina,
       atualizarPagina,
       removerPagina,
-      substituirPagina,
       configurar,
       selecionarPagina,
       reiniciar,
@@ -166,7 +141,6 @@ export function ProvedorDigitalizacao({ children }: { children: ReactNode }) {
       adicionarPagina,
       atualizarPagina,
       removerPagina,
-      substituirPagina,
       configurar,
       selecionarPagina,
       reiniciar,

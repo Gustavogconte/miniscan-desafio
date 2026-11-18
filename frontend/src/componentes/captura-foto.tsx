@@ -6,7 +6,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { useAviso } from "@/componentes/aviso";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { prepararFoto } from "@/lib/imagem";
-import { filtroDoModo, novaPagina } from "@/lib/paginas";
+import { novaPagina } from "@/lib/paginas";
 
 /**
  * Entrada de arquivo da galeria: a foto escolhida vira uma página nova e vai para o
@@ -16,7 +16,7 @@ import { filtroDoModo, novaPagina } from "@/lib/paginas";
 export function useCapturaFoto() {
   const router = useRouter();
   const avisar = useAviso();
-  const { adicionarPagina, modo } = useDigitalizacao();
+  const { adicionarPagina } = useDigitalizacao();
   const galeria = useRef<HTMLInputElement>(null);
   const [preparando, setPreparando] = useState(false);
 
@@ -27,7 +27,7 @@ export function useCapturaFoto() {
     setPreparando(true);
     try {
       const foto = await prepararFoto(arquivo);
-      adicionarPagina(novaPagina(foto.blob, foto.largura, foto.altura, { filtro: filtroDoModo(modo) }));
+      adicionarPagina(novaPagina(foto.blob, foto.largura, foto.altura));
       router.push("/digitalizar/recorte");
     } catch (erro) {
       avisar(erro instanceof Error ? erro.message : "Não foi possível abrir a imagem.", "erro");

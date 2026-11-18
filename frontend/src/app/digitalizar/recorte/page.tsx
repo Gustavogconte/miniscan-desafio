@@ -17,7 +17,7 @@ const PASSO_SETA = PASSO_TECLADO * 2;
 export default function TelaRecorte() {
   const router = useRouter();
   const avisar = useAviso();
-  const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina, modo } = useGuardaDigitalizacao();
+  const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina } = useGuardaDigitalizacao();
   const { confirmarPagina } = useProcessamento();
   const [detectando, setDetectando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -89,20 +89,17 @@ export default function TelaRecorte() {
   }
 
   const nomeAtivo = NOMES_CANTOS[cantoAtivo];
-  const livroInteiro = modo === "livro" && !pagina.metadeDeLivro;
   const botaoSeta =
     "flex size-11 items-center justify-center rounded-xl border border-borda bg-secundario text-texto transition hover:text-primaria-texto disabled:opacity-50";
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <CabecalhoEtapa
-        titulo={livroInteiro ? "Recortar livro aberto" : "Ajustar recorte"}
+        titulo="Ajustar recorte"
         subtitulo={
-          livroInteiro
-            ? "Inclua as duas páginas; a lombada é achada sozinha"
-            : paginas.length > 1
-              ? `Página ${indiceAtual + 1} de ${paginas.length} • arraste os 4 cantos`
-              : "Arraste os 4 cantos até as bordas da folha"
+          paginas.length > 1
+            ? `Página ${indiceAtual + 1} de ${paginas.length} • arraste os 4 cantos`
+            : "Arraste os 4 cantos até as bordas da folha"
         }
         voltarPara={voltarPara}
         aoVoltar={aoVoltar}
@@ -194,13 +191,7 @@ export default function TelaRecorte() {
           ) : (
             <Check className="size-5" aria-hidden />
           )}
-          {confirmando
-            ? livroInteiro
-              ? "Separando as páginas…"
-              : "Corrigindo perspectiva…"
-            : livroInteiro
-              ? "Separar as duas páginas"
-              : "Confirmar recorte"}
+          {confirmando ? "Corrigindo perspectiva…" : "Confirmar recorte"}
         </button>
       </div>
     </main>

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
-import { lerQrcode } from "@/lib/api";
 import type { Cantos } from "@/lib/tipos";
 
 // ---------------------------------------------------------------------------
@@ -320,69 +319,4 @@ export function useDetectorAoVivo(
 
   const atual = ativo ? deteccao : { cantos: null, estabilidade: 0, pronto: deteccao.pronto, falhou: deteccao.falhou };
   return { ...atual, liberar };
-}
-
-// ---------------------------------------------------------------------------
-// Leitura de QR code ao vivo
-// ---------------------------------------------------------------------------
-
-interface DetectorDeCodigos {
-  detect(fonte: CanvasImageSource): Promise<{ rawValue: string }[]>;
-}
-type ConstrutorDetector = new (opcoes: { formats: string[] }) => DetectorDeCodigos;
-
-const INTERVALO_QR_NATIVO_MS = 300;
-const INTERVALO_QR_SERVIDOR_MS = 900;
-
-/**
- * Lê QR codes do vídeo: usa o BarcodeDetector do navegador quando existe (Chrome no
- * Android) e, nos outros (Safari, Firefox), manda um quadro ao backend periodicamente.
- */
-export function useLeitorQr(video: RefObject<HTMLVideoElement | null>, ativo: boolean) {
-  const [textos, setTextos] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!ativo) return;
-    let parar = false;
-    let temporizador: ReturnType<typeof setTimeout> | undefined;
-    const Construtor = (globalThis as { BarcodeDetector?: ConstrutorDetector }).BarcodeDetector;
-    const nativo = Construtor ? new Construtor({ formats: ["qr_code"] }) : null;
-    const tela = document.createElement("canvas");
-
-    async function ler() {
-      const v = video.current;
-      if (parar) return;
-      if (v && v.readyState >= 2 && v.videoWidth) {
-        try {
-          let encontrados: string[] = [];
-          if (nativo) {
-            encontrados = (await nativo.detect(v)).map((c) => c.rawValue);
-          } else {
-            const escala = Math.min(1, 1024 / Math.max(v.videoWidth, v.videoHeight));
-            tela.width = Math.round(v.videoWidth * escala);
-            tela.height = Math.round(v.videoHeight * escala);
-            tela.getContext("2d")?.drawImage(v, 0, 0, tela.width, tela.height);
-            const blob = await new Promise<Blob | null>((r) => tela.toBlob(r, "image/jpeg", 0.85));
-            if (blob) encontrados = await lerQrcode(blob);
-          }
-          if (!parar && encontrados.length > 0) {
-            setTextos(encontrados);
-            return; // pausa até o usuário pedir outra leitura
-          }
-        } catch {
-          // quadro ruim ou rede instável: tenta no próximo
-        }
-      }
-      temporizador = setTimeout(ler, nativo ? INTERVALO_QR_NATIVO_MS : INTERVALO_QR_SERVIDOR_MS);
-    }
-
-    if (textos.length === 0) void ler();
-    return () => {
-      parar = true;
-      clearTimeout(temporizador);
-    };
-  }, [ativo, video, textos.length]);
-
-  /** `mostrar`: exibe QR codes lidos por outro caminho (ex.: foto da galeria). */
-  return { textos, lerOutro: () => setTextos([]), mostrar: (lidos: string[]) => setTextos(lidos) };
 }

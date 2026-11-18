@@ -5,7 +5,6 @@ import { useCallback } from "react";
 import {
   comporCartao,
   detectarCantos,
-  dividirLivro,
   extrairOcr,
   mensagemDeErro,
   processarPagina,
@@ -39,7 +38,7 @@ export interface LadoDoCartao {
 }
 
 export function useProcessamento() {
-  const { lerPagina, atualizarPagina, adicionarPagina, substituirPagina, modo } = useDigitalizacao();
+  const { lerPagina, atualizarPagina, adicionarPagina } = useDigitalizacao();
 
   /** Devolve a página retificada no filtro pedido, chamando a API só se ainda não estiver em cache. */
   const garantirProcessada = useCallback(
@@ -124,31 +123,8 @@ export function useProcessamento() {
     [atualizarPagina, executarOcr, lerPagina],
   );
 
-  /**
-   * Confirma o recorte de uma página. No modo livro, uma foto do livro aberto vira
-   * duas páginas: a API acha a lombada e devolve os cantos de cada metade.
-   */
-  const confirmarPagina = useCallback(
-    async (id: string, cantos: Cantos): Promise<void> => {
-      const pagina = lerPagina(id);
-      if (!pagina) return;
-      if (modo === "livro" && !pagina.metadeDeLivro) {
-        const { esquerda, direita } = await dividirLivro(pagina.original.blob, cantos);
-        const metades = [esquerda, direita].map((c) =>
-          novaPagina(pagina.original.blob, pagina.largura, pagina.altura, {
-            cantos: c,
-            filtro: pagina.filtro,
-            metadeDeLivro: true,
-          }),
-        );
-        substituirPagina(id, metades);
-        await Promise.all(metades.map((m) => processarComCantos(m.id, m.cantos!)));
-        return;
-      }
-      await processarComCantos(id, cantos);
-    },
-    [lerPagina, modo, processarComCantos, substituirPagina],
-  );
+  /** Confirma o recorte de uma página: retifica, guarda e lê o texto em segundo plano. */
+  const confirmarPagina = processarComCantos;
 
   /** Processa, em sequência, as fotos tiradas em lote que ainda não foram recortadas. */
   const concluirLote = useCallback(

@@ -1,30 +1,24 @@
-/** Os mesmos valores aceitos pela API e pela coluna document_pages.filter_applied. */
-export type Filtro = "original" | "grayscale" | "bw" | "whiteboard";
+/** Os três filtros do enunciado, com os mesmos valores da API e do banco. */
+export type Filtro = "original" | "grayscale" | "bw";
 
 export const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: "original", rotulo: "Original" },
   { valor: "grayscale", rotulo: "Cinza" },
   { valor: "bw", rotulo: "P&B" },
-  { valor: "whiteboard", rotulo: "Quadro" },
 ];
 
 export const ROTULO_FILTRO: Record<Filtro, string> = {
   original: "Original",
   grayscale: "Cinza",
   bw: "P&B",
-  whiteboard: "Quadro",
 };
 
-/** Modos da câmera: cada um muda o que acontece depois da foto. */
-export type Modo = "digitalizar" | "texto" | "cartao" | "livro" | "quadro" | "qrcode";
+/** Modos da câmera: documento comum (uma ou várias páginas) ou documento de identidade. */
+export type Modo = "digitalizar" | "cartao";
 
 export const MODOS: { valor: Modo; rotulo: string; dica: string }[] = [
-  { valor: "texto", rotulo: "Extrair texto", dica: "Fotografe a página para copiar o texto" },
-  { valor: "cartao", rotulo: "Cartão ID", dica: "Frente e verso numa folha A4, em tamanho real" },
   { valor: "digitalizar", rotulo: "Digitalizar", dica: "Enquadre o documento" },
-  { valor: "livro", rotulo: "Livro", dica: "Livro aberto: as duas páginas viram páginas separadas" },
-  { valor: "quadro", rotulo: "Quadro branco", dica: "Remove reflexo e realça as canetas" },
-  { valor: "qrcode", rotulo: "QR code", dica: "Aponte para o QR code" },
+  { valor: "cartao", rotulo: "Cartão ID", dica: "Frente e verso numa folha A4, em tamanho real" },
 ];
 
 /** "id": RG, CNH e cartões (ISO ID-1, frente e verso). "passaporte": página de dados. */
@@ -65,8 +59,6 @@ export interface Pagina {
   detectado: boolean;
   filtro: Filtro;
   processadas: Partial<Record<Filtro, ImagemLocal>>;
-  /** Metade de um livro aberto já separado: não deve ser dividida de novo. */
-  metadeDeLivro: boolean;
   textoOcr: string;
   estadoOcr: EstadoOcr;
 }

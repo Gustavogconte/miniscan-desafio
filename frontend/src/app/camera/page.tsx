@@ -1,17 +1,17 @@
 "use client";
 
-import { Camera, Check, Copy, ExternalLink, Flashlight, FlashlightOff, ImageIcon, LoaderCircle, QrCode, X } from "lucide-react";
+import { Camera, Check, Flashlight, FlashlightOff, ImageIcon, LoaderCircle, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from "react";
 
 import { useAviso } from "@/componentes/aviso";
 import { adiantarVisualizador, VisualizadorPaginas } from "@/componentes/visualizador-sob-demanda";
-import { lerQrcode, mensagemDeErro } from "@/lib/api";
-import { useCameraAoVivo, useDetectorAoVivo, useLeitorQr } from "@/lib/camera";
+import { mensagemDeErro } from "@/lib/api";
+import { useCameraAoVivo, useDetectorAoVivo } from "@/lib/camera";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { prepararFoto } from "@/lib/imagem";
-import { filtroDoModo, novaPagina } from "@/lib/paginas";
+import { novaPagina } from "@/lib/paginas";
 import { useProcessamento, type LadoDoCartao } from "@/lib/processamento";
 import { MODOS, type Cantos, type FormatoCartao, type Ponto } from "@/lib/tipos";
 import { useVisualizador } from "@/lib/usar-visualizador";
@@ -43,15 +43,6 @@ function geometria(tela: Tamanho, video: Tamanho) {
       y: Math.min(1, Math.max(0, (y - dy) / altura)),
     }),
   };
-}
-
-function ehLink(texto: string): boolean {
-  try {
-    const url = new URL(texto);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 export default function TelaCamera() {
@@ -87,11 +78,10 @@ export default function TelaCamera() {
   const [capturando, setCapturando] = useState(false);
   const [processando, setProcessando] = useState<string | null>(null);
   const [ladosCartao, setLadosCartao] = useState<LadoDoCartao[]>([]);
-  const [copiado, setCopiado] = useState(false);
 
   const { paraTela, paraVideo } = geometria(tamanhoTela, tamanhoVideo);
   const capturadas = useMemo(() => paginas.filter((p) => Object.keys(p.processadas).length === 0), [paginas]);
-  const usaLote = lote && modo !== "cartao" && modo !== "qrcode";
+  const usaLote = lote && modo !== "cartao";
   const fotosDaRevisao = useMemo(() => capturadas.map((foto) => ({ id: foto.id, src: foto.original.url })), [capturadas]);
   const temFotoNoLote = usaLote && capturadas.length > 0;
   // Aberta pelo "+ Página" do editor: já há páginas recortadas, e fechar volta para o
@@ -153,7 +143,7 @@ export default function TelaCamera() {
       await finalizarCartao(lados);
       return;
     }
-    adicionarPagina(novaPagina(blob, largura, altura, { cantos, filtro: filtroDoModo(modo) }));
+    adicionarPagina(novaPagina(blob, largura, altura, { cantos }));
     if (usaLote) avisar(`Página ${capturadas.length + 1} capturada`);
     else router.push("/digitalizar/recorte");
   }
@@ -208,26 +198,19 @@ export default function TelaCamera() {
     if (!arquivo) return;
     try {
       const foto = await prepararFoto(arquivo);
-      if (modo === "qrcode") {
-        const textos = await lerQrcode(foto.blob);
-        if (textos.length > 0) qr.mostrar(textos);
-        else avisar("Nenhum QR code encontrado nessa imagem.", "erro");
-        return;
-      }
       await registrarFoto(foto.blob, foto.largura, foto.altura, null);
     } catch (erro) {
       avisar(mensagemDeErro(erro), "erro");
     }
   }
 
-  const deteccao = useDetectorAoVivo(video, ativa && modo !== "qrcode" && !processando, (cantos) => {
+  const deteccao = useDetectorAoVivo(video, ativa && !processando, (cantos) => {
     // Com a revisão aberta, a câmera continua ligada por trás: não pode fotografar sozinha.
     // Devolver false deixa a folha livre para ser fotografada quando a revisão fechar.
     if (!automatico || revisao.aberto) return false;
     void capturar(cantos);
     return true;
   });
-  const qr = useLeitorQr(video, ativa && modo === "qrcode");
 
   function confirmarSaida(evento: MouseEvent<HTMLAnchorElement>) {
     const total = capturadas.length + ladosCartao.length;
@@ -253,21 +236,10 @@ export default function TelaCamera() {
     } else revisao.mostrar(proximo);
   }
 
-  async function copiarQr(texto: string) {
-    try {
-      await navigator.clipboard.writeText(texto);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
-    } catch {
-      avisar("Não foi possível copiar.", "erro");
-    }
-  }
-
   // Com artigo: "a frente", "o verso".
   const ladoAtual = ladosCartao.length === 0 ? "a frente" : "o verso";
   const dica = (() => {
     if (processando) return processando;
-    if (modo === "qrcode") return "Aponte para o QR code";
     if (modo === "cartao") return `Encaixe ${ladoAtual} do documento na moldura`;
     if (deteccao.falhou) return "Recorte ao vivo indisponível aqui: toque no botão para fotografar";
     if (!deteccao.pronto) return "Carregando o recorte ao vivo (3,5 MB)…";
@@ -314,16 +286,14 @@ export default function TelaCamera() {
           </span>
         )}
         <div className="flex items-center gap-2">
-          {modo !== "qrcode" && (
-            <button
-              type="button"
-              onClick={() => setAutomatico((a) => !a)}
-              aria-pressed={automatico}
-              className={`min-h-11 rounded-full px-4 text-xs font-semibold ${automatico ? "bg-white text-black" : "bg-black/40 text-white"}`}
-            >
-              Auto {automatico ? "ligado" : "desligado"}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setAutomatico((a) => !a)}
+            aria-pressed={automatico}
+            className={`min-h-11 rounded-full px-4 text-xs font-semibold ${automatico ? "bg-white text-black" : "bg-black/40 text-white"}`}
+          >
+            Auto {automatico ? "ligado" : "desligado"}
+          </button>
           {lanternaSuportada && (
             <button
               type="button"
@@ -366,19 +336,7 @@ export default function TelaCamera() {
                 strokeDasharray="14 10"
               />
             )}
-            {modo === "qrcode" && (
-              <rect
-                x={tamanhoTela.largura * 0.18}
-                y={tamanhoTela.altura / 2 - tamanhoTela.largura * 0.32}
-                width={tamanhoTela.largura * 0.64}
-                height={tamanhoTela.largura * 0.64}
-                rx={18}
-                fill="none"
-                stroke="white"
-                strokeWidth={3}
-              />
-            )}
-            {poligono && modo !== "qrcode" && (
+            {poligono && (
               <polygon
                 points={poligono.map((p) => `${p.x},${p.y}`).join(" ")}
                 fill={estavel ? "rgb(34 197 94 / 0.22)" : "rgb(59 130 246 / 0.18)"}
@@ -426,36 +384,6 @@ export default function TelaCamera() {
           </div>
         )}
 
-        {/* Resultado do QR code */}
-        {modo === "qrcode" && qr.textos.length > 0 && (
-          <div role="dialog" aria-label="QR code lido" className="absolute inset-x-3 bottom-3 z-20 space-y-3 rounded-2xl bg-cartao p-4 text-texto shadow-xl">
-            <p className="flex items-center gap-2 text-xs font-semibold text-texto-secundario">
-              <QrCode className="size-4" aria-hidden /> QR code lido
-            </p>
-            {qr.textos.map((texto) => (
-              <div key={texto} className="space-y-2.5">
-                <p className="break-all font-mono text-sm">{texto}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {ehLink(texto) ? (
-                    <a href={texto} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primaria text-sm font-semibold text-white">
-                      <ExternalLink className="size-4" aria-hidden /> Abrir link
-                    </a>
-                  ) : (
-                    <span />
-                  )}
-                  <button type="button" onClick={() => copiarQr(texto)} className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-borda bg-secundario text-sm font-semibold">
-                    {copiado ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
-                    <span aria-live="polite">{copiado ? "Copiado" : "Copiar"}</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-            <button type="button" onClick={qr.lerOutro} className="min-h-11 w-full rounded-xl text-sm font-semibold text-primaria-texto">
-              Ler outro QR code
-            </button>
-          </div>
-        )}
-
         {processando && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/70" role="status">
             <LoaderCircle className="size-10 animate-spin" aria-hidden />
@@ -490,7 +418,7 @@ export default function TelaCamera() {
             ))}
           </div>
         )}
-        {modo !== "cartao" && modo !== "qrcode" && (
+        {modo !== "cartao" && (
           <div className="flex items-center justify-center gap-2">
             <div className="flex rounded-full bg-white/10 p-1" role="radiogroup" aria-label="Quantidade de páginas">
               {[
@@ -523,9 +451,9 @@ export default function TelaCamera() {
           </div>
         )}
 
-        {/* Carrossel de modos */}
+        {/* Modos (Digitalizar e Cartão ID), centralizados */}
         <nav aria-label="Modo da câmera" className="-mx-3 overflow-x-auto px-3 [scrollbar-width:none]">
-          <ul className="flex w-max gap-1.5">
+          <ul className="mx-auto flex w-max gap-1.5">
             {MODOS.map(({ valor, rotulo }) => (
               <li key={valor}>
                 <button
@@ -557,37 +485,33 @@ export default function TelaCamera() {
             <ImageIcon className="size-5" aria-hidden />
           </button>
 
-          {modo !== "qrcode" ? (
-            <button
-              ref={botaoFotografar}
-              type="button"
-              onClick={() => capturar(deteccao.cantos)}
-              disabled={!ativa || capturando || Boolean(processando)}
-              aria-label={modo === "cartao" ? `Fotografar ${ladoAtual}` : "Fotografar"}
-              className="relative flex size-20 items-center justify-center justify-self-center rounded-full disabled:opacity-60"
-            >
-              <svg viewBox="0 0 84 84" className="absolute inset-0 size-full -rotate-90" aria-hidden>
-                <circle cx="42" cy="42" r={raioAnel} fill="none" stroke="white" strokeOpacity="0.35" strokeWidth="4" />
-                {automatico && (
-                  <circle
-                    cx="42"
-                    cy="42"
-                    r={raioAnel}
-                    fill="none"
-                    stroke="#4ade80"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeDasharray={perimetroAnel}
-                    strokeDashoffset={perimetroAnel * (1 - deteccao.estabilidade)}
-                    className="transition-[stroke-dashoffset] duration-150"
-                  />
-                )}
-              </svg>
-              <span className="size-[62px] rounded-full bg-white" />
-            </button>
-          ) : (
-            <span />
-          )}
+          <button
+            ref={botaoFotografar}
+            type="button"
+            onClick={() => capturar(deteccao.cantos)}
+            disabled={!ativa || capturando || Boolean(processando)}
+            aria-label={modo === "cartao" ? `Fotografar ${ladoAtual}` : "Fotografar"}
+            className="relative flex size-20 items-center justify-center justify-self-center rounded-full disabled:opacity-60"
+          >
+            <svg viewBox="0 0 84 84" className="absolute inset-0 size-full -rotate-90" aria-hidden>
+              <circle cx="42" cy="42" r={raioAnel} fill="none" stroke="white" strokeOpacity="0.35" strokeWidth="4" />
+              {automatico && (
+                <circle
+                  cx="42"
+                  cy="42"
+                  r={raioAnel}
+                  fill="none"
+                  stroke="#4ade80"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeDasharray={perimetroAnel}
+                  strokeDashoffset={perimetroAnel * (1 - deteccao.estabilidade)}
+                  className="transition-[stroke-dashoffset] duration-150"
+                />
+              )}
+            </svg>
+            <span className="size-[62px] rounded-full bg-white" />
+          </button>
 
           {usaLote && capturadas.length > 0 ? (
             <button

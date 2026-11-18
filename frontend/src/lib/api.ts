@@ -105,20 +105,6 @@ export function mensagemDeErro(erro: unknown): string {
   return "Algo deu errado. Tente novamente.";
 }
 
-export interface LivroDividido {
-  esquerda: Cantos;
-  direita: Cantos;
-  lombada: number;
-}
-
-/** Recebe os cantos do livro aberto inteiro e devolve os cantos de cada página na mesma foto. */
-export async function dividirLivro(imagem: Blob, cantos: Cantos): Promise<LivroDividido> {
-  const corpo = new FormData();
-  corpo.append("imagem", imagem, nomeArquivo(imagem, "livro"));
-  corpo.append("cantos", JSON.stringify(cantos));
-  return (await enviar("/dividir-livro", corpo)).json();
-}
-
 /** Monta frente (e verso) já retificados numa folha A4, em tamanho real. */
 export async function comporCartao(frente: Blob, verso: Blob | null, formato: FormatoCartao): Promise<Blob> {
   const corpo = new FormData();
@@ -126,11 +112,4 @@ export async function comporCartao(frente: Blob, verso: Blob | null, formato: Fo
   if (verso) corpo.append("verso", verso, nomeArquivo(verso, "verso"));
   corpo.append("formato", formato);
   return (await enviar("/compor-cartao", corpo)).blob();
-}
-
-export async function lerQrcode(imagem: Blob): Promise<string[]> {
-  const corpo = new FormData();
-  corpo.append("imagem", imagem, nomeArquivo(imagem, "qrcode"));
-  const resposta: { textos: string[] } = await (await enviar("/ler-qrcode", corpo)).json();
-  return resposta.textos;
 }

@@ -35,7 +35,6 @@ const DESCRICAO_FILTRO: Record<Filtro, string> = {
   original: "Cores da foto, só com a perspectiva corrigida",
   grayscale: "Tons de cinza com equalização de luz (CLAHE)",
   bw: "Preto e branco de scanner: nivela a luz e remove sombras",
-  whiteboard: "Quadro branco: tira reflexo e realça as canetas",
 };
 
 const ID_MENU_PAGINA = "menu-nova-pagina";
@@ -69,12 +68,11 @@ export default function TelaEditor() {
 function ConteudoEditor() {
   const router = useRouter();
   const avisar = useAviso();
-  const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina, selecionarPagina, modo } =
+  const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina, selecionarPagina } =
     useGuardaDigitalizacao();
   const { garantirProcessada, executarOcr } = useProcessamento();
   const captura = useCapturaFoto();
-  // No modo "Extrair texto", o editor já abre mostrando o texto da página.
-  const [gavetaAberta, setGavetaAberta] = useState(() => modo === "texto");
+  const [gavetaAberta, setGavetaAberta] = useState(false);
   const [falhaEm, setFalhaEm] = useState<string | null>(null);
   const [tentativa, setTentativa] = useState(0);
   const [verTodas, setVerTodas] = useState(false);
@@ -359,7 +357,7 @@ function ConteudoEditor() {
       </div>
 
       <div className="shrink-0 space-y-3 border-t border-borda bg-cartao p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <fieldset className="grid grid-cols-4 gap-1.5 rounded-xl border border-borda bg-secundario p-1.5">
+        <fieldset className="grid grid-cols-3 gap-1.5 rounded-xl border border-borda bg-secundario p-1.5">
           <legend className="sr-only">Filtro da página</legend>
           {FILTROS.map(({ valor, rotulo }) => (
             <label key={valor} className="relative">

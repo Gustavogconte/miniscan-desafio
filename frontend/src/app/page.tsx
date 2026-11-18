@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Camera, IdCard, ImageIcon, LoaderCircle, Presentation, QrCode, ScanText, Search, type LucideIcon } from "lucide-react";
+import { Camera, IdCard, ImageIcon, LoaderCircle, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -18,14 +18,6 @@ type EstadoLista =
   | { tipo: "erro"; mensagem: string; termo: string };
 
 const ATRASO_BUSCA_MS = 300;
-
-const ATALHOS: { modo: Modo; rotulo: string; Icone: LucideIcon }[] = [
-  { modo: "texto", rotulo: "Extrair texto", Icone: ScanText },
-  { modo: "cartao", rotulo: "Cartão ID", Icone: IdCard },
-  { modo: "livro", rotulo: "Livro", Icone: BookOpen },
-  { modo: "quadro", rotulo: "Quadro branco", Icone: Presentation },
-  { modo: "qrcode", rotulo: "QR code", Icone: QrCode },
-];
 
 export default function TelaInicio() {
   const router = useRouter();
@@ -110,22 +102,14 @@ export default function TelaInicio() {
           )}
         </div>
 
-        <nav aria-label="Ferramentas" className="-mx-5 mt-3 overflow-x-auto px-5 [scrollbar-width:none]">
-          <ul className="flex w-max gap-2">
-            {ATALHOS.map(({ modo, rotulo, Icone }) => (
-              <li key={modo}>
-                <button
-                  type="button"
-                  onClick={() => abrirCamera(modo)}
-                  className="flex min-h-11 items-center gap-1.5 rounded-xl border border-borda bg-cartao px-3 text-xs font-semibold text-texto transition hover:border-primaria-texto"
-                >
-                  <Icone className="size-4 text-primaria-texto" aria-hidden />
-                  {rotulo}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <button
+          type="button"
+          onClick={() => abrirCamera("cartao")}
+          className="mt-3 flex min-h-11 items-center gap-1.5 rounded-xl border border-borda bg-cartao px-3 text-xs font-semibold text-texto transition hover:border-primaria-texto"
+        >
+          <IdCard className="size-4 text-primaria-texto" aria-hidden />
+          Cartão ID: RG, CNH ou passaporte
+        </button>
 
         <p className="mt-3 text-xs font-medium text-texto-secundario" aria-live="polite">
           {buscando && termo
