@@ -1,8 +1,41 @@
 """Fotos sintéticas de documento para os testes, sem depender de arquivos externos."""
 
+import os
+
 import cv2
 import numpy as np
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def sem_supabase_real(monkeypatch):
+    """Nenhum teste chega no Supabase de verdade, nem com o .env carregado no ambiente.
+
+    A rota /documentos gravaria no bucket público e no histórico real. Os testes que
+    precisam de persistência usam um repositório falso (dependency_overrides).
+    """
+    from app import rotas
+    from app.config import Configuracoes
+
+    for nome in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"):
+        monkeypatch.delenv(nome, raising=False)
+    monkeypatch.setattr(rotas, "configuracoes", Configuracoes())
+
+    def supabase_proibido():
+        pytest.fail("um teste tentou usar o Supabase real")
+
+    monkeypatch.setattr(rotas, "_repositorio_supabase", supabase_proibido)
+
+
+def pytest_collection_modifyitems(config, items):
+    """No CI, OCR indisponível é falha: os testes de OCR não podem ser pulados em silêncio."""
+    if not os.getenv("CI"):
+        return
+    from app.ocr import ocr_disponivel
+
+    if not ocr_disponivel():
+        raise pytest.UsageError("OCR indisponível no CI: os testes de OCR seriam pulados.")
+
 
 LARGURA_FOTO = 900
 ALTURA_FOTO = 1200
