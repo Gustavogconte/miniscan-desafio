@@ -38,9 +38,12 @@ class TestCorrigirPerspectiva:
     def test_gera_pagina_retangular_no_tamanho_da_folha(self, foto_documento):
         pagina = corrigir_perspectiva(foto_documento, CANTOS_FOLHA_NORMALIZADOS)
         altura, largura = pagina.shape[:2]
-        # Lado maior entre os de cima/baixo (~690 px) e esquerda/direita (~830 px), menos o aparo.
+        # A largura é o maior lado de cima/baixo (~690 px, menos o aparo). A folha da foto
+        # sintética tem proporção 1,4, mas os lados medidos dão 1,2 (~830 px de altura); a
+        # proporção pela câmera corrige parte disso (a foto sintética não vem de uma câmera
+        # de verdade, então não chega a 1,4).
         assert 660 < largura < 700
-        assert 800 < altura < 840
+        assert 1.25 < altura / largura < 1.45
         # As bordas da página retificada são papel claro, não a mesa escura.
         assert pagina[5:40, 5:40].mean() > 200
         assert pagina[-40:-5, -40:-5].mean() > 200
