@@ -110,7 +110,8 @@ function RecortePagina() {
               pagina.detectado ? "bg-primaria-suave text-primaria-texto" : "bg-secundario text-texto"
             }`}
           >
-            {detectando ? "DETECTANDO" : pagina.detectado ? "AUTO" : "MANUAL"}
+            {/* Com a prévia da câmera na tela, o servidor ainda pode trazer cantos melhores. */}
+            {detectando || pagina.refinando ? "DETECTANDO" : pagina.detectado ? "AUTO" : "MANUAL"}
           </span>
         }
       />

@@ -7,13 +7,13 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent
 
 import { useAviso } from "@/componentes/aviso";
 import { adiantarVisualizador, VisualizadorPaginas } from "@/componentes/visualizador-sob-demanda";
-import { mensagemDeErro } from "@/lib/api";
+import { detectarCantos, mensagemDeErro } from "@/lib/api";
 import { useCameraAoVivo, useDetectorAoVivo } from "@/lib/camera";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { prepararFoto } from "@/lib/imagem";
 import { novaPagina } from "@/lib/paginas";
 import { useProcessamento, type LadoDoCartao } from "@/lib/processamento";
-import { MODOS, type Cantos, type FormatoCartao, type Ponto } from "@/lib/tipos";
+import { MODOS, type Cantos, type FormatoCartao, type Pagina, type Ponto } from "@/lib/tipos";
 import { useVisualizador } from "@/lib/usar-visualizador";
 import { indiceDepoisDeExcluir } from "@/lib/visualizador";
 
@@ -58,7 +58,7 @@ export default function TelaCamera() {
   const router = useRouter();
   const avisar = useAviso();
   const { modo, formatoCartao, configurar, paginas, adicionarPagina, removerPagina } = useDigitalizacao();
-  const { concluirLote, montarCartao } = useProcessamento();
+  const { refinarCantos, concluirLote, montarCartao } = useProcessamento();
   // Revisão das fotos do lote antes de processar: ver em tela cheia e excluir as ruins.
   const revisao = useVisualizador();
 
@@ -152,9 +152,12 @@ export default function TelaCamera() {
     return () => observador.disconnect();
   }, []);
 
+  // Os cantos ao vivo são só a prévia: cada foto também vai ao servidor, que detecta com o
+  // modelo DocAligner enquanto a pessoa vira o documento, ajusta o recorte ou segue fotografando.
   async function registrarFoto(blob: Blob, largura: number, altura: number, cantos: Cantos | null) {
     if (modo === "cartao") {
-      const lados = [...ladosCartao, { blob, largura, altura, cantos }];
+      const deteccao = detectarCantos(blob).catch(() => null);
+      const lados = [...ladosCartao, { blob, largura, altura, cantos, deteccao }];
       if (lados.length < LADOS_DO_CARTAO[formatoCartao]) {
         setLadosCartao(lados);
         avisar("Frente capturada. Agora vire o documento.");
@@ -163,7 +166,10 @@ export default function TelaCamera() {
       await finalizarCartao(lados);
       return;
     }
-    adicionarPagina(novaPagina(blob, largura, altura, { cantos }));
+    // Sem prévia (foto da galeria), o recorte e o lote já pedem os cantos ao servidor.
+    const pagina: Pagina = { ...novaPagina(blob, largura, altura, { cantos }), refinando: cantos !== null };
+    adicionarPagina(pagina);
+    if (cantos) refinarCantos(pagina.id, blob, cantos);
     if (usaLote) avisar(`Página ${capturadas.length + 1} capturada`);
     else router.push("/digitalizar/recorte");
   }

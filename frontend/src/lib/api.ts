@@ -1,4 +1,4 @@
-import type { Cantos, Filtro, FormatoCartao } from "@/lib/tipos";
+import type { Cantos, Deteccao, Filtro, FormatoCartao } from "@/lib/tipos";
 
 const URL_API = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -37,7 +37,7 @@ function nomeArquivo(blob: Blob, base: string): string {
   return `${base}.${extensao}`;
 }
 
-export async function detectarCantos(imagem: Blob): Promise<{ cantos: Cantos; detectado: boolean }> {
+export async function detectarCantos(imagem: Blob): Promise<Deteccao> {
   const corpo = new FormData();
   corpo.append("imagem", imagem, nomeArquivo(imagem, "foto"));
   return (await enviar("/detectar-cantos", corpo)).json();

@@ -33,6 +33,12 @@ export interface Ponto {
 /** Ordem: superior esquerdo, superior direito, inferior direito, inferior esquerdo. */
 export type Cantos = [Ponto, Ponto, Ponto, Ponto];
 
+/** Resposta do /detectar-cantos: sem a folha, `detectado` é falso e os cantos cobrem a foto toda. */
+export interface Deteccao {
+  cantos: Cantos;
+  detectado: boolean;
+}
+
 export const CANTOS_TELA_INTEIRA: Cantos = [
   { x: 0, y: 0 },
   { x: 1, y: 0 },
@@ -71,6 +77,8 @@ export interface Pagina {
   estadoOcr: EstadoOcr;
   /** Página montada pelo modo RG ou CNH: guarda a foto de cada lado para dar para recortar de novo. */
   cartao?: { formato: FormatoCartao; lados: LadoDoDocumento[] };
+  /** Foto da câmera cujos cantos o servidor ainda está refinando (a detecção ao vivo é só prévia). */
+  refinando?: boolean;
 }
 
 /** Documento salvo com todas as páginas, para a tela do documento. */

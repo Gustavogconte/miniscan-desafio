@@ -11,9 +11,11 @@ import {
 } from "@/lib/api";
 import { criarImagemLocal, liberarImagens, useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { novaPagina } from "@/lib/paginas";
+import { cantosDoLado, mudancasDoRefinamento } from "@/lib/refinamento";
 import {
   CANTOS_TELA_INTEIRA,
   type Cantos,
+  type Deteccao,
   type Filtro,
   type FormatoCartao,
   type ImagemLocal,
@@ -22,6 +24,9 @@ import {
 
 /** Tamanho, em pixels, da folha A4 a 300 dpi devolvida pelo /compor-cartao. */
 const A4_300DPI = { largura: 2480, altura: 3508 };
+
+/** Pedidos de cantos ao servidor feitos logo depois da captura, por id da página. */
+const refinamentos = new Map<string, Promise<void>>();
 
 /**
  * Cantos do último recorte confirmado, usados pelos filtros e pelo OCR. São a mesma
@@ -36,7 +41,10 @@ export interface LadoDoCartao {
   blob: Blob;
   largura: number;
   altura: number;
+  /** Cantos da prévia ao vivo (ou da moldura-guia). */
   cantos: Cantos | null;
+  /** Detecção do servidor, pedida na captura; null se falhou. */
+  deteccao?: Promise<Deteccao | null>;
 }
 
 /**
@@ -142,10 +150,29 @@ export function useProcessamento() {
   /** Confirma o recorte de uma página: retifica, guarda e lê o texto em segundo plano. */
   const confirmarPagina = processarComCantos;
 
+  /**
+   * Pede ao servidor os cantos de uma foto que a câmera acabou de capturar, sem esperar a
+   * resposta: ela chega enquanto a pessoa ajusta o recorte ou fotografa a página seguinte.
+   */
+  const refinarCantos = useCallback(
+    (id: string, foto: Blob, cantosDaPrevia: Cantos | null): void => {
+      const pedido = detectarCantos(foto)
+        .catch(() => null) // sem servidor, fica a prévia; sem prévia, o recorte e o lote pedem de novo
+        .then((servidor) => {
+          const pagina = lerPagina(id);
+          if (pagina) atualizarPagina(id, mudancasDoRefinamento(pagina, cantosDaPrevia, servidor));
+        })
+        .finally(() => refinamentos.delete(id));
+      refinamentos.set(id, pedido);
+    },
+    [atualizarPagina, lerPagina],
+  );
+
   /** Processa, em sequência, as fotos tiradas em lote que ainda não foram recortadas. */
   const concluirLote = useCallback(
     async (ids: string[], aoAvancar?: (feitas: number) => void): Promise<void> => {
       for (const [indice, id] of ids.entries()) {
+        await refinamentos.get(id); // os cantos do servidor, se ainda não chegaram
         const pagina = lerPagina(id);
         if (pagina && Object.keys(pagina.processadas).length === 0) {
           let cantos = pagina.cantos;
@@ -168,9 +195,9 @@ export function useProcessamento() {
   const montarCartao = useCallback(
     async (lados: LadoDoCartao[], formato: FormatoCartao): Promise<void> => {
       const comCantos = await Promise.all(
-        lados.map(async (lado) => ({
+        lados.map(async ({ deteccao, ...lado }) => ({
           ...lado,
-          cantos: lado.cantos ?? (await detectarCantos(lado.blob)).cantos,
+          cantos: cantosDoLado(lado.cantos, (await deteccao) ?? null) ?? (await detectarCantos(lado.blob)).cantos,
         })),
       );
       const folha = await comporFolha(comCantos, formato);
@@ -218,5 +245,13 @@ export function useProcessamento() {
     [atualizarPagina, lerPagina, processarComCantos],
   );
 
-  return { garantirProcessada, executarOcr, confirmarPagina, concluirLote, montarCartao, recortarCartao };
+  return {
+    garantirProcessada,
+    executarOcr,
+    confirmarPagina,
+    refinarCantos,
+    concluirLote,
+    montarCartao,
+    recortarCartao,
+  };
 }
