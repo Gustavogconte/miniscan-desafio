@@ -125,6 +125,20 @@ Nos testes no iPhone, a página que ia para o documento parecia ampliada e perdi
 
 Na mesma escala, as letras da captura de 1920 pixels saem grossas e borradas, e na de 4032 pixels aparece o traço fino de cada letra. Trocar a interpolação linear da correção de perspectiva pela cúbica deixou as letras um pouco mais nítidas. A partir disso, a câmera passou a pedir a maior resolução 4:3 do aparelho, a foto da galeria passou a subir com até 3200 pixels no lado maior, em vez de 2400, e a correção de perspectiva passou a usar a interpolação cúbica. As páginas coloridas e em tons de cinza passaram a ser gravadas em JPEG com qualidade 95, em vez de 90: a foto já chega do celular em JPEG, e regravar com 90 somava uma segunda perda nas letras pequenas. Com a qualidade 95, cada página fica de 44% a 51% maior, cerca de 1 MB numa folha A4 de 3000 pixels. No teste seguinte no iPhone, a página ficou visivelmente mais nítida no documento e no PDF.
 
+### Várias Pessoas ao Mesmo Tempo
+
+A API roda num único processo, e o OCR e o detector de cantos atendem uma página por vez, para a memória não crescer com várias fotos ao mesmo tempo. Para saber como ela se comporta no servidor de produção, que tem um núcleo de CPU e 1 GB de memória, prendi a API a um único núcleo no meu computador e simulei cinco pessoas enviando uma foto de 12 megapixels no mesmo instante, cada uma pedindo os cantos, a página em preto e branco e o texto. Na primeira medição, o OCR de uma página passou de cerca de 3 para 60 segundos, e três das cinco pessoas desistiram depois de cinco minutos de espera. O motivo é que o onnxruntime abre uma thread para cada núcleo da máquina e, com a CPU limitada a um núcleo, essas threads ficam disputando o mesmo núcleo. Com o número de threads ajustado à CPU disponível, pela variável MINISCAN_THREADS_ONNX, que o Docker Compose da VPS define como 1, as cinco terminaram.
+
+| Pessoa | Cantos | Página em preto e branco | OCR | Total |
+|---|---|---|---|---|
+| 1 | 3,5 s | 5,3 s | 39 s | 48 s |
+| 2 | 9,2 s | 3,8 s | 105 s | 119 s |
+| 3 | 5,6 s | 3,9 s | 28 s | 37 s |
+| 4 | 0,7 s | 3,8 s | 19 s | 24 s |
+| 5 | 2,3 s | 6,3 s | 66 s | 75 s |
+
+Os cantos e a página ficam prontos em poucos segundos para todos, mas o OCR forma uma fila: numa thread só, cada página leva cerca de 18 segundos, e a última pessoa recebeu o texto depois de quase dois minutos. Como o aplicativo lê o texto em segundo plano, a pessoa segue recortando e trocando o filtro enquanto espera. O pico de memória ficou em 839 MB, abaixo do limite de 1 GB. Para atender mais gente ao mesmo tempo, o caminho é dar mais núcleos ao contêiner: no meu computador, com todos os núcleos, o OCR de uma página leva cerca de 3 segundos.
+
 ### Visualização das Imagens Capturadas
 
 Para atender ao item do enunciado de visualizar as imagens capturadas, criei um visualizador em tela cheia usado em três lugares: no editor, ao tocar na página; na revisão das fotos do modo lote; e na tela de um documento salvo, aberta a partir do histórico. Nele a página pode ser ampliada com o movimento de pinça ou com dois toques, e a parte ampliada pode ser arrastada para conferir se as letras pequenas ficaram legíveis. Deslizar para os lados troca de página, puxar para baixo fecha, e o gesto de voltar do celular também fecha o visualizador em vez de sair da tela. Um botão alterna entre a página tratada, já recortada e com o filtro, e a foto original como foi tirada, o que ajuda a perceber se o recorte deixou alguma parte da folha de fora. Usei a biblioteca yet-another-react-lightbox, que já resolve a diferença entre arrastar a página ampliada e deslizar para a próxima, a parte mais difícil de acertar no Safari do iPhone. Ela fica num arquivo à parte, baixado só pelas telas que usam o visualizador, para não pesar na abertura do aplicativo, e se esse download falhar o aplicativo avisa e segue funcionando, sem perder as páginas digitalizadas. O editor também mostra todas as páginas numa grade, e a tela do documento salvo reúne a grade das páginas, o texto reconhecido de cada uma, com a opção de copiar, e os botões para compartilhar, baixar e abrir o PDF.

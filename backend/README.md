@@ -53,7 +53,7 @@ A imagem usa `python:3.11-slim`, instala as dependências do `requirements.txt` 
 
 ## Deploy numa VPS com Docker Compose
 
-O `deploy/vps/docker-compose.yml`, na raiz do repositório, sobe a API num projeto Compose próprio (`miniscan`), com reinício automático e travas de 1 GB de RAM, 1 núcleo e 30 MB de log. A API escuta na porta 8020 do host, e um reverse proxy da VPS (Caddy, Nginx) serve o HTTPS e encaminha para ela. O `.env` com `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `MINISCAN_BUCKET` fica ao lado do compose, só na VPS. O CORS já vem no compose e aceita o projeto `miniscan-desafio` da Vercel, tanto a produção quanto as prévias.
+O `deploy/vps/docker-compose.yml`, na raiz do repositório, sobe a API num projeto Compose próprio (`miniscan`), com reinício automático e travas de 1 GB de RAM, 1 núcleo e 30 MB de log. Ele também define `MINISCAN_THREADS_ONNX=1`, para o onnxruntime (OCR e detector de cantos) usar uma thread só: sem isso, ele abre uma thread por núcleo da VPS inteira, elas disputam a única CPU do contêiner, e o OCR de uma página passou de cerca de 3 para mais de 60 segundos com 5 pessoas ao mesmo tempo. A API escuta na porta 8020 do host, e um reverse proxy da VPS (Caddy, Nginx) serve o HTTPS e encaminha para ela. O `.env` com `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `MINISCAN_BUCKET` fica ao lado do compose, só na VPS. O CORS já vem no compose e aceita o projeto `miniscan-desafio` da Vercel, tanto a produção quanto as prévias.
 
 ```bash
 git clone https://github.com/Gustavogconte/miniscan-desafio.git /opt/miniscan
