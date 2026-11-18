@@ -65,7 +65,11 @@ function redutor(estado: Estado, acao: Acao): Estado {
 }
 
 function urlsDaPagina(pagina: Pagina): string[] {
-  return [pagina.original.url, ...Object.values(pagina.processadas).map((imagem) => imagem!.url)];
+  return [
+    pagina.original.url,
+    ...Object.values(pagina.processadas).map((imagem) => imagem!.url),
+    ...(pagina.cartao?.lados.map((lado) => lado.original.url) ?? []),
+  ];
 }
 
 interface ContextoDigitalizacao extends Estado {

@@ -47,6 +47,14 @@ export interface ImagemLocal {
 
 type EstadoOcr = "pendente" | "carregando" | "pronto" | "erro";
 
+/** Um lado do documento do Cartão ID: a foto e os cantos do último recorte. */
+export interface LadoDoDocumento {
+  original: ImagemLocal;
+  largura: number;
+  altura: number;
+  cantos: Cantos;
+}
+
 export interface Pagina {
   id: string;
   original: ImagemLocal;
@@ -61,6 +69,8 @@ export interface Pagina {
   processadas: Partial<Record<Filtro, ImagemLocal>>;
   textoOcr: string;
   estadoOcr: EstadoOcr;
+  /** Página montada pelo Cartão ID: guarda a foto de cada lado para dar para recortar de novo. */
+  cartao?: { formato: FormatoCartao; lados: LadoDoDocumento[] };
 }
 
 /** Documento salvo com todas as páginas, para a tela do documento. */

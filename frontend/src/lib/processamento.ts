@@ -34,7 +34,23 @@ function cantosDoRecorte(pagina: Pagina): Cantos {
 
 export interface LadoDoCartao {
   blob: Blob;
+  largura: number;
+  altura: number;
   cantos: Cantos | null;
+}
+
+/**
+ * Cantos da folha A4 inteira, numa referência nova a cada montagem: assim uma resposta
+ * de filtro ou de OCR da folha anterior é reconhecida como antiga e descartada.
+ */
+function folhaInteira(): Cantos {
+  return CANTOS_TELA_INTEIRA.map((ponto) => ({ ...ponto })) as Cantos;
+}
+
+/** Retifica cada lado com os seus cantos e monta a folha A4 com o documento em tamanho real. */
+async function comporFolha(lados: { blob: Blob; cantos: Cantos }[], formato: FormatoCartao): Promise<Blob> {
+  const retificados = await Promise.all(lados.map((lado) => processarPagina(lado.blob, lado.cantos, "original")));
+  return comporCartao(retificados[0], retificados[1] ?? null, formato);
 }
 
 export function useProcessamento() {
@@ -145,25 +161,62 @@ export function useProcessamento() {
     [confirmarPagina, lerPagina],
   );
 
-  /** Retifica cada lado do cartão e monta tudo numa folha A4 em tamanho real. */
+  /**
+   * Retifica cada lado do cartão e monta tudo numa folha A4 em tamanho real. As fotos
+   * de cada lado ficam guardadas na página, para o recorte poder ser refeito depois.
+   */
   const montarCartao = useCallback(
     async (lados: LadoDoCartao[], formato: FormatoCartao): Promise<void> => {
-      const retificados = await Promise.all(
-        lados.map(async (lado) => {
-          const cantos = lado.cantos ?? (await detectarCantos(lado.blob)).cantos;
-          return processarPagina(lado.blob, cantos, "original");
-        }),
+      const comCantos = await Promise.all(
+        lados.map(async (lado) => ({
+          ...lado,
+          cantos: lado.cantos ?? (await detectarCantos(lado.blob)).cantos,
+        })),
       );
-      const folha = await comporCartao(retificados[0], retificados[1] ?? null, formato);
-      const pagina = novaPagina(folha, A4_300DPI.largura, A4_300DPI.altura, {
-        cantos: CANTOS_TELA_INTEIRA,
-        filtro: "original",
-      });
+      const folha = await comporFolha(comCantos, formato);
+      const cantos = folhaInteira();
+      const pagina: Pagina = {
+        ...novaPagina(folha, A4_300DPI.largura, A4_300DPI.altura, { cantos, filtro: "original" }),
+        cartao: {
+          formato,
+          lados: comCantos.map((lado) => ({
+            original: criarImagemLocal(lado.blob),
+            largura: lado.largura,
+            altura: lado.altura,
+            cantos: lado.cantos,
+          })),
+        },
+      };
       adicionarPagina(pagina);
-      await processarComCantos(pagina.id, CANTOS_TELA_INTEIRA);
+      await processarComCantos(pagina.id, cantos);
     },
     [adicionarPagina, processarComCantos],
   );
 
-  return { garantirProcessada, executarOcr, confirmarPagina, concluirLote, montarCartao };
+  /** Refaz o recorte de cada lado de uma página do Cartão ID e monta a folha A4 de novo. */
+  const recortarCartao = useCallback(
+    async (id: string, cantosDosLados: Cantos[]): Promise<void> => {
+      const pagina = lerPagina(id);
+      if (!pagina?.cartao) return;
+      const { formato, lados } = pagina.cartao;
+      const folha = await comporFolha(
+        lados.map((lado, indice) => ({ blob: lado.original.blob, cantos: cantosDosLados[indice] })),
+        formato,
+      );
+      const atual = lerPagina(id);
+      if (!atual?.cartao) return; // descartada enquanto montava
+      liberarImagens([atual.original]);
+      atualizarPagina(id, {
+        original: criarImagemLocal(folha),
+        cartao: {
+          formato,
+          lados: atual.cartao.lados.map((lado, indice) => ({ ...lado, cantos: cantosDosLados[indice] })),
+        },
+      });
+      await processarComCantos(id, folhaInteira());
+    },
+    [atualizarPagina, lerPagina, processarComCantos],
+  );
+
+  return { garantirProcessada, executarOcr, confirmarPagina, concluirLote, montarCartao, recortarCartao };
 }

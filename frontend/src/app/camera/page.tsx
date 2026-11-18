@@ -154,7 +154,7 @@ export default function TelaCamera() {
 
   async function registrarFoto(blob: Blob, largura: number, altura: number, cantos: Cantos | null) {
     if (modo === "cartao") {
-      const lados = [...ladosCartao, { blob, cantos }];
+      const lados = [...ladosCartao, { blob, largura, altura, cantos }];
       if (lados.length < LADOS_DO_CARTAO[formatoCartao]) {
         setLadosCartao(lados);
         avisar("Frente capturada. Agora vire o documento.");
