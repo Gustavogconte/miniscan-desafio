@@ -193,7 +193,7 @@ export function useProcessamento() {
     [adicionarPagina, processarComCantos],
   );
 
-  /** Refaz o recorte de cada lado de uma página do Cartão ID e monta a folha A4 de novo. */
+  /** Refaz o recorte de cada lado de uma página do modo RG ou CNH e monta a folha A4 de novo. */
   const recortarCartao = useCallback(
     async (id: string, cantosDosLados: Cantos[]): Promise<void> => {
       const pagina = lerPagina(id);

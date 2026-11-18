@@ -7,7 +7,7 @@ A câmera ao vivo detecta a folha a cada quadro com o OpenCV.js, rodando num Web
 Modos da câmera:
 
 - **Digitalizar:** fluxo padrão, uma foto por vez (Único) ou várias seguidas (Lote). No editor, o botão "+ Página" volta para a câmera e acrescenta páginas ao mesmo documento.
-- **Cartão ID:** frente e verso de RG, CNH ou cartão, ou a página do passaporte, montados numa folha A4 em tamanho real.
+- **RG ou CNH:** frente e verso do documento, montados numa folha A4 em tamanho real.
 
 O texto reconhecido (OCR) de cada página fica no botão "Texto OCR" do editor.
 

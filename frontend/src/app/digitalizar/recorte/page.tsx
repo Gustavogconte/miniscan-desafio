@@ -21,7 +21,7 @@ const RODAPE = "shrink-0 space-y-2.5 border-t border-borda bg-cartao p-4 pb-[max
 
 export default function TelaRecorte() {
   const { paginaAtual } = useDigitalizacao();
-  // Página do Cartão ID: recorta a foto de cada lado, e não a folha A4 já montada.
+  // Página do modo RG ou CNH: recorta a foto de cada lado, e não a folha A4 já montada.
   return paginaAtual?.cartao ? <RecorteCartao key={paginaAtual.id} /> : <RecortePagina />;
 }
 
@@ -162,7 +162,7 @@ function RecortePagina() {
   );
 }
 
-/** Recorte de uma página do Cartão ID: os cantos da frente e do verso, cada um na sua foto. */
+/** Recorte de uma página do modo RG ou CNH: os cantos da frente e do verso, cada um na sua foto. */
 function RecorteCartao() {
   const router = useRouter();
   const avisar = useAviso();

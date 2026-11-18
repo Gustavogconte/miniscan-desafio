@@ -2,7 +2,7 @@
 
 O MiniScan é um aplicativo de digitalização de documentos inspirado no CamScanner, desenvolvido como projeto de seleção para Iniciação Científica. Ele roda no Android e no iPhone como aplicação web instalável (PWA) e permite capturar ou importar uma foto, corrigir a perspectiva da folha, ver as páginas em tela cheia com zoom, aplicar filtros, extrair o texto via OCR em português e gerar um PDF único para baixar, compartilhar ou salvar no histórico, de onde o documento pode ser aberto de novo.
 
-A câmera faz o recorte ao vivo: a folha é detectada a cada quadro, direto no navegador, e a foto é tirada sozinha quando o documento fica parado. Há também um modo para documentos de identidade (RG, CNH ou passaporte), que monta frente e verso numa folha A4 em tamanho real.
+A câmera faz o recorte ao vivo: a folha é detectada a cada quadro, direto no navegador, e a foto é tirada sozinha quando o documento fica parado. Há também um modo para documentos de identidade (RG ou CNH), que monta frente e verso numa folha A4 em tamanho real.
 
 A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica em uma API Python (FastAPI, OpenCV, PaddleOCR em ONNX Runtime e img2pdf), e o histórico e os arquivos ficam no Supabase (PostgreSQL e Storage).
 

@@ -108,7 +108,7 @@ export default function TelaInicio() {
           className="mt-3 flex min-h-11 items-center gap-1.5 rounded-xl border border-borda bg-cartao px-3 text-xs font-semibold text-texto transition hover:border-primaria-texto"
         >
           <IdCard className="size-4 text-primaria-texto" aria-hidden />
-          Cartão ID: RG, CNH ou passaporte
+          RG ou CNH
         </button>
 
         <p className="mt-3 text-xs font-medium text-texto-secundario" aria-live="polite">

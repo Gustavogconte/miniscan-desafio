@@ -18,11 +18,11 @@ export type Modo = "digitalizar" | "cartao";
 
 export const MODOS: { valor: Modo; rotulo: string; dica: string }[] = [
   { valor: "digitalizar", rotulo: "Digitalizar", dica: "Enquadre o documento" },
-  { valor: "cartao", rotulo: "Cartão ID", dica: "Frente e verso numa folha A4, em tamanho real" },
+  { valor: "cartao", rotulo: "RG ou CNH", dica: "Frente e verso numa folha A4, em tamanho real" },
 ];
 
-/** "id": RG, CNH e cartões (ISO ID-1, frente e verso). "passaporte": página de dados. */
-export type FormatoCartao = "id" | "passaporte";
+/** "id": RG e CNH (tamanho ISO ID-1, frente e verso). */
+export type FormatoCartao = "id";
 
 /** Coordenada normalizada (0..1) sobre a foto original. */
 export interface Ponto {
@@ -47,7 +47,7 @@ export interface ImagemLocal {
 
 type EstadoOcr = "pendente" | "carregando" | "pronto" | "erro";
 
-/** Um lado do documento do Cartão ID: a foto e os cantos do último recorte. */
+/** Um lado do documento do modo RG ou CNH: a foto e os cantos do último recorte. */
 export interface LadoDoDocumento {
   original: ImagemLocal;
   largura: number;
@@ -69,7 +69,7 @@ export interface Pagina {
   processadas: Partial<Record<Filtro, ImagemLocal>>;
   textoOcr: string;
   estadoOcr: EstadoOcr;
-  /** Página montada pelo Cartão ID: guarda a foto de cada lado para dar para recortar de novo. */
+  /** Página montada pelo modo RG ou CNH: guarda a foto de cada lado para dar para recortar de novo. */
   cartao?: { formato: FormatoCartao; lados: LadoDoDocumento[] };
 }
 

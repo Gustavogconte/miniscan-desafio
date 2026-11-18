@@ -18,8 +18,8 @@ import { useVisualizador } from "@/lib/usar-visualizador";
 import { indiceDepoisDeExcluir } from "@/lib/visualizador";
 
 /** Proporção (largura/altura) dos formatos de cartão, para a moldura-guia. */
-const PROPORCAO_CARTAO: Record<FormatoCartao, number> = { id: 85.6 / 54, passaporte: 125 / 88 };
-const LADOS_DO_CARTAO: Record<FormatoCartao, number> = { id: 2, passaporte: 1 };
+const PROPORCAO_CARTAO: Record<FormatoCartao, number> = { id: 85.6 / 54 };
+const LADOS_DO_CARTAO: Record<FormatoCartao, number> = { id: 2 };
 
 interface Tamanho {
   largura: number;
@@ -30,7 +30,7 @@ interface Tamanho {
 const OPCOES_CAPTURA = [
   { valor: "unico", rotulo: "Único" },
   { valor: "lote", rotulo: "Lote" },
-  { valor: "cartao", rotulo: "Cartão ID" },
+  { valor: "cartao", rotulo: "RG ou CNH" },
 ] as const;
 type OpcaoCaptura = (typeof OPCOES_CAPTURA)[number]["valor"];
 
@@ -429,30 +429,6 @@ export default function TelaCamera() {
               <Check className="size-4" aria-hidden />
               Concluir ({capturadas.length})
             </button>
-          </div>
-        )}
-        {modo === "cartao" && (
-          <div className="flex justify-center gap-2" role="radiogroup" aria-label="Tipo de documento">
-            {(
-              [
-                { valor: "id", rotulo: "RG, CNH ou cartão" },
-                { valor: "passaporte", rotulo: "Passaporte" },
-              ] as const
-            ).map(({ valor, rotulo }) => (
-              <button
-                key={valor}
-                type="button"
-                role="radio"
-                aria-checked={formatoCartao === valor}
-                onClick={() => {
-                  configurar({ formatoCartao: valor });
-                  setLadosCartao([]);
-                }}
-                className={`min-h-9 rounded-full px-3.5 text-xs font-semibold ${formatoCartao === valor ? "bg-white text-black" : "bg-black/50 text-white"}`}
-              >
-                {rotulo}
-              </button>
-            ))}
           </div>
         )}
 
