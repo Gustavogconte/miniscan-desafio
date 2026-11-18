@@ -9,14 +9,14 @@ import { prepararFoto } from "@/lib/imagem";
 import { filtroDoModo, novaPagina } from "@/lib/paginas";
 
 /**
- * Entradas de arquivo para câmera e galeria. Usar <input capture> em vez de getUserMedia
- * abre a câmera nativa do celular, com foco e flash, e funciona igual no iOS e no Android.
+ * Entrada de arquivo da galeria: a foto escolhida vira uma página nova e vai para o
+ * recorte. Para fotografar, o app usa o scanner ao vivo (/camera), que tem a câmera
+ * nativa do celular como alternativa quando a câmera ao vivo não está disponível.
  */
 export function useCapturaFoto() {
   const router = useRouter();
   const avisar = useAviso();
   const { adicionarPagina, modo } = useDigitalizacao();
-  const camera = useRef<HTMLInputElement>(null);
   const galeria = useRef<HTMLInputElement>(null);
   const [preparando, setPreparando] = useState(false);
 
@@ -37,33 +37,20 @@ export function useCapturaFoto() {
   }
 
   const entradas = (
-    <>
-      <input
-        ref={camera}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={aoEscolher}
-        aria-hidden
-        tabIndex={-1}
-      />
-      <input
-        ref={galeria}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={aoEscolher}
-        aria-hidden
-        tabIndex={-1}
-      />
-    </>
+    <input
+      ref={galeria}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={aoEscolher}
+      aria-hidden
+      tabIndex={-1}
+    />
   );
 
   return {
     entradas,
     preparando,
-    abrirCamera: () => camera.current?.click(),
     abrirGaleria: () => galeria.current?.click(),
   };
 }

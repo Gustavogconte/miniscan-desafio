@@ -24,6 +24,7 @@ import { GavetaOcr } from "@/componentes/gaveta-ocr";
 import { GradePaginas } from "@/componentes/grade-paginas";
 import { adiantarVisualizador, VisualizadorPaginas } from "@/componentes/visualizador-sob-demanda";
 import { mensagemDeErro } from "@/lib/api";
+import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { useProcessamento } from "@/lib/processamento";
 import { FILTROS, ROTULO_FILTRO, type Filtro, type Pagina } from "@/lib/tipos";
 import { useGuardaDigitalizacao } from "@/lib/usar-guarda";
@@ -60,6 +61,12 @@ function detalheDaVersao(filtro: Filtro | null): string {
 }
 
 export default function TelaEditor() {
+  // Documento novo, tela nova: grade, gaveta de texto e visualizador recomeçam do zero.
+  const { sessao } = useDigitalizacao();
+  return <ConteudoEditor key={sessao} />;
+}
+
+function ConteudoEditor() {
   const router = useRouter();
   const avisar = useAviso();
   const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina, selecionarPagina, modo } =
@@ -147,7 +154,9 @@ export default function TelaEditor() {
 
   function adicionarPor(origem: "camera" | "galeria") {
     document.getElementById(ID_MENU_PAGINA)?.hidePopover();
-    if (origem === "camera") captura.abrirCamera();
+    // Câmera = o scanner do app (recorte ao vivo e captura automática), que acrescenta
+    // a página a este documento e volta para cá.
+    if (origem === "camera") router.push("/camera");
     else captura.abrirGaleria();
   }
 
@@ -284,13 +293,14 @@ export default function TelaEditor() {
                 popoverTarget={ID_MENU_PAGINA}
                 aria-label="Adicionar página"
                 disabled={captura.preparando}
-                className="flex h-14 w-11 items-center justify-center rounded-md border-2 border-dashed border-borda-campo text-primaria-texto transition hover:bg-secundario disabled:opacity-60"
+                className="flex h-14 min-w-14 flex-col items-center justify-center gap-0.5 rounded-md border-2 border-dashed border-primaria-texto/70 bg-primaria-suave px-2 text-primaria-texto transition hover:bg-secundario disabled:opacity-60"
               >
                 {captura.preparando ? (
                   <LoaderCircle className="size-5 animate-spin" aria-hidden />
                 ) : (
                   <Plus className="size-5" aria-hidden />
                 )}
+                <span className="text-[11px] font-semibold leading-none">Página</span>
               </button>
             </li>
           </ol>
@@ -335,7 +345,7 @@ export default function TelaEditor() {
             className="flex min-h-12 w-full items-center gap-3 px-4 text-sm hover:bg-secundario"
           >
             <Camera className="size-4 text-texto-secundario" aria-hidden />
-            Câmera
+            Escanear com a câmera
           </button>
           <button
             type="button"
@@ -343,7 +353,7 @@ export default function TelaEditor() {
             className="mb-1 flex min-h-12 w-full items-center gap-3 px-4 text-sm hover:bg-secundario"
           >
             <ImageIcon className="size-4 text-texto-secundario" aria-hidden />
-            Galeria
+            Escolher da galeria
           </button>
         </div>
       </div>
