@@ -36,6 +36,9 @@ class RespostaOcr(BaseModel):
 class RespostaSaude(BaseModel):
     status: str
     ocr_disponivel: bool
+    docaligner_disponivel: bool = Field(
+        description="Falso quando o modelo de cantos não carregou e só o OpenCV detecta a folha."
+    )
     persistencia_configurada: bool
 
 

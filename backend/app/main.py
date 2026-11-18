@@ -13,6 +13,7 @@ from app.pdf import CarimboInvalidoError
 from app.persistencia import DocumentoInvalidoError, FalhaPersistenciaError
 from app.rotas import roteador
 from app.visao.cartao import CartaoInvalidoError
+from app.visao.docaligner import docaligner_disponivel
 from app.visao.imagem import ImagemGrandeDemaisError, ImagemInvalidaError
 from app.visao.perspectiva import CantosInvalidosError
 
@@ -74,11 +75,13 @@ class LimiteDeCorpo:
 
 @asynccontextmanager
 async def _ciclo_de_vida(_: FastAPI):
-    """Carrega o OCR na subida do servidor, e não na primeira requisição."""
+    """Carrega o OCR e o modelo de cantos na subida do servidor, e não na primeira requisição."""
     try:
         MotorOcr.obter()
     except OcrIndisponivelError:
         logger.exception("OCR indisponível; /extrair-ocr responderá 503")
+    if not docaligner_disponivel():
+        logger.warning("Modelo de cantos indisponível; /detectar-cantos usará só o OpenCV")
     yield
 
 

@@ -23,6 +23,7 @@ def test_saude():
     resposta = cliente.get("/saude")
     assert resposta.status_code == 200
     assert resposta.json()["status"] == "ok"
+    assert isinstance(resposta.json()["docaligner_disponivel"], bool)
 
 
 def test_detectar_cantos(foto_documento_jpeg):

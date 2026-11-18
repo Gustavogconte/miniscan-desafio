@@ -33,6 +33,7 @@ from app.persistencia import (
 )
 from app.visao.bordas import detectar_cantos
 from app.visao.cartao import FormatoCartao, compor_cartao
+from app.visao.docaligner import docaligner_disponivel
 from app.visao.filtros import Filtro, aplicar_filtro, formato_saida
 from app.visao.imagem import codificar_imagem, decodificar_imagem
 from app.visao.perspectiva import corrigir_perspectiva
@@ -73,6 +74,7 @@ def rota_saude() -> RespostaSaude:
     return RespostaSaude(
         status="ok",
         ocr_disponivel=ocr_disponivel(),
+        docaligner_disponivel=docaligner_disponivel(),
         persistencia_configurada=configuracoes.persistencia_configurada,
     )
 
