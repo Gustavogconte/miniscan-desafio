@@ -18,9 +18,7 @@ from app.esquemas import (
     RespostaCantos,
     RespostaDocumento,
     RespostaErro,
-    RespostaLivro,
     RespostaOcr,
-    RespostaQrcode,
     RespostaSaude,
     validador_cantos,
     validador_metadados,
@@ -37,9 +35,7 @@ from app.visao.bordas import detectar_cantos
 from app.visao.cartao import FormatoCartao, compor_cartao
 from app.visao.filtros import Filtro, aplicar_filtro, formato_saida
 from app.visao.imagem import codificar_imagem, decodificar_imagem
-from app.visao.livro import dividir_livro
 from app.visao.perspectiva import corrigir_perspectiva
-from app.visao.qrcode import ler_qrcodes
 
 roteador = APIRouter()
 
@@ -169,26 +165,6 @@ def rota_gerar_pdf(
     )
 
 
-def _pontos(cantos: np.ndarray) -> list[Ponto]:
-    return [Ponto(x=float(x), y=float(y)) for x, y in cantos]
-
-
-@roteador.post(
-    "/dividir-livro",
-    response_model=RespostaLivro,
-    responses=ERROS_ENTRADA,
-    tags=["visao"],
-    summary="Separa as duas páginas de um livro aberto",
-)
-def rota_dividir_livro(
-    imagem: Annotated[UploadFile, File()],
-    cantos: Annotated[str, Form(description="Cantos do livro aberto inteiro (JSON com 4 pontos)")],
-) -> RespostaLivro:
-    matriz = decodificar_imagem(ler_arquivo(imagem))
-    esquerda, direita, lombada = dividir_livro(matriz, ler_cantos(cantos))
-    return RespostaLivro(esquerda=_pontos(esquerda), direita=_pontos(direita), lombada=lombada)
-
-
 @roteador.post(
     "/compor-cartao",
     response_class=Response,
@@ -206,17 +182,6 @@ def rota_compor_cartao(
         lados.append(decodificar_imagem(ler_arquivo(verso)))
     folha = compor_cartao(lados, formato)
     return Response(content=codificar_imagem(folha, ".jpg"), media_type="image/jpeg")
-
-
-@roteador.post(
-    "/ler-qrcode",
-    response_model=RespostaQrcode,
-    responses=ERROS_ENTRADA,
-    tags=["visao"],
-    summary="Lê os QR codes de uma foto",
-)
-def rota_ler_qrcode(imagem: Annotated[UploadFile, File()]) -> RespostaQrcode:
-    return RespostaQrcode(textos=ler_qrcodes(decodificar_imagem(ler_arquivo(imagem))))
 
 
 @lru_cache(maxsize=1)
@@ -241,8 +206,7 @@ def ler_metadados(paginas_json: str) -> list[MetadadosPagina]:
     except ValidationError as erro:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
-            'Envie "paginas" como JSON: [{"filtro": "original|grayscale|bw|whiteboard", '
-            '"texto_ocr": "..."}].',
+            'Envie "paginas" como JSON: [{"filtro": "original|grayscale|bw", "texto_ocr": "..."}].',
         ) from erro
 
 

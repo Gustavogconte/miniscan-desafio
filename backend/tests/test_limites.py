@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 from app import main
 from app.ocr import MotorOcr, ocr_disponivel
 from app.visao.perspectiva import CantosInvalidosError, corrigir_perspectiva
-from app.visao.qrcode import LADO_MAXIMO, ler_qrcodes
 
 cliente = TestClient(main.app)
 
@@ -35,21 +34,6 @@ def test_pdf_recusa_pagina_com_pixels_demais():
         "/gerar-pdf", files=[("paginas", ("bomba.png", _png(10000, 10000), "image/png"))]
     )
     assert resposta.status_code == 413
-
-
-def test_qrcode_nao_amplia_alem_do_teto(monkeypatch):
-    tamanhos = []
-    original = cv2.resize
-
-    def medir(imagem, *args, **kwargs):
-        resultado = original(imagem, *args, **kwargs)
-        tamanhos.append(resultado.shape)
-        return resultado
-
-    monkeypatch.setattr(cv2, "resize", medir)
-    # 1x2000 px: ampliar o menor lado até 640 daria 640x1.280.000 (~780 MB).
-    assert ler_qrcodes(np.full((1, 2000), 255, np.uint8)) == []
-    assert all(max(t) <= LADO_MAXIMO for t in tamanhos)
 
 
 @pytest.fixture

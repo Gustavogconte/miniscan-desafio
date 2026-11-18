@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.ocr import ordenar_em_linhas
 from app.visao.filtros import aplicar_filtro
-from app.visao.livro import encontrar_lombada
 from app.visao.perspectiva import corrigir_perspectiva
 
 cliente = TestClient(app)
@@ -106,24 +105,6 @@ class TestOrdemDoOcr:
                 textos.append(texto)
         linhas = ordenar_em_linhas(caixas, textos).splitlines()
         assert linhas == [f"Item {i:02d} R$ {i},00" for i in range(14)]
-
-
-class TestLombada:
-    @staticmethod
-    def _livro(sombra: int, figura: tuple[float, float] | None = None) -> np.ndarray:
-        livro = np.full((800, 1200), 235, np.uint8)
-        for deslocamento in range(-30, 31):
-            livro[:, 600 + deslocamento] = 235 - int(sombra * (1 - abs(deslocamento) / 30))
-        if figura:
-            livro[150:550, int(figura[0] * 1200) : int(figura[1] * 1200)] = 40
-        return cv2.cvtColor(livro, cv2.COLOR_GRAY2BGR)
-
-    def test_figura_escura_perto_do_meio_nao_vira_lombada(self):
-        lombada = encontrar_lombada(self._livro(25, figura=(0.38, 0.46)))
-        assert lombada == pytest.approx(0.5, abs=0.02)
-
-    def test_sombra_fraca_divide_ao_meio(self):
-        assert encontrar_lombada(self._livro(5)) == pytest.approx(0.5, abs=0.02)
 
 
 def _png(imagem: np.ndarray) -> bytes:

@@ -1,12 +1,13 @@
-"""Filtros de imagem: original, cinza (CLAHE), preto e branco suave e quadro branco."""
+"""Filtros de imagem: original, cinza (CLAHE) e preto e branco de scanner."""
 
 from typing import Literal, get_args
 
 import cv2
 import numpy as np
 
-# Os mesmos valores aceitos pela coluna document_pages.filter_applied.
-Filtro = Literal["original", "grayscale", "bw", "whiteboard"]
+# Filtros da API. A coluna document_pages.filter_applied ainda aceita "whiteboard", de
+# um modo de quadro branco que foi retirado (migração 20261116000003).
+Filtro = Literal["original", "grayscale", "bw"]
 FILTROS: tuple[str, ...] = get_args(Filtro)
 
 CLAHE_LIMITE = 2.0
@@ -21,8 +22,6 @@ PB_BRANCO = 215
 # A estimativa do papel nunca desce abaixo desta fração do papel típico da página
 # (percentil 90): sem esse piso, uma área escura grande vira branco no P&B.
 PISO_PAPEL = 0.5
-QUADRO_REALCE_COR = 1.6  # quanto a saturação das canetas é reforçada
-QUADRO_GAMA_TRACO = 1.8  # escurece os traços sem escurecer o fundo já branco
 
 
 def _para_cinza(imagem: np.ndarray) -> np.ndarray:
@@ -67,33 +66,10 @@ def _preto_e_branco(imagem: np.ndarray) -> np.ndarray:
     return np.clip(curva, 0, 255).astype(np.uint8)
 
 
-def _quadro_branco(imagem: np.ndarray) -> np.ndarray:
-    """Realça quadro branco: tira reflexo e sombra do fundo e reforça a cor das canetas.
-
-    O fundo é estimado com uma dilatação (que apaga os traços finos) seguida de
-    mediana. Dividir a foto por esse fundo deixa o quadro uniformemente branco,
-    mesmo com o reflexo da lâmpada; depois a saturação e o contraste dos traços sobem.
-    """
-    if imagem.ndim == 2:
-        imagem = cv2.cvtColor(imagem, cv2.COLOR_GRAY2BGR)
-    lado = max(15, (min(imagem.shape[:2]) // 25) | 1)
-    nucleo = cv2.getStructuringElement(cv2.MORPH_RECT, (lado, lado))
-    fundo = cv2.medianBlur(cv2.dilate(imagem, nucleo), 21)
-    uniforme = cv2.divide(imagem, fundo, scale=255)
-
-    hsv = cv2.cvtColor(uniforme, cv2.COLOR_BGR2HSV).astype(np.float32)
-    hsv[:, :, 1] = np.clip(hsv[:, :, 1] * QUADRO_REALCE_COR, 0, 255)
-    hsv[:, :, 2] = 255 * (hsv[:, :, 2] / 255) ** QUADRO_GAMA_TRACO
-    return cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
-
-
 def aplicar_filtro(imagem: np.ndarray, filtro: Filtro) -> np.ndarray:
     """Aplica um dos filtros do MiniScan sobre a página já retificada."""
     if filtro == "original":
         return imagem
-
-    if filtro == "whiteboard":
-        return _quadro_branco(imagem)
 
     if filtro == "grayscale":
         clahe = cv2.createCLAHE(clipLimit=CLAHE_LIMITE, tileGridSize=CLAHE_GRADE)
