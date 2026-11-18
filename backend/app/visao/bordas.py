@@ -1,7 +1,11 @@
 """Detecção automática dos 4 cantos da folha.
 
+Primeiro tenta o modelo DocAligner (app/visao/docaligner.py), que acerta cartões na mão
+e fundos confusos. Quando ele não acha a folha ou não tem certeza, como na folha que
+ocupa quase a foto toda, vale o pipeline OpenCV deste módulo.
+
 Fotos reais de celular têm mesa clara (pouco contraste), sombra, papel ondulado,
-dedo segurando a folha e canto dobrado. Por isso a detecção:
+dedo segurando a folha e canto dobrado. Por isso o pipeline OpenCV:
 
 1. gera candidatos pelo brilho (Canny normal, Canny sensível e Otsu, o papel é
    claro) e pela cor (Canny e Otsu na saturação, o papel é pouco saturado). A cor
@@ -18,6 +22,7 @@ dedo segurando a folha e canto dobrado. Por isso a detecção:
 import cv2
 import numpy as np
 
+from app.visao.docaligner import detectar_cantos_docaligner
 from app.visao.perspectiva import ordenar_cantos
 
 LADO_PROCESSAMENTO = 500  # lado maior da imagem reduzida usada só para detectar
@@ -165,12 +170,20 @@ def _apoio_de_borda(
 
 
 def detectar_cantos(imagem: np.ndarray) -> tuple[np.ndarray, bool]:
-    """Procura a folha na foto.
+    """Procura a folha na foto: primeiro com o modelo, depois com o OpenCV.
 
     Retorna os cantos normalizados (0..1) na ordem superior esquerdo, superior
     direito, inferior direito, inferior esquerdo, e se a detecção deu certo.
     Quando não encontra a folha, devolve a imagem inteira para o ajuste manual.
     """
+    cantos = detectar_cantos_docaligner(imagem)
+    if cantos is not None:
+        return cantos, True
+    return detectar_cantos_opencv(imagem)
+
+
+def detectar_cantos_opencv(imagem: np.ndarray) -> tuple[np.ndarray, bool]:
+    """Procura a folha só com o pipeline OpenCV (o mesmo contrato de `detectar_cantos`)."""
     reduzida = _reduzir(imagem)
     altura, largura = reduzida.shape[:2]
     if reduzida.ndim == 2:

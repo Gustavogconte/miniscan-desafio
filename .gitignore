@@ -19,6 +19,8 @@ venv/
 .coverage
 htmlcov/
 *.egg-info/
+# Modelo de cantos (83 MB), baixado com `python -m app.visao.docaligner`
+backend/modelos/
 
 # Node / Next.js
 node_modules/
