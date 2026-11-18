@@ -210,7 +210,7 @@ function ConteudoEditor() {
               {/* Refazer o recorte depois de pronto; no modo RG ou CNH, os cantos da frente e do verso. */}
               <Link
                 href="/digitalizar/recorte"
-                className="absolute bottom-2 left-2 flex min-h-11 items-center gap-1.5 rounded-xl bg-slate-900/75 px-3 text-xs font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primaria-texto"
+                className="absolute left-2 top-2 flex min-h-11 items-center gap-1.5 rounded-xl bg-slate-900/75 px-3 text-xs font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primaria-texto"
               >
                 <Crop className="size-4" aria-hidden />
                 Recortar
