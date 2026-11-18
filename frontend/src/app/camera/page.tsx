@@ -3,9 +3,10 @@
 import { Camera, Check, Copy, ExternalLink, Flashlight, FlashlightOff, ImageIcon, LoaderCircle, QrCode, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from "react";
 
 import { useAviso } from "@/componentes/aviso";
+import { adiantarVisualizador, VisualizadorPaginas } from "@/componentes/visualizador-sob-demanda";
 import { lerQrcode, mensagemDeErro } from "@/lib/api";
 import { useCameraAoVivo, useDetectorAoVivo, useLeitorQr } from "@/lib/camera";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
@@ -13,6 +14,8 @@ import { prepararFoto } from "@/lib/imagem";
 import { filtroDoModo, novaPagina } from "@/lib/paginas";
 import { useProcessamento, type LadoDoCartao } from "@/lib/processamento";
 import { MODOS, type Cantos, type FormatoCartao, type Ponto } from "@/lib/tipos";
+import { useVisualizador } from "@/lib/usar-visualizador";
+import { indiceDepoisDeExcluir } from "@/lib/visualizador";
 
 /** Proporção (largura/altura) dos formatos de cartão, para a moldura-guia. */
 const PROPORCAO_CARTAO: Record<FormatoCartao, number> = { id: 85.6 / 54, passaporte: 125 / 88 };
@@ -54,13 +57,18 @@ function ehLink(texto: string): boolean {
 export default function TelaCamera() {
   const router = useRouter();
   const avisar = useAviso();
-  const { modo, formatoCartao, configurar, paginas, adicionarPagina } = useDigitalizacao();
+  const { modo, formatoCartao, configurar, paginas, adicionarPagina, removerPagina } = useDigitalizacao();
   const { concluirLote, montarCartao } = useProcessamento();
+  // Revisão das fotos do lote antes de processar: ver em tela cheia e excluir as ruins.
+  const revisao = useVisualizador();
 
   const area = useRef<HTMLDivElement>(null);
   const galeria = useRef<HTMLInputElement>(null);
   const cameraSistema = useRef<HTMLInputElement>(null);
+  const botaoFotografar = useRef<HTMLButtonElement>(null);
   const ocupado = useRef(false);
+  // A revisão excluiu a última foto: a miniatura sumiu, e o foco vai para o botão de fotografar.
+  const focarNoDisparo = useRef(false);
 
   const {
     video,
@@ -82,8 +90,20 @@ export default function TelaCamera() {
   const [copiado, setCopiado] = useState(false);
 
   const { paraTela, paraVideo } = geometria(tamanhoTela, tamanhoVideo);
-  const capturadas = paginas.filter((p) => Object.keys(p.processadas).length === 0);
+  const capturadas = useMemo(() => paginas.filter((p) => Object.keys(p.processadas).length === 0), [paginas]);
   const usaLote = lote && modo !== "cartao" && modo !== "qrcode";
+  const fotosDaRevisao = useMemo(() => capturadas.map((foto) => ({ id: foto.id, src: foto.original.url })), [capturadas]);
+  const temFotoNoLote = usaLote && capturadas.length > 0;
+
+  useEffect(() => {
+    if (temFotoNoLote) adiantarVisualizador();
+  }, [temFotoNoLote]);
+
+  useEffect(() => {
+    if (revisao.aberto || !focarNoDisparo.current) return;
+    focarNoDisparo.current = false;
+    botaoFotografar.current?.focus();
+  }, [revisao.aberto]);
 
   // Moldura-guia do cartão: 86% da largura, na proporção real do documento.
   const guiaCartao = (() => {
@@ -188,7 +208,11 @@ export default function TelaCamera() {
   }
 
   const deteccao = useDetectorAoVivo(video, ativa && modo !== "qrcode" && !processando, (cantos) => {
-    if (automatico) void capturar(cantos);
+    // Com a revisão aberta, a câmera continua ligada por trás: não pode fotografar sozinha.
+    // Devolver false deixa a folha livre para ser fotografada quando a revisão fechar.
+    if (!automatico || revisao.aberto) return false;
+    void capturar(cantos);
+    return true;
   });
   const qr = useLeitorQr(video, ativa && modo === "qrcode");
 
@@ -197,6 +221,20 @@ export default function TelaCamera() {
     if (total > 0 && !window.confirm(`Descartar ${total === 1 ? "a foto tirada" : `as ${total} fotos tiradas`}?`)) {
       evento.preventDefault();
     }
+  }
+
+  function excluirDaRevisao(indice: number) {
+    const foto = capturadas[indice];
+    if (!foto || !window.confirm(`Excluir a foto ${indice + 1}?`)) return;
+    removerPagina(foto.id);
+    // A foto mais recente costuma ser a da folha que ainda está sob a câmera: sem
+    // destravar, ela não seria fotografada de novo enquanto não se mexesse.
+    if (indice === capturadas.length - 1) deteccao.liberar();
+    const proximo = indiceDepoisDeExcluir(indice, capturadas.length);
+    if (proximo === null) {
+      focarNoDisparo.current = true;
+      revisao.fechar();
+    } else revisao.mostrar(proximo);
   }
 
   async function copiarQr(texto: string) {
@@ -437,7 +475,7 @@ export default function TelaCamera() {
           </div>
         )}
         {modo !== "cartao" && modo !== "qrcode" && (
-          <div className="flex justify-center">
+          <div className="flex items-center justify-center gap-2">
             <div className="flex rounded-full bg-white/10 p-1" role="radiogroup" aria-label="Quantidade de páginas">
               {[
                 { valor: false, rotulo: "Único" },
@@ -455,6 +493,17 @@ export default function TelaCamera() {
                 </button>
               ))}
             </div>
+            {usaLote && capturadas.length > 0 && (
+              <button
+                type="button"
+                onClick={concluir}
+                disabled={Boolean(processando)}
+                className="flex min-h-11 items-center gap-1.5 rounded-full bg-primaria px-4 text-xs font-semibold disabled:opacity-50"
+              >
+                <Check className="size-4" aria-hidden />
+                Concluir ({capturadas.length})
+              </button>
+            )}
           </div>
         )}
 
@@ -494,6 +543,7 @@ export default function TelaCamera() {
 
           {modo !== "qrcode" ? (
             <button
+              ref={botaoFotografar}
               type="button"
               onClick={() => capturar(deteccao.cantos)}
               disabled={!ativa || capturando || Boolean(processando)}
@@ -526,9 +576,9 @@ export default function TelaCamera() {
           {usaLote && capturadas.length > 0 ? (
             <button
               type="button"
-              onClick={concluir}
+              onClick={() => revisao.abrir(capturadas.length - 1)}
               disabled={Boolean(processando)}
-              aria-label={`Concluir com ${capturadas.length} ${capturadas.length === 1 ? "página" : "páginas"}`}
+              aria-label={`Revisar ${capturadas.length === 1 ? "a foto tirada" : `as ${capturadas.length} fotos tiradas`}`}
               className="relative size-12 justify-self-end overflow-hidden rounded-xl border-2 border-white"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- miniatura local (blob) */}
@@ -551,6 +601,17 @@ export default function TelaCamera() {
           )}
         </div>
       </div>
+
+      {revisao.indice !== null && capturadas.length > 0 && (
+        <VisualizadorPaginas
+          imagens={fotosDaRevisao}
+          nome="Foto"
+          indice={Math.min(revisao.indice, capturadas.length - 1)}
+          aoMudarIndice={revisao.mostrar}
+          aoFechar={revisao.fechar}
+          aoExcluir={excluirDaRevisao}
+        />
+      )}
     </main>
   );
 }

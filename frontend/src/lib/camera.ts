@@ -186,15 +186,22 @@ interface RespostaWorker {
   resultado?: { cantos: Cantos; area: number } | null;
 }
 
+/**
+ * `aoEstabilizar` devolve se a foto foi tirada. Só nesse caso a folha fica travada
+ * (não é fotografada de novo enquanto não se mexer); com `false`, ela segue livre.
+ */
 export function useDetectorAoVivo(
   video: RefObject<HTMLVideoElement | null>,
   ativo: boolean,
-  aoEstabilizar?: (cantos: Cantos) => void,
-): DeteccaoAoVivo {
+  aoEstabilizar?: (cantos: Cantos) => boolean,
+): DeteccaoAoVivo & { liberar: () => void } {
   const retorno = useRef(aoEstabilizar);
   useEffect(() => {
     retorno.current = aoEstabilizar;
   }, [aoEstabilizar]);
+  // Destrava a folha da última foto automática (ex.: a foto foi excluída e vai ser refeita).
+  const liberarTrava = useRef<() => void>(() => {});
+  const liberar = useCallback(() => liberarTrava.current(), []);
   const [deteccao, setDeteccao] = useState<DeteccaoAoVivo>({
     cantos: null,
     estabilidade: 0,
@@ -218,6 +225,11 @@ export function useDetectorAoVivo(
     let travado = false;
     let cantosDaCaptura: Cantos | null = null;
     let historico: Cantos[] = [];
+    liberarTrava.current = () => {
+      travado = false;
+      cantosDaCaptura = null;
+      estaveis = 0;
+    };
 
     function agendar(espera = Math.max(0, INTERVALO_MINIMO_MS - (performance.now() - ultimoEnvio))) {
       if (!parar) temporizador = setTimeout(enviar, espera);
@@ -285,10 +297,9 @@ export function useDetectorAoVivo(
           historico = [];
         }
       }
-      if (!travado && suavizados && estaveis >= QUADROS_ESTAVEIS && retorno.current) {
+      if (!travado && suavizados && estaveis >= QUADROS_ESTAVEIS && retorno.current?.(suavizados)) {
         travado = true;
         cantosDaCaptura = suavizados;
-        retorno.current(suavizados);
       }
       setDeteccao({
         cantos: suavizados,
@@ -303,10 +314,12 @@ export function useDetectorAoVivo(
       parar = true;
       clearTimeout(temporizador);
       worker.terminate();
+      liberarTrava.current = () => {};
     };
   }, [ativo, video]);
 
-  return ativo ? deteccao : { cantos: null, estabilidade: 0, pronto: deteccao.pronto, falhou: deteccao.falhou };
+  const atual = ativo ? deteccao : { cantos: null, estabilidade: 0, pronto: deteccao.pronto, falhou: deteccao.falhou };
+  return { ...atual, liberar };
 }
 
 // ---------------------------------------------------------------------------
