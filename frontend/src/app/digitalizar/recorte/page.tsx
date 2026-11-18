@@ -1,27 +1,37 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, LoaderCircle, Maximize, RefreshCw, ScanLine } from "lucide-react";
+import { Check, LoaderCircle, Maximize, ScanLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { useAviso } from "@/componentes/aviso";
 import { CabecalhoEtapa } from "@/componentes/cabecalho-etapa";
-import { EditorCantos, limitar, NOMES_CANTOS, PASSO_TECLADO } from "@/componentes/editor-cantos";
+import { EditorCantos } from "@/componentes/editor-cantos";
 import { detectarCantos, mensagemDeErro } from "@/lib/api";
+import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { useProcessamento } from "@/lib/processamento";
 import { CANTOS_TELA_INTEIRA, type Cantos } from "@/lib/tipos";
 import { useGuardaDigitalizacao } from "@/lib/usar-guarda";
 
-const PASSO_SETA = PASSO_TECLADO * 2;
+const BOTAO_SECUNDARIO =
+  "flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-borda bg-secundario text-xs font-semibold text-texto transition hover:opacity-90 disabled:opacity-50";
+const BOTAO_CONFIRMAR =
+  "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-primaria font-display text-sm font-bold text-white shadow-sm transition hover:bg-primaria-hover active:scale-[0.98] disabled:opacity-60";
+const RODAPE = "shrink-0 space-y-2.5 border-t border-borda bg-cartao p-4 pb-[max(1rem,env(safe-area-inset-bottom))]";
 
 export default function TelaRecorte() {
+  const { paginaAtual } = useDigitalizacao();
+  // Página do Cartão ID: recorta a foto de cada lado, e não a folha A4 já montada.
+  return paginaAtual?.cartao ? <RecorteCartao key={paginaAtual.id} /> : <RecortePagina />;
+}
+
+function RecortePagina() {
   const router = useRouter();
   const avisar = useAviso();
   const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina } = useGuardaDigitalizacao();
   const { confirmarPagina } = useProcessamento();
   const [detectando, setDetectando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
-  const [cantoAtivo, setCantoAtivo] = useState(0);
   const detectadoPara = useRef<string | null>(null);
 
   const id = pagina?.id;
@@ -67,12 +77,6 @@ export default function TelaRecorte() {
     atualizarPagina(pagina!.id, { cantos: novos });
   }
 
-  function moverCantoAtivo(dx: number, dy: number) {
-    if (!cantos) return;
-    const novos = cantos.map((c, i) => (i === cantoAtivo ? { x: limitar(c.x + dx), y: limitar(c.y + dy) } : c));
-    usarCantos(novos as Cantos);
-  }
-
   async function confirmar() {
     if (!cantos) return;
     setConfirmando(true);
@@ -87,10 +91,6 @@ export default function TelaRecorte() {
       setConfirmando(false);
     }
   }
-
-  const nomeAtivo = NOMES_CANTOS[cantoAtivo];
-  const botaoSeta =
-    "flex size-11 items-center justify-center rounded-xl border border-borda bg-secundario text-texto transition hover:text-primaria-texto disabled:opacity-50";
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -123,8 +123,6 @@ export default function TelaRecorte() {
             altura={pagina.altura}
             cantos={cantos}
             aoMudar={usarCantos}
-            cantoAtivo={cantoAtivo}
-            aoSelecionarCanto={setCantoAtivo}
           />
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-3 text-slate-300">
@@ -134,38 +132,13 @@ export default function TelaRecorte() {
         )}
       </div>
 
-      <div className="shrink-0 space-y-2.5 border-t border-borda bg-cartao p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        {/* Ajuste fino: alternativa ao arraste para leitores de tela e para precisão. */}
-        <div className="flex items-center gap-1.5" role="group" aria-label={`Ajuste fino do canto ${nomeAtivo}`}>
-          <button
-            type="button"
-            onClick={() => setCantoAtivo((atual) => (atual + 1) % 4)}
-            disabled={!cantos}
-            aria-label={`Canto selecionado: ${nomeAtivo}. Trocar de canto`}
-            className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-borda bg-secundario px-2.5 text-left text-[11px] font-semibold text-texto disabled:opacity-50"
-          >
-            <RefreshCw className="size-3.5 shrink-0 text-primaria-texto" aria-hidden />
-            <span className="truncate">Canto {nomeAtivo}</span>
-          </button>
-          <button type="button" className={botaoSeta} disabled={!cantos} onClick={() => moverCantoAtivo(-PASSO_SETA, 0)} aria-label={`Mover canto ${nomeAtivo} para a esquerda`}>
-            <ArrowLeft className="size-4" aria-hidden />
-          </button>
-          <button type="button" className={botaoSeta} disabled={!cantos} onClick={() => moverCantoAtivo(0, -PASSO_SETA)} aria-label={`Mover canto ${nomeAtivo} para cima`}>
-            <ArrowUp className="size-4" aria-hidden />
-          </button>
-          <button type="button" className={botaoSeta} disabled={!cantos} onClick={() => moverCantoAtivo(0, PASSO_SETA)} aria-label={`Mover canto ${nomeAtivo} para baixo`}>
-            <ArrowDown className="size-4" aria-hidden />
-          </button>
-          <button type="button" className={botaoSeta} disabled={!cantos} onClick={() => moverCantoAtivo(PASSO_SETA, 0)} aria-label={`Mover canto ${nomeAtivo} para a direita`}>
-            <ArrowRight className="size-4" aria-hidden />
-          </button>
-        </div>
+      <div className={RODAPE}>
         <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
             onClick={() => pagina.cantosDetectados && usarCantos(pagina.cantosDetectados)}
             disabled={!pagina.cantosDetectados || !pagina.detectado || confirmando}
-            className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-borda bg-secundario text-xs font-semibold text-texto transition hover:opacity-90 disabled:opacity-50"
+            className={BOTAO_SECUNDARIO}
           >
             <ScanLine className="size-4 text-primaria-texto" aria-hidden />
             Detecção automática
@@ -174,24 +147,146 @@ export default function TelaRecorte() {
             type="button"
             onClick={() => usarCantos(CANTOS_TELA_INTEIRA)}
             disabled={!cantos || confirmando}
-            className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-borda bg-secundario text-xs font-semibold text-texto transition hover:opacity-90 disabled:opacity-50"
+            className={BOTAO_SECUNDARIO}
           >
             <Maximize className="size-4 text-texto-secundario" aria-hidden />
             Foto inteira
           </button>
         </div>
-        <button
-          type="button"
-          onClick={confirmar}
-          disabled={!cantos || confirmando}
-          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-primaria font-display text-sm font-bold text-white shadow-sm transition hover:bg-primaria-hover active:scale-[0.98] disabled:opacity-60"
-        >
-          {confirmando ? (
-            <LoaderCircle className="size-5 animate-spin" aria-hidden />
-          ) : (
-            <Check className="size-5" aria-hidden />
-          )}
+        <button type="button" onClick={confirmar} disabled={!cantos || confirmando} className={BOTAO_CONFIRMAR}>
+          {confirmando ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Check className="size-5" aria-hidden />}
           {confirmando ? "Corrigindo perspectiva…" : "Confirmar recorte"}
+        </button>
+      </div>
+    </main>
+  );
+}
+
+/** Recorte de uma página do Cartão ID: os cantos da frente e do verso, cada um na sua foto. */
+function RecorteCartao() {
+  const router = useRouter();
+  const avisar = useAviso();
+  const { paginaAtual: pagina } = useGuardaDigitalizacao();
+  const { recortarCartao } = useProcessamento();
+  const [ladoAtivo, setLadoAtivo] = useState(0);
+  // Cantos ajustados nesta visita; null = os do último recorte confirmado.
+  const [editados, setEditados] = useState<Cantos[] | null>(null);
+  const [detectando, setDetectando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+
+  // O Next guarda esta tela escondida ao navegar: sair sem confirmar descarta os ajustes.
+  useEffect(
+    () => () => {
+      setEditados(null);
+      setLadoAtivo(0);
+    },
+    [],
+  );
+
+  if (!pagina?.cartao) return null;
+
+  const { lados } = pagina.cartao;
+  const indice = Math.min(ladoAtivo, lados.length - 1);
+  const lado = lados[indice];
+  const cantosDosLados = editados ?? lados.map((l) => l.cantos);
+  const nomes = lados.length > 1 ? ["Frente", "Verso"] : ["Documento"];
+
+  function usarCantos(novos: Cantos) {
+    const copia = [...cantosDosLados];
+    copia[indice] = novos;
+    setEditados(copia);
+  }
+
+  async function detectarDeNovo() {
+    setDetectando(true);
+    try {
+      const { cantos, detectado } = await detectarCantos(lado.original.blob);
+      if (detectado) usarCantos(cantos);
+      else avisar("Não encontrei as bordas do documento. Arraste os cantos até ele.", "erro");
+    } catch (erro) {
+      avisar(mensagemDeErro(erro), "erro");
+    } finally {
+      setDetectando(false);
+    }
+  }
+
+  async function confirmar() {
+    setConfirmando(true);
+    try {
+      await recortarCartao(pagina!.id, cantosDosLados);
+      setEditados(null);
+      router.push("/digitalizar/editor");
+    } catch (erro) {
+      avisar(mensagemDeErro(erro), "erro");
+    } finally {
+      setConfirmando(false);
+    }
+  }
+
+  return (
+    <main className="flex min-h-0 flex-1 flex-col">
+      <CabecalhoEtapa
+        titulo="Recortar documento"
+        subtitulo="Arraste os 4 cantos até as bordas do documento"
+        voltarPara="/digitalizar/editor"
+        rotuloVoltar="Voltar ao editor sem mudar o recorte"
+      />
+
+      {lados.length > 1 && (
+        <div className="flex shrink-0 justify-center border-b border-borda bg-cartao px-4 py-2.5">
+          <div className="flex rounded-full bg-secundario p-1" role="radiogroup" aria-label="Lado do documento">
+            {nomes.map((nome, i) => (
+              <button
+                key={nome}
+                type="button"
+                role="radio"
+                aria-checked={indice === i}
+                onClick={() => setLadoAtivo(i)}
+                className={`min-h-10 rounded-full px-5 text-sm font-semibold transition ${
+                  indice === i ? "bg-primaria text-white" : "text-texto"
+                }`}
+              >
+                {nome}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="relative min-h-0 flex-1 bg-palco-recorte p-5">
+        <EditorCantos
+          key={indice}
+          imagemUrl={lado.original.url}
+          largura={lado.largura}
+          altura={lado.altura}
+          cantos={cantosDosLados[indice]}
+          aoMudar={usarCantos}
+        />
+      </div>
+
+      <div className={RODAPE}>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button type="button" onClick={detectarDeNovo} disabled={detectando || confirmando} className={BOTAO_SECUNDARIO}>
+            {detectando ? (
+              <LoaderCircle className="size-4 animate-spin text-primaria-texto" aria-hidden />
+            ) : (
+              <ScanLine className="size-4 text-primaria-texto" aria-hidden />
+            )}
+            Detecção automática
+          </button>
+          <button
+            type="button"
+            onClick={() => usarCantos(CANTOS_TELA_INTEIRA)}
+            disabled={confirmando}
+            className={BOTAO_SECUNDARIO}
+          >
+            <Maximize className="size-4 text-texto-secundario" aria-hidden />
+            Foto inteira
+          </button>
+        </div>
+        <button type="button" onClick={confirmar} disabled={confirmando} className={BOTAO_CONFIRMAR}>
+          {confirmando ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Check className="size-5" aria-hidden />}
+          {confirmando ? "Montando o documento…" : "Confirmar recorte"}
         </button>
       </div>
     </main>

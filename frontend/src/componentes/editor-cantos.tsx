@@ -4,11 +4,12 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import type { Cantos, Ponto } from "@/lib/tipos";
 
-export const NOMES_CANTOS = ["superior esquerdo", "superior direito", "inferior direito", "inferior esquerdo"];
-export const PASSO_TECLADO = 0.005;
+const NOMES_CANTOS = ["superior esquerdo", "superior direito", "inferior direito", "inferior esquerdo"];
+const PASSO_TECLADO = 0.005;
 const PASSO_TECLADO_RAPIDO = 0.03;
-const ZOOM_LUPA = 2.5;
-const TAMANHO_LUPA = 96;
+const ZOOM_LUPA = 3;
+const TAMANHO_LUPA = 120;
+const MARGEM_LUPA = 8;
 
 interface Props {
   imagemUrl: string;
@@ -16,17 +17,20 @@ interface Props {
   altura: number;
   cantos: Cantos;
   aoMudar: (cantos: Cantos) => void;
-  /** Canto que as setas de ajuste fino movem (o último tocado ou focado). */
-  cantoAtivo: number;
-  aoSelecionarCanto: (indice: number) => void;
 }
 
-export const limitar = (valor: number) => Math.min(1, Math.max(0, valor));
+const limitar = (valor: number) => Math.min(1, Math.max(0, valor));
 
-export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar, cantoAtivo, aoSelecionarCanto }: Props) {
+interface Arraste {
+  indice: number;
+  /** Distância do dedo até o canto no toque: o canto acompanha o dedo sem pular para ele. */
+  deslocamento: Ponto;
+}
+
+export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Props) {
   const palco = useRef<HTMLDivElement>(null);
-  const [arrastando, setArrastando] = useState<number | null>(null);
-  const [larguraPalco, setLarguraPalco] = useState(0);
+  const [arraste, setArraste] = useState<Arraste | null>(null);
+  const [tamanhoPalco, setTamanhoPalco] = useState({ largura: 0, altura: 0 });
   const proporcao = largura / altura;
 
   function moverPara(indice: number, ponto: Ponto) {
@@ -44,15 +48,17 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar, cant
     evento.preventDefault();
     evento.currentTarget.setPointerCapture(evento.pointerId);
     evento.currentTarget.focus();
-    setLarguraPalco(palco.current?.clientWidth ?? 0);
-    setArrastando(indice);
-    aoSelecionarCanto(indice);
+    const ponto = pontoDoEvento(evento);
+    if (!ponto) return;
+    setTamanhoPalco({ largura: palco.current?.clientWidth ?? 0, altura: palco.current?.clientHeight ?? 0 });
+    const canto = cantos[indice];
+    setArraste({ indice, deslocamento: { x: canto.x - ponto.x, y: canto.y - ponto.y } });
   }
 
   function aoMover(indice: number, evento: PointerEvent<HTMLButtonElement>) {
-    if (arrastando !== indice) return;
+    if (arraste?.indice !== indice) return;
     const ponto = pontoDoEvento(evento);
-    if (ponto) moverPara(indice, ponto);
+    if (ponto) moverPara(indice, { x: ponto.x + arraste.deslocamento.x, y: ponto.y + arraste.deslocamento.y });
   }
 
   function aoTeclar(indice: number, evento: KeyboardEvent<HTMLButtonElement>) {
@@ -71,7 +77,23 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar, cant
   }
 
   const pontosSvg = cantos.map((c) => `${c.x * 100},${c.y * 100}`).join(" ");
-  const cantoLupa = arrastando !== null ? cantos[arrastando] : null;
+  const cantoLupa = arraste ? cantos[arraste.indice] : null;
+  // A lupa fica presa no alto do palco, do lado oposto ao canto que está sendo arrastado:
+  // nunca embaixo do dedo, que fica sobre o próprio canto.
+  const lupaADireita = cantoLupa !== null && cantoLupa.x < 0.5;
+
+  const recorte = (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full">
+      <polygon
+        points={pontosSvg}
+        fill="rgb(0 71 224 / 0.12)"
+        stroke="var(--primaria-texto)"
+        strokeWidth="2"
+        vectorEffect="non-scaling-stroke"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 
   return (
     // O palco ocupa o maior retângulo com a proporção da foto que cabe na área disponível.
@@ -92,60 +114,56 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar, cant
             </mask>
           </defs>
           <rect width="100" height="100" fill="rgb(2 6 23 / 0.55)" mask="url(#mascara-recorte)" />
-          <polygon
-            points={pontosSvg}
-            fill="rgb(0 71 224 / 0.12)"
-            stroke="var(--primaria-texto)"
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-            strokeLinejoin="round"
-          />
         </svg>
+        {recorte}
 
         {cantos.map((canto, indice) => (
           <button
             key={NOMES_CANTOS[indice]}
             type="button"
             aria-label={`Canto ${NOMES_CANTOS[indice]}, ${Math.round(canto.x * 100)}% da largura e ${Math.round(canto.y * 100)}% da altura`}
-            aria-pressed={cantoAtivo === indice}
-            onFocus={() => aoSelecionarCanto(indice)}
             onPointerDown={(e) => aoPressionar(indice, e)}
             onPointerMove={(e) => aoMover(indice, e)}
-            onPointerUp={() => setArrastando(null)}
-            onPointerCancel={() => setArrastando(null)}
+            onPointerUp={() => setArraste(null)}
+            onPointerCancel={() => setArraste(null)}
             onKeyDown={(e) => aoTeclar(indice, e)}
             className="group absolute flex size-12 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center justify-center rounded-full focus-visible:outline-none active:cursor-grabbing"
             style={{ left: `${canto.x * 100}%`, top: `${canto.y * 100}%` }}
           >
-            <span
-              className={`size-5 rounded-full border-[3px] border-white bg-primaria shadow-md transition group-focus-visible:ring-4 group-focus-visible:ring-white/60 group-active:scale-125 ${
-                cantoAtivo === indice ? "ring-4 ring-white/50" : ""
-              }`}
-            />
+            <span className="size-5 rounded-full border-[3px] border-white bg-primaria shadow-md transition group-focus-visible:ring-4 group-focus-visible:ring-white/60 group-active:scale-125" />
           </button>
         ))}
 
         {cantoLupa && (
           <div
             aria-hidden
-            className="pointer-events-none absolute overflow-hidden rounded-full border-2 border-white shadow-xl"
+            className="pointer-events-none absolute z-10 overflow-hidden rounded-full border-2 border-white bg-black shadow-xl"
             style={{
               width: TAMANHO_LUPA,
               height: TAMANHO_LUPA,
-              // Fica acima do dedo; perto do topo, desce para baixo do canto.
-              left: `calc(${cantoLupa.x * 100}% - ${TAMANHO_LUPA / 2}px)`,
-              top:
-                cantoLupa.y < 0.3
-                  ? `calc(${cantoLupa.y * 100}% + 40px)`
-                  : `calc(${cantoLupa.y * 100}% - ${TAMANHO_LUPA + 40}px)`,
-              backgroundImage: `url(${imagemUrl})`,
-              backgroundRepeat: "no-repeat",
-              backgroundSize: `calc(var(--largura-palco) * ${ZOOM_LUPA}) auto`,
-              backgroundPosition: `calc(${TAMANHO_LUPA / 2}px - var(--largura-palco) * ${ZOOM_LUPA} * ${cantoLupa.x}) calc(${TAMANHO_LUPA / 2}px - var(--largura-palco) * ${ZOOM_LUPA} / ${proporcao} * ${cantoLupa.y})`,
-              ["--largura-palco" as string]: `${larguraPalco}px`,
+              top: MARGEM_LUPA,
+              ...(lupaADireita ? { right: MARGEM_LUPA } : { left: MARGEM_LUPA }),
             }}
           >
-            <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primaria" />
+            {/* A foto e o recorte ampliados, com o canto arrastado no centro da lupa. */}
+            <div
+              className="absolute left-0 top-0 origin-top-left"
+              style={{
+                width: tamanhoPalco.largura,
+                height: tamanhoPalco.altura,
+                transform: `translate(${TAMANHO_LUPA / 2 - cantoLupa.x * tamanhoPalco.largura * ZOOM_LUPA}px, ${
+                  TAMANHO_LUPA / 2 - cantoLupa.y * tamanhoPalco.altura * ZOOM_LUPA
+                }px) scale(${ZOOM_LUPA})`,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- imagem local (blob) */}
+              <img src={imagemUrl} alt="" draggable={false} className="size-full object-fill" />
+              {recorte}
+            </div>
+            {/* Cruz de mira: o centro é exatamente onde o canto vai ficar. */}
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white shadow-[0_0_0_1px_rgb(0_0_0_/_0.45)]" />
+            <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white shadow-[0_0_0_1px_rgb(0_0_0_/_0.45)]" />
+            <span className="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primaria-texto" />
           </div>
         )}
       </div>

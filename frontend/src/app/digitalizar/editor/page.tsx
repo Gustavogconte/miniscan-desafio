@@ -167,15 +167,6 @@ function ConteudoEditor() {
         voltarPara="/"
         aoVoltar={confirmarDescarte}
         rotuloVoltar="Descartar a digitalização e voltar ao início"
-        acao={
-          <Link
-            href="/digitalizar/recorte"
-            className="flex min-h-11 items-center gap-1.5 rounded-xl border border-borda bg-secundario px-3 text-xs font-semibold text-texto transition hover:opacity-90"
-          >
-            <Crop className="size-4 text-primaria-texto" aria-hidden />
-            Recortar
-          </Link>
-        }
       />
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-2 bg-fundo p-3">
@@ -211,11 +202,19 @@ function ConteudoEditor() {
                 aria-label={`Ampliar a página ${indiceAtual + 1}`}
                 className="absolute inset-0 flex cursor-zoom-in items-end justify-end rounded-lg p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primaria-texto"
               >
-                <span className="flex items-center gap-1 rounded-lg bg-slate-900/75 px-2 py-1 text-[11px] font-semibold text-white">
-                  <Expand className="size-3.5" aria-hidden />
+                <span className="flex min-h-11 items-center gap-1.5 rounded-xl bg-slate-900/75 px-3 text-xs font-semibold text-white">
+                  <Expand className="size-4" aria-hidden />
                   Ampliar
                 </span>
               </button>
+              {/* Refazer o recorte depois de pronto; no Cartão ID, os cantos da frente e do verso. */}
+              <Link
+                href="/digitalizar/recorte"
+                className="absolute bottom-2 left-2 flex min-h-11 items-center gap-1.5 rounded-xl bg-slate-900/75 px-3 text-xs font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primaria-texto"
+              >
+                <Crop className="size-4" aria-hidden />
+                Recortar
+              </Link>
               {carregandoFiltro && (
                 <LoaderCircle className="pointer-events-none absolute size-8 animate-spin text-primaria-texto" aria-hidden />
               )}
