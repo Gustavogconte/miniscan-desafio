@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAviso } from "@/componentes/aviso";
 import { CabecalhoEtapa } from "@/componentes/cabecalho-etapa";
 import { gerarPdf, mensagemDeErro, salvarDocumento } from "@/lib/api";
+import { baixarArquivo, compartilharPdf, nomeDoArquivo } from "@/lib/arquivo";
 import { formatarTamanho } from "@/lib/imagem";
 import { useProcessamento } from "@/lib/processamento";
 import { ROTULO_FILTRO } from "@/lib/tipos";
@@ -24,17 +25,6 @@ function carimboAgora(): string {
   const agora = new Date();
   const dois = (n: number) => String(n).padStart(2, "0");
   return `${dois(agora.getDate())}/${dois(agora.getMonth() + 1)}/${agora.getFullYear()} ${dois(agora.getHours())}:${dois(agora.getMinutes())}`;
-}
-
-/** Nome de arquivo seguro: sem acentos, barras ou espaços. */
-function nomeDoArquivo(titulo: string): string {
-  const limpo = titulo
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^\w\- ]+/g, "")
-    .trim()
-    .replace(/\s+/g, "_");
-  return `${limpo || "Documento_MiniScan"}.pdf`;
 }
 
 export default function TelaExportar() {
@@ -74,29 +64,16 @@ export default function TelaExportar() {
   const pronto = pdf.tipo === "pronto";
 
   function baixar() {
-    if (pdf.tipo !== "pronto") return;
-    const url = URL.createObjectURL(pdf.blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = nomeArquivo;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    if (pdf.tipo === "pronto") baixarArquivo(pdf.blob, nomeArquivo);
   }
 
   async function compartilhar() {
     if (pdf.tipo !== "pronto") return;
-    const arquivo = new File([pdf.blob], nomeArquivo, { type: "application/pdf" });
-    if (navigator.canShare?.({ files: [arquivo] })) {
-      try {
-        await navigator.share({ files: [arquivo], title: titulo });
-      } catch (erro) {
-        if (!(erro instanceof DOMException && erro.name === "AbortError")) {
-          avisar("Não foi possível compartilhar. Use o botão Baixar.", "erro");
-        }
-      }
-    } else {
-      baixar();
-      avisar("Este navegador não compartilha arquivos; o PDF foi baixado.");
+    try {
+      const resultado = await compartilharPdf(pdf.blob, nomeArquivo, titulo);
+      if (resultado === "baixado") avisar("Este navegador não compartilha arquivos; o PDF foi baixado.");
+    } catch {
+      avisar("Não foi possível compartilhar. Use o botão Baixar.", "erro");
     }
   }
 
