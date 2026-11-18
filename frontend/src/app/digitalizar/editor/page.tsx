@@ -170,7 +170,7 @@ function ConteudoEditor() {
       />
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-2 bg-fundo p-3">
-        <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+        <div className="flex min-h-0 w-full flex-1 items-center justify-center [container-type:size]">
           {gradeVisivel ? (
             <div className="size-full overflow-y-auto px-1 py-1">
               <GradePaginas
@@ -191,7 +191,7 @@ function ConteudoEditor() {
               <img
                 src={imagemExibida.url}
                 alt={`Página ${indiceAtual + 1} com filtro ${rotuloFiltro}`}
-                className={`max-h-full max-w-full rounded-lg border border-borda bg-white object-contain shadow-md transition-opacity ${
+                className={`max-h-[100cqh] max-w-[100cqw] rounded-lg border border-borda bg-white object-contain shadow-md transition-opacity ${
                   imagem ? "" : "opacity-40"
                 }`}
               />
@@ -240,7 +240,7 @@ function ConteudoEditor() {
               <img
                 src={pagina.original.url}
                 alt={`Página ${indiceAtual + 1}, ainda sem recorte`}
-                className="max-h-full max-w-full rounded-lg border border-borda object-contain opacity-40"
+                className="max-h-[100cqh] max-w-[100cqw] rounded-lg border border-borda object-contain opacity-40"
               />
               <Link
                 href="/digitalizar/recorte"
