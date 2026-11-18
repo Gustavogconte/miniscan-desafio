@@ -1,10 +1,29 @@
-const LADO_MAXIMO = 2400; // suficiente para OCR e bem mais leve que a foto de 12 MP da câmera
+// Folha com resolução de sobra para o PDF (a API limita a página a 3000 px), sem subir
+// os 12 MP inteiros de uma foto da galeria.
+const LADO_MAXIMO = 3200;
 const QUALIDADE_JPEG = 0.9;
+// Cópia que vai ao /detectar-cantos. O detector trabalha com 256 a 500 px e os cantos
+// voltam normalizados (0..1): a cópia pequena sobe rápido e dá o mesmo resultado.
+const LADO_DETECCAO = 1280;
 
 export interface FotoPreparada {
   blob: Blob;
   largura: number;
   altura: number;
+  /** Cópia reduzida da mesma foto, só para detectar os cantos. */
+  copiaDeteccao: Blob;
+}
+
+/** Desenha a foto reduzida a no máximo 1280 px e devolve um JPEG para a detecção. */
+export async function copiaParaDeteccao(origem: CanvasImageSource, largura: number, altura: number): Promise<Blob> {
+  const escala = Math.min(1, LADO_DETECCAO / Math.max(largura, altura));
+  const tela = document.createElement("canvas");
+  tela.width = Math.round(largura * escala);
+  tela.height = Math.round(altura * escala);
+  tela.getContext("2d")?.drawImage(origem, 0, 0, tela.width, tela.height);
+  const blob = await new Promise<Blob | null>((resolver) => tela.toBlob(resolver, "image/jpeg", 0.85));
+  if (!blob) throw new Error("Seu navegador não conseguiu processar a imagem.");
+  return blob;
 }
 
 function carregarImagem(arquivo: Blob): Promise<HTMLImageElement> {
@@ -48,7 +67,7 @@ export async function prepararFoto(arquivo: File): Promise<FotoPreparada> {
 
   const blob = await new Promise<Blob | null>((resolver) => tela.toBlob(resolver, "image/jpeg", QUALIDADE_JPEG));
   if (!blob) throw new Error("Seu navegador não conseguiu processar a imagem.");
-  return { blob, largura, altura };
+  return { blob, largura, altura, copiaDeteccao: await copiaParaDeteccao(tela, largura, altura) };
 }
 
 export function formatarTamanho(bytes: number): string {

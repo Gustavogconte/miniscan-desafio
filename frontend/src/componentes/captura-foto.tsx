@@ -7,6 +7,7 @@ import { useAviso } from "@/componentes/aviso";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { prepararFoto } from "@/lib/imagem";
 import { novaPagina } from "@/lib/paginas";
+import { detectarNaCaptura } from "@/lib/processamento";
 
 /**
  * Entrada de arquivo da galeria: a foto escolhida vira uma página nova e vai para o
@@ -27,7 +28,9 @@ export function useCapturaFoto() {
     setPreparando(true);
     try {
       const foto = await prepararFoto(arquivo);
-      adicionarPagina(novaPagina(foto.blob, foto.largura, foto.altura));
+      const pagina = novaPagina(foto.blob, foto.largura, foto.altura);
+      adicionarPagina(pagina);
+      detectarNaCaptura(pagina.id, foto.copiaDeteccao);
       router.push("/digitalizar/recorte");
     } catch (erro) {
       avisar(erro instanceof Error ? erro.message : "Não foi possível abrir a imagem.", "erro");

@@ -10,7 +10,7 @@ import { adiantarVisualizador, VisualizadorPaginas } from "@/componentes/visuali
 import { detectarCantos, mensagemDeErro } from "@/lib/api";
 import { useCameraAoVivo } from "@/lib/camera";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
-import { prepararFoto } from "@/lib/imagem";
+import { prepararFoto, type FotoPreparada } from "@/lib/imagem";
 import { novaPagina } from "@/lib/paginas";
 import { detectarNaCaptura, useProcessamento, type LadoDoCartao } from "@/lib/processamento";
 import { MODOS, type Cantos, type FormatoCartao, type Ponto } from "@/lib/tipos";
@@ -153,9 +153,10 @@ export default function TelaCamera() {
   // A foto vai ao servidor logo na captura: ele acha os cantos com o modelo DocAligner
   // enquanto a pessoa vira o documento, abre o recorte ou segue fotografando. No cartão,
   // `cantos` é a moldura-guia, que só vale se o servidor não achar o documento.
-  async function registrarFoto(blob: Blob, largura: number, altura: number, cantos: Cantos | null) {
+  async function registrarFoto(foto: FotoPreparada, cantos: Cantos | null) {
+    const { blob, largura, altura, copiaDeteccao } = foto;
     if (modo === "cartao") {
-      const deteccao = detectarCantos(blob).catch(() => null);
+      const deteccao = detectarCantos(copiaDeteccao).catch(() => null);
       const lados = [...ladosCartao, { blob, largura, altura, cantos, deteccao }];
       if (lados.length < LADOS_DO_CARTAO[formatoCartao]) {
         setLadosCartao(lados);
@@ -167,7 +168,7 @@ export default function TelaCamera() {
     }
     const pagina = novaPagina(blob, largura, altura);
     adicionarPagina(pagina);
-    detectarNaCaptura(pagina.id, blob);
+    detectarNaCaptura(pagina.id, copiaDeteccao);
     if (usaLote) avisar(`Página ${capturadas.length + 1} capturada`);
     else router.push("/digitalizar/recorte");
   }
@@ -178,7 +179,7 @@ export default function TelaCamera() {
     setCapturando(true);
     try {
       const quadro = await capturarQuadro();
-      await registrarFoto(quadro.blob, quadro.largura, quadro.altura, modo === "cartao" ? cantosDaGuia() : null);
+      await registrarFoto(quadro, modo === "cartao" ? cantosDaGuia() : null);
     } catch (erro) {
       avisar(mensagemDeErro(erro), "erro");
     } finally {
@@ -220,8 +221,7 @@ export default function TelaCamera() {
     evento.target.value = "";
     if (!arquivo) return;
     try {
-      const foto = await prepararFoto(arquivo);
-      await registrarFoto(foto.blob, foto.largura, foto.altura, null);
+      await registrarFoto(await prepararFoto(arquivo), null);
     } catch (erro) {
       avisar(mensagemDeErro(erro), "erro");
     }
@@ -313,6 +313,10 @@ export default function TelaCamera() {
           muted
           autoPlay
           onLoadedMetadata={(e) =>
+            setTamanhoVideo({ largura: e.currentTarget.videoWidth, altura: e.currentTarget.videoHeight })
+          }
+          // A resolução muda depois da abertura, quando a câmera sobe para o máximo.
+          onResize={(e) =>
             setTamanhoVideo({ largura: e.currentTarget.videoWidth, altura: e.currentTarget.videoHeight })
           }
           className="absolute inset-0 size-full object-cover"
