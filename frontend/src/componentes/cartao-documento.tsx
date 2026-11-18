@@ -1,6 +1,7 @@
 "use client";
 
 import { FileText, Share2 } from "lucide-react";
+import Link from "next/link";
 
 import { useAviso } from "@/componentes/aviso";
 import { ROTULO_FILTRO, type DocumentoHistorico } from "@/lib/tipos";
@@ -52,18 +53,13 @@ export function CartaoDocumento({ documento }: { documento: DocumentoHistorico }
 
       <div className="min-w-0 flex-1">
         <h2 className="truncate pr-10 font-display text-sm font-bold text-texto">
-          {documento.pdf_url ? (
-            <a
-              href={documento.pdf_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none"
-            >
-              {documento.title}
-            </a>
-          ) : (
-            documento.title
-          )}
+          {/* O cartão inteiro abre a tela do documento, com as páginas e o texto. */}
+          <Link
+            href={`/documento?id=${documento.id}`}
+            className="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none"
+          >
+            {documento.title}
+          </Link>
         </h2>
         {trecho ? (
           <p className="mt-1 line-clamp-2 text-xs leading-snug text-texto-secundario">“{trecho}”</p>

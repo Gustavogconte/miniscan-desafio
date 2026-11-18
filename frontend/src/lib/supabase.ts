@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import type { DocumentoHistorico } from "@/lib/tipos";
+import type { DocumentoCompleto, DocumentoHistorico } from "@/lib/tipos";
 
 const URL_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 // Chave pública (publishable): só tem permissão de leitura graças ao RLS.
@@ -33,4 +33,19 @@ export async function buscarDocumentos(termo: string): Promise<DocumentoHistoric
     .limit(50);
   if (error) throw new Error("Não foi possível carregar o histórico.");
   return (data ?? []) as unknown as DocumentoHistorico[];
+}
+
+const CAMPOS_DOCUMENTO =
+  "id, title, pdf_url, page_count, created_at, document_pages(id, page_order, original_image_url, processed_image_url, filter_applied, ocr_text)";
+
+/** Um documento salvo com todas as páginas, na ordem do PDF (null se não existir). */
+export async function buscarDocumento(id: string): Promise<DocumentoCompleto | null> {
+  const { data, error } = await obterCliente()
+    .from("documents")
+    .select(CAMPOS_DOCUMENTO)
+    .eq("id", id)
+    .order("page_order", { referencedTable: "document_pages", ascending: true })
+    .maybeSingle();
+  if (error) throw new Error("Não foi possível abrir o documento.");
+  return data as unknown as DocumentoCompleto | null;
 }

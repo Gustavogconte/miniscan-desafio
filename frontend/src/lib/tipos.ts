@@ -71,6 +71,23 @@ export interface Pagina {
   estadoOcr: EstadoOcr;
 }
 
+/** Documento salvo com todas as páginas, para a tela do documento. */
+export interface DocumentoCompleto {
+  id: string;
+  title: string;
+  pdf_url: string | null;
+  page_count: number;
+  created_at: string;
+  document_pages: {
+    id: string;
+    page_order: number;
+    original_image_url: string;
+    processed_image_url: string;
+    filter_applied: Filtro;
+    ocr_text: string;
+  }[];
+}
+
 export interface DocumentoHistorico {
   id: string;
   title: string;
