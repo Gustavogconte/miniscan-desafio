@@ -94,6 +94,19 @@ export default function TelaCamera() {
   const usaLote = lote && modo !== "cartao" && modo !== "qrcode";
   const fotosDaRevisao = useMemo(() => capturadas.map((foto) => ({ id: foto.id, src: foto.original.url })), [capturadas]);
   const temFotoNoLote = usaLote && capturadas.length > 0;
+  // Aberta pelo "+ Página" do editor: já há páginas recortadas, e fechar volta para o
+  // documento (ir ao início descartaria tudo).
+  const temDocumento = paginas.some((p) => Object.keys(p.processadas).length > 0);
+
+  // O Next guarda esta tela escondida ao navegar. Sem limpar ao sair, o "Concluindo…"
+  // do lote (ou do cartão) voltava junto e travava a câmera na visita seguinte.
+  useEffect(
+    () => () => {
+      setProcessando(null);
+      setLadosCartao([]);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (temFotoNoLote) adiantarVisualizador();
@@ -220,7 +233,10 @@ export default function TelaCamera() {
     const total = capturadas.length + ladosCartao.length;
     if (total > 0 && !window.confirm(`Descartar ${total === 1 ? "a foto tirada" : `as ${total} fotos tiradas`}?`)) {
       evento.preventDefault();
+      return;
     }
+    // De volta ao documento: só as fotos ainda sem recorte saem; as páginas ficam.
+    if (temDocumento) capturadas.forEach((foto) => removerPagina(foto.id));
   }
 
   function excluirDaRevisao(indice: number) {
@@ -283,9 +299,9 @@ export default function TelaCamera() {
       {/* Barra superior */}
       <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 bg-gradient-to-b from-black/70 to-transparent px-3 pb-6 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Link
-          href="/"
+          href={temDocumento ? "/digitalizar/editor" : "/"}
           onClick={confirmarSaida}
-          aria-label="Fechar a câmera"
+          aria-label={temDocumento ? "Fechar a câmera e voltar ao documento" : "Fechar a câmera"}
           className="flex size-11 items-center justify-center rounded-full bg-black/40"
         >
           <X className="size-6" aria-hidden />
