@@ -115,7 +115,7 @@ function RecortePagina() {
         }
       />
 
-      <div className="relative min-h-0 flex-1 bg-palco-recorte p-5">
+      <div className="relative min-h-0 flex-1 bg-palco-recorte">
         {cantos ? (
           <EditorCantos
             imagemUrl={pagina.original.url}
@@ -253,7 +253,7 @@ function RecorteCartao() {
         </div>
       )}
 
-      <div className="relative min-h-0 flex-1 bg-palco-recorte p-5">
+      <div className="relative min-h-0 flex-1 bg-palco-recorte">
         <EditorCantos
           key={indice}
           imagemUrl={lado.original.url}
