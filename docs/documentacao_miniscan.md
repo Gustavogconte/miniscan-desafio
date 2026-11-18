@@ -10,11 +10,11 @@ Nesse trabalho o objetivo foi desenvolver um aplicativo de digitalização de do
 
 ### Requisitos Funcionais e Não Funcionais
 
-Na definição do escopo, o sistema precisa atender a seis requisitos funcionais principais, capturar ou selecionar imagens pela câmera ou galeria (RF01), detectar as bordas da folha e corrigir a perspectiva (RF02), aplicar e alternar entre os filtros original, escala de cinza e preto e branco (RF03), extrair o texto da imagem via reconhecimento óptico de caracteres (RF04), gerar um arquivo PDF único a partir das páginas digitalizadas (RF05) e salvar o histórico na nuvem com opção de baixar ou compartilhar o arquivo (RF06). Já nos requisitos não funcionais, a aplicação precisa rodar de forma instalável tanto no Android quanto no iPhone via navegador seguro com certificado SSL (RNF01), processar cada página em menos de 3 segundos em rede móvel comum (RNF02) e manter o servidor separado da interface através de uma API REST documentada (RNF03).
+Na definição do escopo, segui a lista do enunciado e acrescentei duas funções. O sistema precisa capturar ou selecionar imagens pela câmera ou pela galeria (RF01), visualizar as imagens capturadas em tela cheia, com zoom, troca de página e comparação entre a foto original e a página tratada, tanto durante a digitalização quanto nos documentos já salvos (RF02), aplicar e alternar entre os filtros original, escala de cinza e preto e branco (RF03), gerar um arquivo PDF único a partir das páginas digitalizadas (RF04) e salvar o documento no histórico na nuvem ou compartilhá-lo e baixá-lo pelo celular (RF05). O enunciado coloca o reconhecimento de texto como funcionalidade adicional, mas decidi tratá-lo como obrigatório, então o sistema também extrai o texto de cada página via OCR em português (RF06). Por fim, incluí a detecção automática das bordas da folha com correção de perspectiva, que deixa a página reta como num scanner e pode ser ajustada à mão (RF07). Já nos requisitos não funcionais, a aplicação precisa rodar de forma instalável tanto no Android quanto no iPhone via navegador seguro com certificado SSL (RNF01), processar cada página em menos de 3 segundos em rede móvel comum (RNF02) e manter o servidor separado da interface através de uma API REST documentada (RNF03).
 
 ### Casos de Uso do Sistema
 
-O fluxo de interação conta apenas com o ator principal, o usuário final, que inicia o uso no caso de uso de digitalizar documento (UC01), onde ele tira uma foto ou escolhe uma imagem da galeria e ajusta os quatro cantos da folha na tela. Na sequência, o usuário entra no caso de uso de tratar e revisar página (UC02), alternando entre os filtros de imagem e conferindo o texto extraído pelo OCR para copiar ou corrigir alguma palavra. Por fim, no caso de uso de exportar e gerenciar histórico (UC03), o usuário gera o arquivo PDF final, aciona o menu de compartilhamento do celular ou salva o registro no banco de dados para consultar depois pela barra de busca textual.
+O fluxo de interação conta apenas com o ator principal, o usuário final. Ele começa capturando uma foto ou escolhendo uma imagem da galeria (UC01), o que sempre passa pelo ajuste do recorte, com os quatro cantos da folha detectados sozinhos e arrastáveis na tela (UC02). Depois ele pode visualizar as páginas em tela cheia, ampliando para conferir se o texto ficou legível e comparando com a foto original (UC03); no modo lote, essa revisão também acontece antes do processamento, para excluir as fotos que saíram ruins. Em seguida escolhe o filtro de cada página (UC04) e confere o texto extraído pelo OCR, que roda sozinho depois de cada recorte, para copiar ou corrigir alguma palavra (UC05). Por fim, gera o PDF e o compartilha, baixa ou salva no histórico (UC06), onde pode buscar pelo título ou pelo texto e abrir o documento para ver de novo as páginas e o texto (UC07).
 
 ### Diagrama de Casos de Uso
 
@@ -24,11 +24,12 @@ flowchart LR
 
     subgraph MiniScan ["Sistema MiniScan (PWA + API)"]
         UC1([UC01: Capturar ou Importar Imagem])
-        UC2([UC02: Ajustar Perspectiva da Folha])
-        UC3([UC03: Aplicar Filtros Original, Cinza e P&B])
-        UC4([UC04: Extrair Texto via OCR])
-        UC5([UC05: Gerar PDF e Compartilhar])
-        UC6([UC06: Consultar e Buscar Histórico])
+        UC2([UC02: Ajustar o Recorte da Folha])
+        UC3([UC03: Visualizar as Páginas])
+        UC4([UC04: Aplicar Filtros Original, Cinza e P&B])
+        UC5([UC05: Extrair Texto via OCR])
+        UC6([UC06: Gerar PDF, Compartilhar e Salvar])
+        UC7([UC07: Consultar o Histórico e Abrir Documento])
     end
 
     Usuario --> UC1
@@ -37,9 +38,11 @@ flowchart LR
     Usuario --> UC4
     Usuario --> UC5
     Usuario --> UC6
+    Usuario --> UC7
     UC1 -.->|include| UC2
-    UC2 -.->|include| UC3
-    UC3 -.->|extend| UC4
+    UC2 -.->|include| UC5
+    UC3 -.->|extend| UC1
+    UC3 -.->|extend| UC7
 ```
 
 ---
@@ -50,7 +53,7 @@ Quando o usuário envia uma foto, o código primeiro redimensiona a imagem para 
 
 Para deixar o documento reto como se tivesse sido escaneado de frente, a função de transformação de perspectiva (corrigir_perspectiva) ordena os quatro cantos escolhidos, calcula a matriz de homografia (getPerspectiveTransform) e faz o recorte ortogonal da folha (warpPerspective). Já na etapa dos filtros (aplicar_filtro), o modo original mantém as cores da foto corrigida, o modo escala de cinza usa equalização adaptativa de histograma (CLAHE) para equilibrar a luz da página e o modo preto e branco nivela a iluminação da página, dividindo-a por uma estimativa do papel sem a tinta, o que apaga sombras da mão ou do celular sobre o papel.
 
-Como extra, implementei a extração de texto (extrair_texto_ocr) com o PaddleOCR, usando os modelos PP-OCRv5 latinos em ONNX, que cobrem o português com acentos. O OCR sempre lê a página retificada original, e não a versão em preto e branco: a rede neural do PaddleOCR se apoia nos gradientes suaves das bordas das letras, e a binarização transforma esses contornos em degraus, o que fazia a leitura cair de cerca de 99% para 35% quando o texto era pequeno na foto. Por isso o front-end envia a foto original junto com os cantos confirmados e a API retifica a página só para a leitura, enquanto o filtro preto e branco fica restrito ao que aparece na tela e no PDF. Nesse filtro, uma limiarização seca (adaptiveThreshold) deixava as letras quebradas e serrilhadas quando a página vinha de um quadro de vídeo do celular, em baixa resolução. Por isso a página pequena é ampliada antes, a iluminação é nivelada e, em vez de um corte seco, uma curva íngreme leva o papel para branco e a tinta para preto, mantendo tons intermediários só na borda das letras, como faz um scanner. O texto reconhecido é montado na ordem natural de leitura, de cima para baixo e da esquerda para a direita (ordenar_em_linhas).
+A extração de texto (extrair_texto_ocr), que o enunciado trata como funcionalidade adicional e eu coloquei no escopo obrigatório, usa o PaddleOCR com os modelos PP-OCRv5 latinos em ONNX, que cobrem o português com acentos. O OCR sempre lê a página retificada original, e não a versão em preto e branco: a rede neural do PaddleOCR se apoia nos gradientes suaves das bordas das letras, e a binarização transforma esses contornos em degraus, o que fazia a leitura cair de cerca de 99% para 35% quando o texto era pequeno na foto. Por isso o front-end envia a foto original junto com os cantos confirmados e a API retifica a página só para a leitura, enquanto o filtro preto e branco fica restrito ao que aparece na tela e no PDF. Nesse filtro, uma limiarização seca (adaptiveThreshold) deixava as letras quebradas e serrilhadas quando a página vinha de um quadro de vídeo do celular, em baixa resolução. Por isso a página pequena é ampliada antes, a iluminação é nivelada e, em vez de um corte seco, uma curva íngreme leva o papel para branco e a tinta para preto, mantendo tons intermediários só na borda das letras, como faz um scanner. O texto reconhecido é montado na ordem natural de leitura, de cima para baixo e da esquerda para a direita (ordenar_em_linhas).
 
 A vantagem dessa arquitetura é que o OCR passou a rodar numa engine leve, o onnxruntime, sem depender de binários instalados no sistema operacional como o Tesseract e sem precisar do PyTorch no servidor, o que deixou a imagem Docker mais simples. A leitura também ficou mais robusta em fotos de celular com iluminação irregular: num teste com uma página com sombra forte, ruído e inclinação de 2,5 graus, o Tesseract leu 66% do texto da foto crua, enquanto o PaddleOCR leu 100%, incluindo todos os acentos. O custo é o tempo, perto de 2 segundos por página em CPU, e por isso o front-end faz a leitura em segundo plano logo depois do recorte.
 
@@ -58,9 +61,13 @@ Por fim, o sistema junta todas as páginas processadas em um único arquivo PDF 
 
 ### Câmera ao Vivo e Modos de Digitalização
 
-Para a captura ficar parecida com a de um aplicativo nativo, a câmera do celular passou a fazer o recorte ao vivo. O mesmo pipeline de detecção de bordas do servidor (GaussianBlur, Canny, morphologyEx, findContours e approxPolyDP) roda no próprio navegador com o OpenCV.js, dentro de um Web Worker para não travar a interface, analisando uma versão reduzida de cada quadro do vídeo. O contorno encontrado é desenhado por cima da imagem da câmera e suavizado entre os quadros, e quando os quatro cantos ficam parados por cerca de 0,7 segundo a foto é tirada sozinha, já com os cantos detectados. No modo lote várias páginas são fotografadas em sequência, e a mesma folha não é fotografada de novo enquanto não sair do enquadramento.
+Para a captura ficar parecida com a de um aplicativo nativo, a câmera do celular passou a fazer o recorte ao vivo. O mesmo pipeline de detecção de bordas do servidor (GaussianBlur, Canny, morphologyEx, findContours e approxPolyDP) roda no próprio navegador com o OpenCV.js, dentro de um Web Worker para não travar a interface, analisando uma versão reduzida de cada quadro do vídeo. O contorno encontrado é desenhado por cima da imagem da câmera e suavizado entre os quadros, e quando os quatro cantos ficam parados por cerca de 0,7 segundo a foto é tirada sozinha, já com os cantos detectados. No modo lote várias páginas são fotografadas em sequência, e a mesma folha não é fotografada de novo enquanto não sair do enquadramento. Antes de concluir, tocar na miniatura abre as fotos já tiradas em tela cheia, para excluir alguma que saiu tremida ou cortada sem gastar processamento com ela.
 
 Além do modo de digitalização comum, criei modos para situações específicas. No modo de cartão de identidade, a frente e o verso do documento são retificados e montados numa folha A4 no tamanho real do cartão (85,6 por 54 milímetros, ou 125 por 88 milímetros no caso do passaporte), como numa cópia autenticada. No modo livro, uma única foto do livro aberto vira duas páginas: o servidor procura a sombra vertical da lombada perto do meio da imagem retificada e leva a linha de corte de volta para a foto original pela homografia inversa, de modo que cada página é recortada direto da foto, sem perder resolução. O modo de quadro branco usa um filtro próprio que estima a iluminação do fundo com uma dilatação seguida de mediana e divide a foto por ela, o que tira o reflexo da lâmpada e deixa o quadro uniformemente branco, e depois reforça a saturação das canetas. Há ainda um modo que extrai o texto direto depois do recorte, a leitura de QR codes ao vivo e a opção de carimbar a data e a hora em cada página do PDF.
+
+### Visualização das Imagens Capturadas
+
+Para atender ao item do enunciado de visualizar as imagens capturadas, criei um visualizador em tela cheia usado em três lugares: no editor, ao tocar na página; na revisão das fotos do modo lote; e na tela de um documento salvo, aberta a partir do histórico. Nele a página pode ser ampliada com o movimento de pinça ou com dois toques, e a parte ampliada pode ser arrastada para conferir se as letras pequenas ficaram legíveis. Deslizar para os lados troca de página, puxar para baixo fecha, e o gesto de voltar do celular também fecha o visualizador em vez de sair da tela. Um botão alterna entre a página tratada, já recortada e com o filtro, e a foto original como foi tirada, o que ajuda a perceber se o recorte deixou alguma parte da folha de fora. Usei a biblioteca yet-another-react-lightbox, que já resolve a diferença entre arrastar a página ampliada e deslizar para a próxima, a parte mais difícil de acertar no Safari do iPhone. Ela fica num arquivo à parte, baixado só pelas telas que usam o visualizador, para não pesar na abertura do aplicativo, e se esse download falhar o aplicativo avisa e segue funcionando, sem perder as páginas digitalizadas. O editor também mostra todas as páginas numa grade, e a tela do documento salvo reúne a grade das páginas, o texto reconhecido de cada uma, com a opção de copiar, e os botões para compartilhar, baixar e abrir o PDF.
 
 ### Diagrama de Sequência
 
@@ -81,6 +88,7 @@ sequenceDiagram
     PWA->>API: POST /processar-pagina (imagem + cantos + filtro)
     API->>API: warpPerspective + filtro (Original, Cinza CLAHE, P&B ou Quadro branco)
     API-->>PWA: Retorna a página retificada e filtrada
+    U->>PWA: Confere as páginas em tela cheia (zoom e foto original)
     PWA->>API: POST /extrair-ocr (foto original + cantos)
     API->>OCR: Envia a página retificada original, sem filtro
     OCR-->>API: Retorna o texto em ordem de leitura (PP-OCRv5 latino)
@@ -388,6 +396,8 @@ Para o esqueleto visual no Figma (frame mobile 390 x 844 px), o fluxo foi estrut
 2. **Tela 2 - Ajuste de Perspectiva (Recorte):** Exibição da foto capturada com o polígono conectando os quatro vértices arrastáveis detectados pela API e o botão de confirmação do recorte.
 3. **Tela 3 - Editor de Filtros e Gaveta de OCR:** Visualização da folha retificada com seletor inferior para alternar entre os modos Original, Escala de Cinza e Preto e Branco, botão para abrir o modal com o texto extraído pelo OCR e opção para adicionar novas páginas ao mesmo PDF.
 4. **Tela 4 - Exportação e Compartilhamento:** Campo para editar o nome do arquivo final e botões principais para compartilhar o PDF pelo menu nativo do celular (navigator.share) ou baixar o documento.
+
+Depois do protótipo, duas telas entraram no aplicativo para cobrir a visualização das imagens: o visualizador de páginas, em tela cheia, com zoom e a troca entre a foto original e a página tratada, e a tela do documento salvo, aberta pelo histórico, com a grade das páginas, o texto reconhecido e os botões do PDF.
 
 ---
 

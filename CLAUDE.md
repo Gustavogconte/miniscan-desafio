@@ -4,7 +4,7 @@
 
 O **MiniScan** é um aplicativo de digitalização de documentos inspirado no CamScanner, desenvolvido como projeto de seleção para **Iniciação Científica (IC)** com prazo total de 15 dias.
 
-- **Escopo Obrigatório (MVP):** Capturar ou importar imagens (câmera ou galeria), detectar bordas da folha e corrigir perspectiva (homografia 4 pontos), aplicar filtros (`original`, `grayscale`, `bw`), extrair texto via OCR (pt-BR), compilar páginas em PDF único, e salvar/compartilhar o histórico na nuvem.
+- **Escopo Obrigatório (MVP):** os 5 itens do enunciado do professor, na ordem: capturar ou importar imagens (câmera ou galeria), **visualizar as imagens capturadas** (tela cheia com zoom), aplicar filtros (`original`, `grayscale`, `bw`), compilar páginas em PDF único e salvar/compartilhar. Também obrigatórios por decisão nossa: extrair texto via OCR (pt-BR; no enunciado é adicional) e detectar bordas da folha com correção de perspectiva (homografia 4 pontos). Os RF01–RF07 da documentação seguem essa ordem.
 - **Estratégia de Execução:** Implementar 100% do MVP primeiro. Somente se sobrar tempo após o MVP estar testado e implantado, adicionar a extensão de **Segmentação Híbrida (ROI)** para preservar regiões gráficas/fotos coloridas sem degradá-las com a binarização do texto.
 
 ## 2. Arquitetura e Stack Definida
@@ -15,7 +15,7 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
 
 ## 3. O Que Já Foi Concluído (Sprint 1)
 
-1. **Documentação Técnica (`docs/documentacao_miniscan.md`):** Requisitos Funcionais (RF01–RF06), Não Funcionais (RNF01–RNF03), Casos de Uso e diagramas Mermaid.
+1. **Documentação Técnica (`docs/documentacao_miniscan.md`):** Requisitos Funcionais (RF01–RF07), Não Funcionais (RNF01–RNF03), Casos de Uso (UC01–UC07) e diagramas Mermaid.
 2. **Banco de Dados (`supabase/migrations/20261116000001_init_miniscan_schema.sql`):**
    - Tabelas `public.documents` (`id`, `title`, `pdf_url`, `page_count`, `created_at`, `updated_at`) e `public.document_pages` (`id`, `document_id`, `page_order`, `original_image_url`, `processed_image_url`, `filter_applied`, `ocr_text`, `created_at`, `updated_at`).
    - Triggers automáticos para `updated_at` e sincronização de `documents.page_count`.
@@ -28,6 +28,7 @@ O **MiniScan** é um aplicativo de digitalização de documentos inspirado no Ca
    - Tipografia: `Space Grotesk` (títulos), `IBM Plex Sans` (corpo) e `JetBrains Mono` (metadados/OCR).
    - Fluxo validado de 4 telas: (1) Início & Busca OCR, (2) Ajuste de Perspectiva 4 pontos, (3) Editor de Filtros & Gaveta OCR, (4) Exportação & Compartilhamento PDF.
 4. **Câmera ao vivo e modos (`/camera`, Fase 1):** detecção da folha a cada quadro com OpenCV.js num Web Worker (`frontend/public/workers/detectar-cantos.js`, mesmo pipeline de `bordas.py`), captura automática quando a folha fica parada (~0,7 s), Único/Lote e os modos Digitalizar, Extrair texto, Cartão ID (`/compor-cartao`, A4 em tamanho real), Livro (`/dividir-livro`, lombada pela sombra + homografia inversa), Quadro branco (filtro `whiteboard`, migração `20261116000003`) e QR code (`BarcodeDetector` ou `/ler-qrcode`). O PDF aceita carimbo de data e hora. A `getUserMedia` exige HTTPS no celular; sem ela, a tela cai para a câmera nativa e a galeria.
+5. **Visualização das imagens capturadas (RF02):** visualizador em tela cheia (`frontend/src/componentes/visualizador-paginas.tsx`, `yet-another-react-lightbox` com o plugin de zoom, carregado sob demanda): pinça, dois toques, deslizar entre páginas e alternar entre página tratada e foto original. Abre no editor (que também tem a grade de todas as páginas), na revisão das fotos do lote antes de processar e na tela do documento salvo (`/documento?id=`, aberta pelo histórico, com páginas, texto OCR e PDF). O voltar do celular fecha o visualizador (`frontend/src/lib/usar-visualizador.ts`, entrada própria no histórico).
 
 ## 4. Pipeline de Visão Computacional (Especificação para `/backend`)
 

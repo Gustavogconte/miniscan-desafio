@@ -13,6 +13,8 @@ Modos da câmera:
 - **Quadro branco:** filtro que tira o reflexo e realça a cor das canetas.
 - **QR code:** leitura ao vivo, com o `BarcodeDetector` do navegador ou, no Safari, pela API.
 
+As páginas abrem em tela cheia no visualizador (`src/componentes/visualizador-paginas.tsx`, com a biblioteca `yet-another-react-lightbox`): pinça e dois toques ampliam, deslizar troca de página e um botão alterna entre a página tratada e a foto original. Ele aparece no editor, na revisão das fotos do lote (tocando na miniatura da câmera) e na tela do documento salvo (`/documento?id=...`), que o histórico abre com as páginas, o texto do OCR e os botões do PDF. O gesto de voltar do celular fecha o visualizador sem sair da tela (`src/lib/usar-visualizador.ts`).
+
 ## Rodando localmente
 
 ```bash
