@@ -28,13 +28,18 @@ def sem_supabase_real(monkeypatch):
 
 
 def pytest_collection_modifyitems(config, items):
-    """No CI, OCR indisponível é falha: os testes de OCR não podem ser pulados em silêncio."""
+    """No CI, OCR ou modelo de cantos indisponível é falha, e não teste pulado em silêncio."""
     if not os.getenv("CI"):
         return
     from app.ocr import ocr_disponivel
+    from app.visao.docaligner import docaligner_disponivel
 
     if not ocr_disponivel():
         raise pytest.UsageError("OCR indisponível no CI: os testes de OCR seriam pulados.")
+    if not docaligner_disponivel():
+        raise pytest.UsageError(
+            "Modelo de cantos indisponível no CI: o híbrido seria testado só com o OpenCV."
+        )
 
 
 LARGURA_FOTO = 900

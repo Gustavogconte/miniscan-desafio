@@ -28,6 +28,13 @@ jobs:
         with:
           path: backend/.venv/lib/python3.11/site-packages/rapidocr/models
           key: modelos-rapidocr-${{ hashFiles('backend/uv.lock') }}
+      # Modelo de cantos (83 MB): o comando só baixa se faltar ou se o SHA-256 não bater,
+      # e testa a carga. Sem ele, o conftest.py recusa rodar os testes no CI.
+      - uses: actions/cache@v4
+        with:
+          path: backend/modelos
+          key: modelo-docaligner-${{ hashFiles('backend/app/visao/docaligner.py') }}
+      - run: uv run python -m app.visao.docaligner
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest

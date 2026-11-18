@@ -24,6 +24,10 @@ COPY app ./app
 # container nunca depender de download em produção.
 RUN python -c "from app.ocr import MotorOcr; MotorOcr.obter()"
 
+# Baixa o modelo de cantos (DocAligner, 83 MB) da release do GitHub, confere o
+# SHA-256 e testa a carga no onnxruntime. Fica em /srv/modelos, fora do git.
+RUN python -m app.visao.docaligner
+
 RUN useradd --create-home --uid 1000 miniscan
 USER miniscan
 
