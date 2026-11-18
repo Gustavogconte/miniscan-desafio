@@ -18,6 +18,9 @@ LADO_MINIMO_PB = 2000
 # PB_BRANCO é papel, e no meio fica a borda suave da letra (antisserrilhado).
 PB_PRETO = 150
 PB_BRANCO = 215
+# A estimativa do papel nunca desce abaixo desta fração do papel típico da página
+# (percentil 90): sem esse piso, uma área escura grande vira branco no P&B.
+PISO_PAPEL = 0.5
 QUADRO_REALCE_COR = 1.6  # quanto a saturação das canetas é reforçada
 QUADRO_GAMA_TRACO = 1.8  # escurece os traços sem escurecer o fundo já branco
 
@@ -54,6 +57,11 @@ def _preto_e_branco(imagem: np.ndarray) -> np.ndarray:
     lado = (_tamanho_bloco(cinza) // 2) | 1
     nucleo = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (lado, lado))
     papel = cv2.medianBlur(cv2.dilate(cinza, nucleo), 21)  # dilatar apaga a tinta
+    # Dentro de uma área escura maior que o núcleo (foto 3x4 do RG, tarja preta,
+    # logotipo), a estimativa do papel também fica escura, e a divisão levaria a área
+    # a branco. Com o piso, ela continua escura; sombras de até ~45% ainda somem.
+    piso = np.uint8(min(255.0, PISO_PAPEL * float(np.percentile(papel[::4, ::4], 90))))
+    papel = np.maximum(papel, piso)
     nivelada = cv2.divide(cinza, papel, scale=255).astype(np.float32)
     curva = (nivelada - PB_PRETO) * (255 / (PB_BRANCO - PB_PRETO))
     return np.clip(curva, 0, 255).astype(np.uint8)
