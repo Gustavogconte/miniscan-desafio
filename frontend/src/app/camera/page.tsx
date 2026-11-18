@@ -26,12 +26,21 @@ interface Tamanho {
   altura: number;
 }
 
+/** As três formas de fotografar, num seletor só. */
+const OPCOES_CAPTURA = [
+  { valor: "unico", rotulo: "Único" },
+  { valor: "lote", rotulo: "Lote" },
+  { valor: "cartao", rotulo: "Cartão ID" },
+] as const;
+type OpcaoCaptura = (typeof OPCOES_CAPTURA)[number]["valor"];
+
 /**
- * Converte coordenadas entre o vídeo (0..1) e a tela, considerando o object-contain do
- * <video>: o quadro inteiro da câmera aparece, sem corte (e sem parecer zoom).
+ * Converte coordenadas entre o vídeo (0..1) e a tela. O vídeo cobre a tela inteira
+ * (object-cover): o que sobra nas bordas fica fora da tela, mas entra na foto, e o
+ * recorte automático cuida disso.
  */
 function geometria(tela: Tamanho, video: Tamanho) {
-  const escala = Math.min(tela.largura / video.largura, tela.altura / video.altura);
+  const escala = Math.max(tela.largura / video.largura, tela.altura / video.altura);
   const largura = video.largura * escala;
   const altura = video.altura * escala;
   const dx = (tela.largura - largura) / 2;
@@ -84,6 +93,17 @@ export default function TelaCamera() {
   const usaLote = lote && modo !== "cartao";
   const fotosDaRevisao = useMemo(() => capturadas.map((foto) => ({ id: foto.id, src: foto.original.url })), [capturadas]);
   const temFotoNoLote = usaLote && capturadas.length > 0;
+  const opcaoAtual: OpcaoCaptura = modo === "cartao" ? "cartao" : lote ? "lote" : "unico";
+
+  function escolherOpcao(opcao: OpcaoCaptura) {
+    setLadosCartao([]);
+    if (opcao === "cartao") {
+      configurar({ modo: "cartao" });
+      return;
+    }
+    configurar({ modo: "digitalizar" });
+    setLote(opcao === "lote");
+  }
   // Aberta pelo "+ Página" do editor: já há páginas recortadas, e fechar volta para o
   // documento (ir ao início descartaria tudo).
   const temDocumento = paginas.some((p) => Object.keys(p.processadas).length > 0);
@@ -255,7 +275,7 @@ export default function TelaCamera() {
   const perimetroAnel = 2 * Math.PI * raioAnel;
 
   return (
-    <main className="relative flex min-h-0 flex-1 flex-col bg-black text-white">
+    <main className="relative min-h-0 flex-1 overflow-hidden bg-black text-white">
       <input ref={galeria} type="file" accept="image/*" className="hidden" onChange={aoEscolherArquivo} aria-hidden tabIndex={-1} />
       <input
         ref={cameraSistema}
@@ -280,19 +300,23 @@ export default function TelaCamera() {
         </Link>
         {estadoCamera === "ativa" && tamanhoVideo.largura > 1 && (
           // Resolução real entregue pela câmera: ajuda a entender fotos com pouca nitidez.
-          <span className="mr-auto max-w-[55%] truncate rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white/80">
+          <span
+            title={nomeCamera || undefined}
+            className="mr-auto truncate rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white/80"
+          >
             {tamanhoVideo.largura}×{tamanhoVideo.altura}
-            {nomeCamera && ` · ${nomeCamera}`}
           </span>
         )}
         <div className="flex items-center gap-2">
+          {/* Captura automática: branco = ligada. Curto para não quebrar linha no celular. */}
           <button
             type="button"
             onClick={() => setAutomatico((a) => !a)}
             aria-pressed={automatico}
-            className={`min-h-11 rounded-full px-4 text-xs font-semibold ${automatico ? "bg-white text-black" : "bg-black/40 text-white"}`}
+            aria-label={automatico ? "Captura automática ligada" : "Captura automática desligada"}
+            className={`min-h-11 whitespace-nowrap rounded-full px-4 text-xs font-semibold ${automatico ? "bg-white text-black" : "bg-black/40 text-white line-through decoration-2"}`}
           >
-            Auto {automatico ? "ligado" : "desligado"}
+            Auto
           </button>
           {lanternaSuportada && (
             <button
@@ -308,8 +332,8 @@ export default function TelaCamera() {
         </div>
       </div>
 
-      {/* Vídeo e sobreposições */}
-      <div ref={area} className="relative min-h-0 flex-1 overflow-hidden">
+      {/* Vídeo na tela inteira; a barra de cima e os controles de baixo ficam por cima. */}
+      <div ref={area} className="absolute inset-0 overflow-hidden">
         <video
           ref={video}
           playsInline
@@ -318,7 +342,7 @@ export default function TelaCamera() {
           onLoadedMetadata={(e) =>
             setTamanhoVideo({ largura: e.currentTarget.videoWidth, altura: e.currentTarget.videoHeight })
           }
-          className="absolute inset-0 size-full object-contain"
+          className="absolute inset-0 size-full object-cover"
         />
 
         {ativa && (
@@ -359,7 +383,7 @@ export default function TelaCamera() {
 
         {/* Sem câmera ao vivo: explica e oferece as alternativas. */}
         {(estadoCamera === "negada" || estadoCamera === "indisponivel") && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black p-8 text-center">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black p-8 pb-64 text-center">
             <Camera className="size-10 text-slate-400" aria-hidden />
             <h1 className="font-display text-lg font-bold">Câmera ao vivo indisponível</h1>
             <p className="text-sm text-slate-300">
@@ -392,8 +416,21 @@ export default function TelaCamera() {
         )}
       </div>
 
-      {/* Controles inferiores */}
-      <div className="z-20 shrink-0 space-y-3 bg-black px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+      {/* Controles por cima do vídeo, com um degradê para ficarem legíveis */}
+      <div className="absolute inset-x-0 bottom-0 z-20 space-y-3 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-14">
+        {temFotoNoLote && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={concluir}
+              disabled={Boolean(processando)}
+              className="flex min-h-11 items-center gap-1.5 rounded-full bg-primaria px-5 text-sm font-semibold shadow-lg disabled:opacity-50"
+            >
+              <Check className="size-4" aria-hidden />
+              Concluir ({capturadas.length})
+            </button>
+          </div>
+        )}
         {modo === "cartao" && (
           <div className="flex justify-center gap-2" role="radiogroup" aria-label="Tipo de documento">
             {(
@@ -411,68 +448,34 @@ export default function TelaCamera() {
                   configurar({ formatoCartao: valor });
                   setLadosCartao([]);
                 }}
-                className={`min-h-9 rounded-full px-3.5 text-xs font-semibold ${formatoCartao === valor ? "bg-white text-black" : "bg-white/10 text-white"}`}
+                className={`min-h-9 rounded-full px-3.5 text-xs font-semibold ${formatoCartao === valor ? "bg-white text-black" : "bg-black/50 text-white"}`}
               >
                 {rotulo}
               </button>
             ))}
           </div>
         )}
-        {modo !== "cartao" && (
-          <div className="flex items-center justify-center gap-2">
-            <div className="flex rounded-full bg-white/10 p-1" role="radiogroup" aria-label="Quantidade de páginas">
-              {[
-                { valor: false, rotulo: "Único" },
-                { valor: true, rotulo: "Lote" },
-              ].map(({ valor, rotulo }) => (
-                <button
-                  key={rotulo}
-                  type="button"
-                  role="radio"
-                  aria-checked={lote === valor}
-                  onClick={() => setLote(valor)}
-                  className={`min-h-9 rounded-full px-4 text-xs font-semibold ${lote === valor ? "bg-white text-black" : "text-white"}`}
-                >
-                  {rotulo}
-                </button>
-              ))}
-            </div>
-            {usaLote && capturadas.length > 0 && (
-              <button
-                type="button"
-                onClick={concluir}
-                disabled={Boolean(processando)}
-                className="flex min-h-11 items-center gap-1.5 rounded-full bg-primaria px-4 text-xs font-semibold disabled:opacity-50"
-              >
-                <Check className="size-4" aria-hidden />
-                Concluir ({capturadas.length})
-              </button>
-            )}
-          </div>
-        )}
 
-        {/* Modos (Digitalizar e Cartão ID), centralizados */}
-        <nav aria-label="Modo da câmera" className="-mx-3 overflow-x-auto px-3 [scrollbar-width:none]">
-          <ul className="mx-auto flex w-max gap-1.5">
-            {MODOS.map(({ valor, rotulo }) => (
-              <li key={valor}>
-                <button
-                  type="button"
-                  aria-pressed={modo === valor}
-                  onClick={() => {
-                    configurar({ modo: valor });
-                    setLadosCartao([]);
-                  }}
-                  className={`min-h-10 whitespace-nowrap rounded-full px-3.5 text-[13px] font-semibold transition ${
-                    modo === valor ? "bg-primaria text-white" : "text-slate-300 hover:text-white"
-                  }`}
-                >
-                  {rotulo}
-                </button>
-              </li>
+        {/* Com fotos do lote esperando, trocar de modo as deixaria pela metade. */}
+        <div className="flex justify-center">
+          <div className="flex rounded-full bg-black/55 p-1" role="radiogroup" aria-label="Como fotografar">
+            {OPCOES_CAPTURA.map(({ valor, rotulo }) => (
+              <button
+                key={valor}
+                type="button"
+                role="radio"
+                aria-checked={opcaoAtual === valor}
+                onClick={() => escolherOpcao(valor)}
+                disabled={temFotoNoLote && valor !== "lote"}
+                className={`min-h-10 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition disabled:opacity-40 ${
+                  opcaoAtual === valor ? "bg-white text-black" : "text-white"
+                }`}
+              >
+                {rotulo}
+              </button>
             ))}
-          </ul>
-        </nav>
+          </div>
+        </div>
 
         <div className="grid grid-cols-3 items-center">
           <button
@@ -480,7 +483,7 @@ export default function TelaCamera() {
             onClick={() => galeria.current?.click()}
             disabled={Boolean(processando)}
             aria-label="Escolher da galeria"
-            className="flex size-12 items-center justify-center justify-self-start rounded-xl bg-white/10 disabled:opacity-50"
+            className="flex size-12 items-center justify-center justify-self-start rounded-xl bg-black/50 disabled:opacity-50"
           >
             <ImageIcon className="size-5" aria-hidden />
           </button>
@@ -532,7 +535,7 @@ export default function TelaCamera() {
               type="button"
               onClick={() => finalizarCartao(ladosCartao)}
               disabled={Boolean(processando)}
-              className="min-h-11 justify-self-end rounded-xl bg-white/10 px-3 text-xs font-semibold"
+              className="min-h-11 justify-self-end rounded-xl bg-black/50 px-3 text-xs font-semibold"
             >
               Sem verso
             </button>
