@@ -8,12 +8,12 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent
 import { useAviso } from "@/componentes/aviso";
 import { adiantarVisualizador, VisualizadorPaginas } from "@/componentes/visualizador-sob-demanda";
 import { detectarCantos, mensagemDeErro } from "@/lib/api";
-import { useCameraAoVivo, useDetectorAoVivo } from "@/lib/camera";
+import { useCameraAoVivo } from "@/lib/camera";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { prepararFoto } from "@/lib/imagem";
 import { novaPagina } from "@/lib/paginas";
-import { useProcessamento, type LadoDoCartao } from "@/lib/processamento";
-import { MODOS, type Cantos, type FormatoCartao, type Pagina, type Ponto } from "@/lib/tipos";
+import { detectarNaCaptura, useProcessamento, type LadoDoCartao } from "@/lib/processamento";
+import { MODOS, type Cantos, type FormatoCartao, type Ponto } from "@/lib/tipos";
 import { useVisualizador } from "@/lib/usar-visualizador";
 import { indiceDepoisDeExcluir } from "@/lib/visualizador";
 
@@ -35,7 +35,7 @@ const OPCOES_CAPTURA = [
 type OpcaoCaptura = (typeof OPCOES_CAPTURA)[number]["valor"];
 
 /**
- * Converte coordenadas entre o vídeo (0..1) e a tela. O vídeo cobre a tela inteira
+ * Converte coordenadas da tela para o vídeo (0..1). O vídeo cobre a tela inteira
  * (object-cover): o que sobra nas bordas fica fora da tela, mas entra na foto, e o
  * recorte automático cuida disso.
  */
@@ -46,7 +46,6 @@ function geometria(tela: Tamanho, video: Tamanho) {
   const dx = (tela.largura - largura) / 2;
   const dy = (tela.altura - altura) / 2;
   return {
-    paraTela: (p: Ponto) => ({ x: p.x * largura + dx, y: p.y * altura + dy }),
     paraVideo: (x: number, y: number): Ponto => ({
       x: Math.min(1, Math.max(0, (x - dx) / largura)),
       y: Math.min(1, Math.max(0, (y - dy) / altura)),
@@ -58,7 +57,7 @@ export default function TelaCamera() {
   const router = useRouter();
   const avisar = useAviso();
   const { modo, formatoCartao, configurar, paginas, adicionarPagina, removerPagina } = useDigitalizacao();
-  const { refinarCantos, concluirLote, montarCartao } = useProcessamento();
+  const { concluirLote, montarCartao } = useProcessamento();
   // Revisão das fotos do lote antes de processar: ver em tela cheia e excluir as ruins.
   const revisao = useVisualizador();
 
@@ -83,12 +82,11 @@ export default function TelaCamera() {
   const [tamanhoTela, setTamanhoTela] = useState<Tamanho>({ largura: 1, altura: 1 });
   const [tamanhoVideo, setTamanhoVideo] = useState<Tamanho>({ largura: 1, altura: 1 });
   const [lote, setLote] = useState(false);
-  const [automatico, setAutomatico] = useState(true);
   const [capturando, setCapturando] = useState(false);
   const [processando, setProcessando] = useState<string | null>(null);
   const [ladosCartao, setLadosCartao] = useState<LadoDoCartao[]>([]);
 
-  const { paraTela, paraVideo } = geometria(tamanhoTela, tamanhoVideo);
+  const { paraVideo } = geometria(tamanhoTela, tamanhoVideo);
   const capturadas = useMemo(() => paginas.filter((p) => Object.keys(p.processadas).length === 0), [paginas]);
   const usaLote = lote && modo !== "cartao";
   const fotosDaRevisao = useMemo(() => capturadas.map((foto) => ({ id: foto.id, src: foto.original.url })), [capturadas]);
@@ -152,8 +150,9 @@ export default function TelaCamera() {
     return () => observador.disconnect();
   }, []);
 
-  // Os cantos ao vivo são só a prévia: cada foto também vai ao servidor, que detecta com o
-  // modelo DocAligner enquanto a pessoa vira o documento, ajusta o recorte ou segue fotografando.
+  // A foto vai ao servidor logo na captura: ele acha os cantos com o modelo DocAligner
+  // enquanto a pessoa vira o documento, abre o recorte ou segue fotografando. No cartão,
+  // `cantos` é a moldura-guia, que só vale se o servidor não achar o documento.
   async function registrarFoto(blob: Blob, largura: number, altura: number, cantos: Cantos | null) {
     if (modo === "cartao") {
       const deteccao = detectarCantos(blob).catch(() => null);
@@ -166,22 +165,20 @@ export default function TelaCamera() {
       await finalizarCartao(lados);
       return;
     }
-    // Sem prévia (foto da galeria), o recorte e o lote já pedem os cantos ao servidor.
-    const pagina: Pagina = { ...novaPagina(blob, largura, altura, { cantos }), refinando: cantos !== null };
+    const pagina = novaPagina(blob, largura, altura);
     adicionarPagina(pagina);
-    if (cantos) refinarCantos(pagina.id, blob, cantos);
+    detectarNaCaptura(pagina.id, blob);
     if (usaLote) avisar(`Página ${capturadas.length + 1} capturada`);
     else router.push("/digitalizar/recorte");
   }
 
-  async function capturar(cantosVivos: Cantos | null) {
+  async function capturar() {
     if (ocupado.current || processando) return;
     ocupado.current = true;
     setCapturando(true);
     try {
       const quadro = await capturarQuadro();
-      const cantos = modo === "cartao" ? (cantosVivos ?? cantosDaGuia()) : cantosVivos;
-      await registrarFoto(quadro.blob, quadro.largura, quadro.altura, cantos);
+      await registrarFoto(quadro.blob, quadro.largura, quadro.altura, modo === "cartao" ? cantosDaGuia() : null);
     } catch (erro) {
       avisar(mensagemDeErro(erro), "erro");
     } finally {
@@ -230,14 +227,6 @@ export default function TelaCamera() {
     }
   }
 
-  const deteccao = useDetectorAoVivo(video, ativa && !processando, (cantos) => {
-    // Com a revisão aberta, a câmera continua ligada por trás: não pode fotografar sozinha.
-    // Devolver false deixa a folha livre para ser fotografada quando a revisão fechar.
-    if (!automatico || revisao.aberto) return false;
-    void capturar(cantos);
-    return true;
-  });
-
   function confirmarSaida(evento: MouseEvent<HTMLAnchorElement>) {
     const total = capturadas.length + ladosCartao.length;
     if (total > 0 && !window.confirm(`Descartar ${total === 1 ? "a foto tirada" : `as ${total} fotos tiradas`}?`)) {
@@ -252,9 +241,6 @@ export default function TelaCamera() {
     const foto = capturadas[indice];
     if (!foto || !window.confirm(`Excluir a foto ${indice + 1}?`)) return;
     removerPagina(foto.id);
-    // A foto mais recente costuma ser a da folha que ainda está sob a câmera: sem
-    // destravar, ela não seria fotografada de novo enquanto não se mexesse.
-    if (indice === capturadas.length - 1) deteccao.liberar();
     const proximo = indiceDepoisDeExcluir(indice, capturadas.length);
     if (proximo === null) {
       focarNoDisparo.current = true;
@@ -267,18 +253,9 @@ export default function TelaCamera() {
   const dica = (() => {
     if (processando) return processando;
     if (modo === "cartao") return `Encaixe ${ladoAtual} do documento na moldura`;
-    if (deteccao.falhou) return "Recorte ao vivo indisponível aqui: toque no botão para fotografar";
-    if (!deteccao.pronto) return "Carregando o recorte ao vivo (3,5 MB)…";
     if (capturando) return "Capturando…";
-    if (!deteccao.cantos) return MODOS.find((m) => m.valor === modo)?.dica ?? "Enquadre o documento";
-    if (!automatico) return "Toque no botão para fotografar";
-    return "Segure firme…";
+    return MODOS.find((m) => m.valor === modo)?.dica ?? "Enquadre o documento";
   })();
-
-  const poligono = deteccao.cantos?.map((c) => paraTela(c));
-  const estavel = deteccao.estabilidade > 0.5;
-  const raioAnel = 38;
-  const perimetroAnel = 2 * Math.PI * raioAnel;
 
   return (
     <main className="relative min-h-0 flex-1 overflow-hidden bg-black text-white">
@@ -314,16 +291,6 @@ export default function TelaCamera() {
           </span>
         )}
         <div className="flex items-center gap-2">
-          {/* Captura automática: branco = ligada. Curto para não quebrar linha no celular. */}
-          <button
-            type="button"
-            onClick={() => setAutomatico((a) => !a)}
-            aria-pressed={automatico}
-            aria-label={automatico ? "Captura automática ligada" : "Captura automática desligada"}
-            className={`min-h-11 whitespace-nowrap rounded-full px-4 text-xs font-semibold ${automatico ? "bg-white text-black" : "bg-black/40 text-white line-through decoration-2"}`}
-          >
-            Auto
-          </button>
           {lanternaSuportada && (
             <button
               type="button"
@@ -351,30 +318,19 @@ export default function TelaCamera() {
           className="absolute inset-0 size-full object-cover"
         />
 
-        {ativa && (
+        {ativa && modo === "cartao" && (
           <svg className="pointer-events-none absolute inset-0 size-full" aria-hidden>
-            {modo === "cartao" && (
-              <rect
-                x={guiaCartao.x}
-                y={guiaCartao.y}
-                width={guiaCartao.largura}
-                height={guiaCartao.altura}
-                rx={14}
-                fill="none"
-                stroke="white"
-                strokeWidth={3}
-                strokeDasharray="14 10"
-              />
-            )}
-            {poligono && (
-              <polygon
-                points={poligono.map((p) => `${p.x},${p.y}`).join(" ")}
-                fill={estavel ? "rgb(34 197 94 / 0.22)" : "rgb(59 130 246 / 0.18)"}
-                stroke={estavel ? "#4ade80" : "#60a5fa"}
-                strokeWidth={3}
-                strokeLinejoin="round"
-              />
-            )}
+            <rect
+              x={guiaCartao.x}
+              y={guiaCartao.y}
+              width={guiaCartao.largura}
+              height={guiaCartao.altura}
+              rx={14}
+              fill="none"
+              stroke="white"
+              strokeWidth={3}
+              strokeDasharray="14 10"
+            />
           </svg>
         )}
 
@@ -473,27 +429,13 @@ export default function TelaCamera() {
           <button
             ref={botaoFotografar}
             type="button"
-            onClick={() => capturar(deteccao.cantos)}
+            onClick={() => capturar()}
             disabled={!ativa || capturando || Boolean(processando)}
             aria-label={modo === "cartao" ? `Fotografar ${ladoAtual}` : "Fotografar"}
             className="relative flex size-20 items-center justify-center justify-self-center rounded-full disabled:opacity-60"
           >
-            <svg viewBox="0 0 84 84" className="absolute inset-0 size-full -rotate-90" aria-hidden>
-              <circle cx="42" cy="42" r={raioAnel} fill="none" stroke="white" strokeOpacity="0.35" strokeWidth="4" />
-              {automatico && (
-                <circle
-                  cx="42"
-                  cy="42"
-                  r={raioAnel}
-                  fill="none"
-                  stroke="#4ade80"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray={perimetroAnel}
-                  strokeDashoffset={perimetroAnel * (1 - deteccao.estabilidade)}
-                  className="transition-[stroke-dashoffset] duration-150"
-                />
-              )}
+            <svg viewBox="0 0 84 84" className="absolute inset-0 size-full" aria-hidden>
+              <circle cx="42" cy="42" r="38" fill="none" stroke="white" strokeOpacity="0.35" strokeWidth="4" />
             </svg>
             <span className="size-[62px] rounded-full bg-white" />
           </button>

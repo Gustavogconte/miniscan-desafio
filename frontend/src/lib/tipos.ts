@@ -77,8 +77,6 @@ export interface Pagina {
   estadoOcr: EstadoOcr;
   /** Página montada pelo modo RG ou CNH: guarda a foto de cada lado para dar para recortar de novo. */
   cartao?: { formato: FormatoCartao; lados: LadoDoDocumento[] };
-  /** Foto da câmera cujos cantos o servidor ainda está refinando (a detecção ao vivo é só prévia). */
-  refinando?: boolean;
 }
 
 /** Documento salvo com todas as páginas, para a tela do documento. */

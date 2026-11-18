@@ -152,8 +152,8 @@ function ConteudoEditor() {
 
   function adicionarPor(origem: "camera" | "galeria") {
     document.getElementById(ID_MENU_PAGINA)?.hidePopover();
-    // Câmera = o scanner do app (recorte ao vivo e captura automática), que acrescenta
-    // a página a este documento e volta para cá.
+    // Câmera = o scanner do app (câmera ao vivo, cantos detectados pela API), que
+    // acrescenta a página a este documento e volta para cá.
     if (origem === "camera") router.push("/camera");
     else captura.abrirGaleria();
   }

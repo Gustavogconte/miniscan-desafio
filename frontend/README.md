@@ -2,7 +2,9 @@
 
 Front-end do MiniScan em Next.js 16 (App Router, TypeScript e Tailwind CSS v4), instalável como PWA no Android e no iPhone.
 
-A câmera ao vivo detecta a folha a cada quadro com o OpenCV.js, rodando num Web Worker (`public/workers/`). Ela usa o mesmo pipeline do backend: Canny, fechamento morfológico e quadrilátero convexo. O contorno fica verde quando a folha para, e a foto é tirada sozinha depois de cerca de 0,7 s parada. O recorte final, os filtros, o OCR e o PDF ficam com a API em `../backend`.
+A câmera mostra o vídeo ao vivo e fotografa quando a pessoa toca no botão. Logo na captura, a foto vai para a API em `../backend`, que acha os cantos da folha com o modelo DocAligner e, quando ele não acha, com o pipeline OpenCV. A tela de recorte abre com esses cantos para a pessoa conferir. O recorte final, os filtros, o OCR e o PDF também ficam com a API.
+
+O app já teve um recorte ao vivo, com o OpenCV.js num Web Worker e captura automática quando a folha parava. Ele saiu porque errava muito nas fotos reais e baixava 11 MB de OpenCV.js no celular. A detecção depois da captura, no servidor, acerta bem mais.
 
 Modos da câmera:
 
@@ -17,7 +19,7 @@ As páginas abrem em tela cheia no visualizador (`src/componentes/visualizador-p
 
 ```bash
 cd frontend
-npm install            # também copia o OpenCV.js para public/vendor/
+npm install
 cp .env.example .env.local
 npm run dev
 ```
@@ -29,13 +31,11 @@ A câmera ao vivo usa a `getUserMedia`, que exige contexto seguro. Ela funciona 
 ## Testes e verificações
 
 ```bash
-npm test          # detecção de cantos do OpenCV.js e regras do visualizador (node:test, Node 22.18+)
+npm test          # regras do visualizador e dos cantos do cartão (node:test, Node 22.18+)
 npx tsc --noEmit
 npm run lint
 npm run build
 ```
-
-O OpenCV.js (cerca de 11 MB) não vai para o Git. O script `scripts/copiar-opencv.mjs` o copia de `node_modules` antes do `dev` e do `build`.
 
 ## Deploy na Vercel
 
@@ -47,7 +47,7 @@ O OpenCV.js (cerca de 11 MB) não vai para o Git. O script `scripts/copiar-openc
 3. Faça o deploy. As variáveis `NEXT_PUBLIC_*` entram no build, então qualquer mudança nelas pede um novo deploy.
 4. Se o projeto tiver outro nome na Vercel, libere o domínio dele no CORS da API (`MINISCAN_ORIGENS_CORS` e `MINISCAN_ORIGENS_CORS_REGEX`; veja `backend/README.md`).
 
-O `next.config.ts` envia cabeçalhos de segurança (câmera liberada só para o próprio app, bloqueio de iframe) e deixa o OpenCV.js em cache permanente, porque o nome do arquivo já tem a versão. A cada push na `main` que mexe no front-end, e em cada pull request, o GitHub Actions (`.github/workflows/frontend.yml`) roda lint, tipos, testes e build.
+O `next.config.ts` envia cabeçalhos de segurança (câmera liberada só para o próprio app, bloqueio de iframe). A cada push na `main` que mexe no front-end, e em cada pull request, o GitHub Actions (`.github/workflows/frontend.yml`) roda lint, tipos, testes e build.
 
 ## Testar no celular com um túnel HTTPS (sem deploy)
 

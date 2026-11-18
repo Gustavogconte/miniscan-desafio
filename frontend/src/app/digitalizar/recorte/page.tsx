@@ -9,7 +9,7 @@ import { CabecalhoEtapa } from "@/componentes/cabecalho-etapa";
 import { EditorCantos } from "@/componentes/editor-cantos";
 import { detectarCantos, mensagemDeErro } from "@/lib/api";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
-import { useProcessamento } from "@/lib/processamento";
+import { usarDeteccaoDaCaptura, useProcessamento } from "@/lib/processamento";
 import { CANTOS_TELA_INTEIRA, type Cantos } from "@/lib/tipos";
 import { useGuardaDigitalizacao } from "@/lib/usar-guarda";
 
@@ -42,7 +42,10 @@ function RecortePagina() {
     detectadoPara.current = id;
     const original = pagina!.original.blob;
     setDetectando(true);
-    detectarCantos(original)
+    // A câmera já pediu os cantos ao servidor na captura: aproveita a resposta e só pede
+    // de novo se esse pedido falhou (ou se a foto veio de outro caminho).
+    Promise.resolve(usarDeteccaoDaCaptura(id))
+      .then((daCaptura) => daCaptura ?? detectarCantos(original))
       .then(({ cantos, detectado }) => {
         atualizarPagina(id, { cantos, cantosDetectados: cantos, detectado });
         if (!detectado) avisar("Não encontrei as bordas da folha. Arraste os cantos até ela.", "erro");
@@ -110,8 +113,7 @@ function RecortePagina() {
               pagina.detectado ? "bg-primaria-suave text-primaria-texto" : "bg-secundario text-texto"
             }`}
           >
-            {/* Com a prévia da câmera na tela, o servidor ainda pode trazer cantos melhores. */}
-            {detectando || pagina.refinando ? "DETECTANDO" : pagina.detectado ? "AUTO" : "MANUAL"}
+            {detectando ? "DETECTANDO" : pagina.detectado ? "AUTO" : "MANUAL"}
           </span>
         }
       />

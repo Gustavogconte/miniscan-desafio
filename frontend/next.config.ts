@@ -34,16 +34,6 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
         ],
       },
-      {
-        // OpenCV.js (~11 MB) com a versão no nome do arquivo: pode ficar em cache para sempre.
-        source: "/vendor/:arquivo*",
-        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-      },
-      {
-        // Workers sem versão no nome: o navegador revalida a cada carregamento.
-        source: "/workers/:arquivo*",
-        headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
-      },
     ];
   },
 };

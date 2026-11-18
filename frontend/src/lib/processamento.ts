@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 import { criarImagemLocal, liberarImagens, useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { novaPagina } from "@/lib/paginas";
-import { cantosDoLado, mudancasDoRefinamento } from "@/lib/refinamento";
+import { cantosDoLado } from "@/lib/deteccao";
 import {
   CANTOS_TELA_INTEIRA,
   type Cantos,
@@ -25,8 +25,26 @@ import {
 /** Tamanho, em pixels, da folha A4 a 300 dpi devolvida pelo /compor-cartao. */
 const A4_300DPI = { largura: 2480, altura: 3508 };
 
-/** Pedidos de cantos ao servidor feitos logo depois da captura, por id da página. */
-const refinamentos = new Map<string, Promise<void>>();
+/**
+ * Cantos pedidos ao servidor na hora da captura, por id da página. O pedido corre enquanto
+ * a pessoa abre o recorte ou fotografa a página seguinte; um pedido que falhou vale null.
+ */
+const deteccoesDaCaptura = new Map<string, Promise<Deteccao | null>>();
+
+/** Pede ao servidor os cantos de uma foto recém-capturada, sem esperar a resposta. */
+export function detectarNaCaptura(id: string, foto: Blob): void {
+  deteccoesDaCaptura.set(
+    id,
+    detectarCantos(foto).catch(() => null),
+  );
+}
+
+/** A detecção pedida na captura, se houver. Cada pedido é usado uma vez só. */
+export function usarDeteccaoDaCaptura(id: string): Promise<Deteccao | null> | undefined {
+  const pedido = deteccoesDaCaptura.get(id);
+  deteccoesDaCaptura.delete(id);
+  return pedido;
+}
 
 /**
  * Cantos do último recorte confirmado, usados pelos filtros e pelo OCR. São a mesma
@@ -41,7 +59,7 @@ export interface LadoDoCartao {
   blob: Blob;
   largura: number;
   altura: number;
-  /** Cantos da prévia ao vivo (ou da moldura-guia). */
+  /** Cantos da moldura-guia (null para foto da galeria). */
   cantos: Cantos | null;
   /** Detecção do servidor, pedida na captura; null se falhou. */
   deteccao?: Promise<Deteccao | null>;
@@ -150,36 +168,16 @@ export function useProcessamento() {
   /** Confirma o recorte de uma página: retifica, guarda e lê o texto em segundo plano. */
   const confirmarPagina = processarComCantos;
 
-  /**
-   * Pede ao servidor os cantos de uma foto que a câmera acabou de capturar, sem esperar a
-   * resposta: ela chega enquanto a pessoa ajusta o recorte ou fotografa a página seguinte.
-   */
-  const refinarCantos = useCallback(
-    (id: string, foto: Blob, cantosDaPrevia: Cantos | null): void => {
-      const pedido = detectarCantos(foto)
-        .catch(() => null) // sem servidor, fica a prévia; sem prévia, o recorte e o lote pedem de novo
-        .then((servidor) => {
-          const pagina = lerPagina(id);
-          if (pagina) atualizarPagina(id, mudancasDoRefinamento(pagina, cantosDaPrevia, servidor));
-        })
-        .finally(() => refinamentos.delete(id));
-      refinamentos.set(id, pedido);
-    },
-    [atualizarPagina, lerPagina],
-  );
-
   /** Processa, em sequência, as fotos tiradas em lote que ainda não foram recortadas. */
   const concluirLote = useCallback(
     async (ids: string[], aoAvancar?: (feitas: number) => void): Promise<void> => {
       for (const [indice, id] of ids.entries()) {
-        await refinamentos.get(id); // os cantos do servidor, se ainda não chegaram
         const pagina = lerPagina(id);
         if (pagina && Object.keys(pagina.processadas).length === 0) {
-          let cantos = pagina.cantos;
-          if (!cantos) {
-            const deteccao = await detectarCantos(pagina.original.blob);
-            cantos = deteccao.cantos;
-          }
+          // Os cantos pedidos na captura; se o pedido falhou, pede de novo.
+          const daCaptura = await usarDeteccaoDaCaptura(id);
+          const cantos =
+            pagina.cantos ?? daCaptura?.cantos ?? (await detectarCantos(pagina.original.blob)).cantos;
           await confirmarPagina(id, cantos);
         }
         aoAvancar?.(indice + 1);
@@ -249,7 +247,6 @@ export function useProcessamento() {
     garantirProcessada,
     executarOcr,
     confirmarPagina,
-    refinarCantos,
     concluirLote,
     montarCartao,
     recortarCartao,
