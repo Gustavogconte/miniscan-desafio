@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import type { ReactNode } from "react";
 
 import { ProvedorAvisos } from "@/componentes/aviso";
 import { SCRIPT_TEMA_INICIAL } from "@/componentes/tema";
@@ -47,7 +48,9 @@ export const viewport: Viewport = {
   themeColor: "#f8fafc",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+// Tipo escrito aqui, e não o LayoutProps gerado pelo Next em .next/: no CI o tsc roda
+// antes do build, quando esses tipos ainda não existem.
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html
       lang="pt-BR"
