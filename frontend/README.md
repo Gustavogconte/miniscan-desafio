@@ -31,7 +31,7 @@ A câmera ao vivo usa a `getUserMedia`, que exige contexto seguro. Ela funciona 
 ## Testes e verificações
 
 ```bash
-npm test          # detecção de cantos do OpenCV.js (node:test)
+npm test          # detecção de cantos do OpenCV.js e regras do visualizador (node:test, Node 22.18+)
 npx tsc --noEmit
 npm run lint
 npm run build
@@ -49,7 +49,7 @@ O OpenCV.js (cerca de 11 MB) não vai para o Git. O script `scripts/copiar-openc
 3. Faça o deploy. As variáveis `NEXT_PUBLIC_*` entram no build, então qualquer mudança nelas pede um novo deploy.
 4. Se o projeto tiver outro nome na Vercel, libere o domínio dele no CORS da API (`MINISCAN_ORIGENS_CORS` e `MINISCAN_ORIGENS_CORS_REGEX`; veja `backend/README.md`).
 
-O `next.config.ts` envia cabeçalhos de segurança (câmera liberada só para o próprio app, bloqueio de iframe) e deixa o OpenCV.js em cache permanente, porque o nome do arquivo já tem a versão. A cada push, o GitHub Actions (`.github/workflows/frontend.yml`) roda lint, tipos, testes e build.
+O `next.config.ts` envia cabeçalhos de segurança (câmera liberada só para o próprio app, bloqueio de iframe) e deixa o OpenCV.js em cache permanente, porque o nome do arquivo já tem a versão. A cada push na `main` que mexe no front-end, e em cada pull request, o GitHub Actions (`.github/workflows/frontend.yml`) roda lint, tipos, testes e build.
 
 ## Testar no celular com um túnel HTTPS (sem deploy)
 

@@ -14,7 +14,7 @@ API em FastAPI que faz o processamento de imagem do MiniScan: detecta os cantos 
 | `POST /documentos` | `titulo`, `pdf`, `originais` e `processadas` (arquivos, na ordem), `paginas` (JSON com `filtro` e `texto_ocr` de cada página) | `201` com `{id, titulo, pdf_url, total_paginas}` |
 | `GET /saude` | — | `{status, ocr_disponivel, persistencia_configurada}` |
 
-Os cantos seguem sempre a ordem superior esquerdo, superior direito, inferior direito e inferior esquerdo. Cada arquivo pode ter até 15 MB, o mesmo limite do bucket no Supabase. A requisição inteira pode ter até 100 MB, e cada imagem até 50 megapixels: a API confere as dimensões pelo cabeçalho antes de decodificar, porque um PNG de 100 KB pode descrever 10000 x 10000 pixels e ocupar centenas de MB na memória. Acima desses limites, a resposta é 413.
+Os cantos seguem sempre a ordem superior esquerdo, superior direito, inferior direito e inferior esquerdo. Cada arquivo pode ter até 15 MB, o mesmo limite do bucket no Supabase. A requisição inteira pode ter até 100 MB, e cada imagem até 50 megapixels: a API confere as dimensões pelo cabeçalho antes de decodificar, porque um PNG de 100 KB pode descrever 10000 x 10000 pixels e ocupar centenas de MB na memória. Acima desses limites, a resposta é 413. O PDF aceita até 50 páginas, e o título de um documento salvo, até 200 caracteres.
 
 A rota `/documentos` é a única que grava no Supabase. Ela envia os arquivos para `miniscan-files/documentos/<id>/` e insere as linhas em `documents` e `document_pages`. Se alguma etapa falhar, ela apaga o que já tinha gravado e responde 502. Sem `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` configuradas, a rota responde 503.
 
@@ -82,4 +82,4 @@ A API roda no Hugging Face Spaces com o próprio Dockerfile: o plano gratuito te
 
 O script cria o Space (Docker, público) e cadastra o CORS como variáveis. Com `--enviar-segredos`, as credenciais do Supabase viram *Secrets* do Space, lidas do `.env` e nunca impressas. Depois ele envia o código e o Dockerfile. O `.env`, a `.venv` e os testes não são enviados. O build no Space leva alguns minutos, e o endereço final é `https://SEU_USUARIO-miniscan-api.hf.space`, que vai no `NEXT_PUBLIC_API_URL` da Vercel. Para atualizar a API depois, basta rodar o mesmo comando; o `--enviar-segredos` só é necessário quando as credenciais mudarem.
 
-A cada push, o GitHub Actions (`.github/workflows/backend.yml`) roda o lint e os testes do backend.
+A cada push na `main` que mexe no backend, e em cada pull request, o GitHub Actions (`.github/workflows/backend.yml`) roda o lint e os testes.

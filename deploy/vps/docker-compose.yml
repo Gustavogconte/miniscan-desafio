@@ -44,7 +44,7 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      # A primeira consulta também carrega o OCR, para a primeira página não esperar por ele.
+      # O OCR carrega na subida da API; se essa carga falhar, o /saude tenta de novo.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/saude', timeout=20)"]
       interval: 60s
       timeout: 30s

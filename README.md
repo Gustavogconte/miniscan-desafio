@@ -19,12 +19,18 @@ A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica
 ├── supabase/
 │   └── migrations/            # Schema, índices FTS, triggers, RLS e rollback
 ├── backend/                   # FastAPI + OpenCV + PaddleOCR (ONNX)
-└── frontend/                  # Next.js PWA: câmera ao vivo (OpenCV.js), modos e histórico
+├── frontend/                  # Next.js PWA: câmera ao vivo (OpenCV.js), modos e histórico
+├── deploy/vps/                # docker-compose da API para uma VPS
+└── .github/workflows/         # CI do backend e do frontend
 ```
+
+## Como rodar
+
+São três partes, nesta ordem. Primeiro o banco: crie um projeto no Supabase e rode as migrações de `supabase/migrations/`, como explicado abaixo. Depois a API, que precisa do Python 3.11 ou mais novo e do [uv](https://docs.astral.sh/uv/) (veja [backend/README.md](backend/README.md)). Por último o app, que precisa do Node 22.18 ou mais novo (veja [frontend/README.md](frontend/README.md)). A câmera ao vivo só abre no celular por HTTPS; para testar sem publicar nada, o `frontend/README.md` mostra como usar um túnel HTTPS.
 
 ## Banco de dados
 
-As migrações em `supabase/migrations/` podem ser executadas no SQL Editor do Supabase. O script `*_init_miniscan_schema.sql` cria as tabelas, índices, gatilhos, políticas de RLS e o bucket `miniscan-files`, e o `*_down_miniscan_schema.sql` desfaz essas alterações. As migrações seguintes, na ordem do nome, deixam o papel anônimo só com leitura (`000002`) e aceitam o filtro de quadro branco (`000003`); cada uma tem o seu script `down` de reversão.
+As migrações em `supabase/migrations/` podem ser executadas no SQL Editor do Supabase. O script `*_init_miniscan_schema.sql` cria as tabelas, índices, gatilhos, políticas de RLS e o bucket `miniscan-files`, e o `*_down_miniscan_schema.sql` desfaz as tabelas, os gatilhos e as políticas (o bucket continua, para não apagar arquivos por engano). As migrações seguintes, na ordem do nome, deixam o papel anônimo só com leitura (`000002`) e aceitam o filtro de quadro branco (`000003`); cada uma tem o seu script `down` de reversão.
 
 ## Documentação
 

@@ -10,11 +10,23 @@ Nesse trabalho o objetivo foi desenvolver um aplicativo de digitalização de do
 
 ### Requisitos Funcionais e Não Funcionais
 
-Na definição do escopo, segui a lista do enunciado e acrescentei duas funções. O sistema precisa capturar ou selecionar imagens pela câmera ou pela galeria (RF01), visualizar as imagens capturadas em tela cheia, com zoom, troca de página e comparação entre a foto original e a página tratada, tanto durante a digitalização quanto nos documentos já salvos (RF02), aplicar e alternar entre os filtros original, escala de cinza e preto e branco (RF03), gerar um arquivo PDF único a partir das páginas digitalizadas (RF04) e salvar o documento no histórico na nuvem ou compartilhá-lo e baixá-lo pelo celular (RF05). O enunciado coloca o reconhecimento de texto como funcionalidade adicional, mas decidi tratá-lo como obrigatório, então o sistema também extrai o texto de cada página via OCR em português (RF06). Por fim, incluí a detecção automática das bordas da folha com correção de perspectiva, que deixa a página reta como num scanner e pode ser ajustada à mão (RF07). Já nos requisitos não funcionais, a aplicação precisa rodar de forma instalável tanto no Android quanto no iPhone via navegador seguro com certificado SSL (RNF01), processar cada página em menos de 3 segundos em rede móvel comum (RNF02) e manter o servidor separado da interface através de uma API REST documentada (RNF03).
+Na definição do escopo, segui a lista do enunciado e acrescentei duas funções. O sistema precisa capturar ou selecionar imagens pela câmera ou pela galeria (RF01), visualizar as imagens capturadas em tela cheia, com zoom, troca de página e comparação entre a foto original e a página tratada, tanto durante a digitalização quanto nos documentos já salvos (RF02), aplicar e alternar entre os filtros original, escala de cinza e preto e branco (RF03), gerar um arquivo PDF único a partir das páginas digitalizadas (RF04) e salvar o documento no histórico na nuvem ou compartilhá-lo e baixá-lo pelo celular (RF05). O enunciado coloca o reconhecimento de texto como funcionalidade adicional, mas decidi tratá-lo como obrigatório, então o sistema também extrai o texto de cada página via OCR em português (RF06). Por fim, incluí a detecção automática das bordas da folha com correção de perspectiva, que deixa a página reta como num scanner e pode ser ajustada à mão (RF07). Os modos da câmera (cartão de identidade, livro, quadro branco e QR code), a captura automática ao vivo, o carimbo de data e hora no PDF e a busca pelo texto reconhecido são extras, descritos nas seções 3 e 4. Já nos requisitos não funcionais, a aplicação precisa rodar de forma instalável tanto no Android quanto no iPhone via navegador seguro com certificado SSL (RNF01), processar cada página em menos de 3 segundos em rede móvel comum (RNF02) e manter o servidor separado da interface através de uma API REST documentada (RNF03).
+
+A tabela abaixo liga cada item do enunciado ao requisito, ao caso de uso e ao lugar do aplicativo onde ele aparece.
+
+| Item do enunciado | Requisito | Caso de uso | Onde aparece no aplicativo |
+|---|---|---|---|
+| Capturar ou selecionar imagens de documentos | RF01 | UC01 | Câmera ao vivo (`/camera`) e galeria, no início e no editor |
+| Visualizar as imagens capturadas | RF02 | UC03 | Visualizador em tela cheia, no editor, na revisão do lote e no documento salvo |
+| Aplicar filtros (original, escala de cinza e preto e branco) | RF03 | UC04 | Editor (`/digitalizar/editor`) |
+| Gerar arquivos PDF a partir das imagens | RF04 | UC06 | Exportação (`/digitalizar/exportar`) |
+| Salvar ou compartilhar os documentos gerados | RF05 | UC06 e UC07 | Exportação, histórico (`/`) e documento salvo (`/documento`) |
+| Reconhecimento de texto (adicional no enunciado) | RF06 | UC05 | Gaveta de texto do editor e documento salvo |
+| Detecção de bordas e correção de perspectiva (extensão) | RF07 | UC02 | Câmera ao vivo e recorte (`/digitalizar/recorte`) |
 
 ### Casos de Uso do Sistema
 
-O fluxo de interação conta apenas com o ator principal, o usuário final. Ele começa capturando uma foto ou escolhendo uma imagem da galeria (UC01), o que sempre passa pelo ajuste do recorte, com os quatro cantos da folha detectados sozinhos e arrastáveis na tela (UC02). Depois ele pode visualizar as páginas em tela cheia, ampliando para conferir se o texto ficou legível e comparando com a foto original (UC03); no modo lote, essa revisão também acontece antes do processamento, para excluir as fotos que saíram ruins. Em seguida escolhe o filtro de cada página (UC04) e confere o texto extraído pelo OCR, que roda sozinho depois de cada recorte, para copiar ou corrigir alguma palavra (UC05). Por fim, gera o PDF e o compartilha, baixa ou salva no histórico (UC06), onde pode buscar pelo título ou pelo texto e abrir o documento para ver de novo as páginas e o texto (UC07).
+O fluxo de interação conta apenas com o ator principal, o usuário final. Ele começa capturando uma foto ou escolhendo uma imagem da galeria (UC01) e confere o recorte da folha, com os quatro cantos detectados sozinhos e arrastáveis na tela (UC02); no modo lote e no cartão de identidade, o recorte detectado é aplicado direto e pode ser refeito depois pelo editor. Depois ele pode visualizar as páginas em tela cheia, ampliando para conferir se o texto ficou legível e comparando com a foto original (UC03); no modo lote, essa revisão também acontece antes do processamento, para excluir as fotos que saíram ruins. Em seguida escolhe o filtro de cada página (UC04) e confere o texto extraído pelo OCR, que roda sozinho depois de cada recorte, para copiar ou corrigir alguma palavra (UC05). Por fim, gera o PDF e o compartilha, baixa ou salva no histórico (UC06), onde pode buscar pelo título ou pelo texto e abrir o documento para ver de novo as páginas e o texto (UC07).
 
 ### Diagrama de Casos de Uso
 
@@ -55,9 +67,9 @@ Para deixar o documento reto como se tivesse sido escaneado de frente, a funçã
 
 A extração de texto (extrair_texto_ocr), que o enunciado trata como funcionalidade adicional e eu coloquei no escopo obrigatório, usa o PaddleOCR com os modelos PP-OCRv5 latinos em ONNX, que cobrem o português com acentos. O OCR sempre lê a página retificada original, e não a versão em preto e branco: a rede neural do PaddleOCR se apoia nos gradientes suaves das bordas das letras, e a binarização transforma esses contornos em degraus, o que fazia a leitura cair de cerca de 99% para 35% quando o texto era pequeno na foto. Por isso o front-end envia a foto original junto com os cantos confirmados e a API retifica a página só para a leitura, enquanto o filtro preto e branco fica restrito ao que aparece na tela e no PDF. Nesse filtro, uma limiarização seca (adaptiveThreshold) deixava as letras quebradas e serrilhadas quando a página vinha de um quadro de vídeo do celular, em baixa resolução. Por isso a página pequena é ampliada antes, a iluminação é nivelada e, em vez de um corte seco, uma curva íngreme leva o papel para branco e a tinta para preto, mantendo tons intermediários só na borda das letras, como faz um scanner. O texto reconhecido é montado na ordem natural de leitura, de cima para baixo e da esquerda para a direita (ordenar_em_linhas).
 
-A vantagem dessa arquitetura é que o OCR passou a rodar numa engine leve, o onnxruntime, sem depender de binários instalados no sistema operacional como o Tesseract e sem precisar do PyTorch no servidor, o que deixou a imagem Docker mais simples. A leitura também ficou mais robusta em fotos de celular com iluminação irregular: num teste com uma página com sombra forte, ruído e inclinação de 2,5 graus, o Tesseract leu 66% do texto da foto crua, enquanto o PaddleOCR leu 100%, incluindo todos os acentos. O custo é o tempo, perto de 2 segundos por página em CPU, e por isso o front-end faz a leitura em segundo plano logo depois do recorte.
+A vantagem dessa arquitetura é que o OCR passou a rodar numa engine leve, o onnxruntime, sem depender de binários instalados no sistema operacional como o Tesseract e sem precisar do PyTorch no servidor, o que deixou a imagem Docker mais simples. A leitura também ficou mais robusta em fotos de celular com iluminação irregular: num teste com uma página com sombra forte, ruído e inclinação de 2,5 graus, o Tesseract leu 66% do texto da foto crua, enquanto o PaddleOCR leu 100%, incluindo todos os acentos. O custo é o tempo, cerca de 2,7 segundos por página no processador do meu computador, e por isso o front-end faz a leitura em segundo plano logo depois do recorte.
 
-Por fim, o sistema junta todas as páginas processadas em um único arquivo PDF (gerar_pdf com img2pdf), envia o arquivo para o armazenamento em nuvem (Supabase Storage) e libera o download ou o menu nativo de compartilhamento do celular (navigator.share).
+Por fim, o sistema junta todas as páginas processadas em um único arquivo PDF (gerar_pdf com img2pdf). Esse arquivo pode ser baixado ou enviado pelo menu nativo de compartilhamento do celular (navigator.share) direto do aparelho, e salvar no histórico é um passo à parte, que envia o PDF, as imagens e os textos para o armazenamento em nuvem (Supabase Storage) e para o banco.
 
 ### Câmera ao Vivo e Modos de Digitalização
 
@@ -96,12 +108,15 @@ sequenceDiagram
     U->>PWA: Confirma a geração do PDF
     PWA->>API: POST /gerar-pdf (páginas ordenadas)
     API-->>PWA: Retorna o PDF único (img2pdf)
-    PWA->>API: POST /documentos (PDF, imagens, filtros e textos OCR)
-    API->>SB: Upload do PDF e das imagens no Storage
-    SB-->>API: URLs públicas geradas
-    API->>SB: INSERT em documents e document_pages
-    API-->>PWA: Retorna a URL final do PDF
-    PWA->>U: Abre menu nativo (navigator.share) ou download
+    alt Compartilhar ou baixar
+        PWA->>U: Abre o menu nativo (navigator.share) ou baixa o PDF
+    else Salvar no histórico
+        PWA->>API: POST /documentos (PDF, imagens, filtros e textos OCR)
+        API->>SB: Upload do PDF e das imagens no Storage
+        SB-->>API: URLs públicas geradas
+        API->>SB: INSERT em documents e document_pages
+        API-->>PWA: Confirma o documento salvo
+    end
 ```
 
 ---
@@ -114,7 +129,7 @@ Para guardar os arquivos e permitir a pesquisa pelo texto lido dentro das imagen
 
 Na revisão de segurança e desempenho do banco, ativei a segurança em nível de linha (Row Level Security) em todas as tabelas e no armazenamento de arquivos, criei índices compostos para acelerar as consultas e exclusões em cascata, adicionei índices de busca textual em português (GIN com to_tsvector) para pesquisar documentos pelo conteúdo extraído no OCR, configurei gatilhos automáticos (Triggers) para atualizar o contador de páginas e a data de modificação, e limitei o armazenamento do bucket (miniscan-files) a arquivos de imagem e PDF de até 15 MB.
 
-Na primeira versão do MVP, as políticas liberavam leitura, escrita e exclusão para o papel anônimo, o que permitia que qualquer pessoa com a chave pública do projeto alterasse ou apagasse o histórico. Para fechar essa brecha, concentrei todas as gravações na API, que usa a chave secreta do Supabase, e criei uma segunda migração (20261116000002_restringe_escrita_anonima.sql) que deixa o papel anônimo apenas com leitura nas tabelas e no Storage, além de revogar as permissões de escrita dessas tabelas. O bucket continua público para que os links de download funcionem. A próxima evolução é adotar o login anônimo do Supabase para separar o histórico de cada aparelho.
+Na primeira versão do MVP, as políticas liberavam leitura, escrita e exclusão para o papel anônimo, o que permitia que qualquer pessoa com a chave pública do projeto alterasse ou apagasse o histórico. Para fechar essa brecha, concentrei todas as gravações na API, que usa a chave secreta do Supabase, e criei uma segunda migração (20261116000002_restringe_escrita_anonima.sql) que deixa o papel anônimo apenas com leitura nas tabelas e no Storage, além de revogar as permissões de escrita dessas tabelas. O bucket continua público para que os links de download funcionem. Por enquanto o histórico é o mesmo para todos que usam o aplicativo; a próxima evolução planejada é o login de usuário, com cadastro e senha guardada como hash, para que cada pessoa veja só os próprios documentos.
 
 ### Diagrama Entidade-Relacionamento (DER)
 
@@ -144,7 +159,7 @@ erDiagram
 
 ### Script SQL de Criação (Migração Principal)
 
-Execute este script completo no SQL Editor do Supabase para criar as tabelas, índices, gatilhos, políticas de segurança (RLS) e o bucket de armazenamento em uma única transação segura:
+Este script é a migração principal (20261116000001_init_miniscan_schema.sql). Execute-o completo no SQL Editor do Supabase para criar as tabelas, índices, gatilhos, políticas de segurança (RLS) e o bucket de armazenamento em uma única transação segura. Em seguida, rode as duas migrações seguintes da pasta supabase/migrations: a 20261116000002, que troca as políticas de acesso total do papel anônimo (as mvp_*_all_access abaixo) por políticas só de leitura, e a 20261116000003, que acrescenta o filtro de quadro branco (whiteboard) à restrição da coluna filter_applied.
 
 ```sql
 BEGIN;
@@ -377,7 +392,8 @@ FROM novo_doc;
 SELECT title, page_count FROM public.documents WHERE title = 'Contrato Estágio UTFPR';
 
 -- Teste 2: Validar busca textual em português (radicalização de palavras)
-SELECT id, title, page_count FROM public.search_miniscan_documents('iniciacao');
+-- Resultado esperado: 1 linha. Sem o acento ('iniciacao'), a busca ainda não encontra.
+SELECT id, title, page_count FROM public.search_miniscan_documents('iniciação');
 
 -- Teste 3: Validar exclusão em cascata das páginas filhas
 DELETE FROM public.documents WHERE title = 'Contrato Estágio UTFPR';
@@ -403,6 +419,8 @@ Depois do protótipo, duas telas entraram no aplicativo para cobrir a visualiza�
 
 ## 6. Desafios e Dificuldades
 
-A parte que deu mais trabalho foi fazer a detecção automática das bordas funcionar quando o documento branco estava em cima de uma mesa clara ou com pouca luz, porque o algoritmo de bordas (Canny) acabava se perdendo e não fechava os quatro cantos da folha. Consegui resolver isso adicionando um fechamento morfológico (morphologyEx) antes de buscar os contornos e deixando o usuário arrastar os quatro vértices na tela do celular sempre que o fundo tiver pouco contraste. Na hora de rodar no iPhone também tive que ter cuidado com o acesso à câmera e o compartilhamento do arquivo pelo Safari, ajustando o manifesto da aplicação (manifest.json) e usando o seletor nativo de captura de mídia no navegador para evitar bloqueios de permissão no iOS.
+A parte que deu mais trabalho foi fazer a detecção automática das bordas funcionar quando o documento branco estava em cima de uma mesa clara ou com pouca luz, porque o algoritmo de bordas (Canny) acabava se perdendo e não fechava os quatro cantos da folha. Consegui resolver isso adicionando um fechamento morfológico (morphologyEx) antes de buscar os contornos e deixando o usuário arrastar os quatro vértices na tela do celular sempre que o fundo tiver pouco contraste. Na hora de rodar no iPhone também tive que ter cuidado com o acesso à câmera e o compartilhamento do arquivo pelo Safari. A câmera ao vivo (getUserMedia) só funciona com o aplicativo aberto por HTTPS, então testei no celular por um túnel HTTPS e deixei o seletor nativo de captura do navegador como alternativa quando a câmera ao vivo não está disponível. O menu de compartilhar do iPhone também só abre logo depois do toque, por isso o PDF já fica pronto na memória antes de a pessoa tocar em compartilhar. O manifesto da aplicação, gerado em src/app/manifest.ts, permite instalar o MiniScan na tela de início.
 
 Outra dificuldade que apareceu na parte de leitura de texto foi o desempenho baixo do Tesseract nas fotos tiradas com a câmera do celular, porque ele falhava quando a folha tinha alguma inclinação, sombra ou quando existiam fotos e carimbos no meio da página que geravam caracteres errados no resultado. Consegui resolver isso trocando o motor de OCR pelo PaddleOCR (via biblioteca rapidocr), que usa redes neurais para detectar e alinhar as linhas de texto antes de ler. Também cheguei a combinar o pipeline com o modelo DocLayout-YOLO em ONNX para identificar onde estavam as figuras da página e mantê-las originais no PDF, mas num teste com um RG ele classificou o documento inteiro como figura por causa da foto 3x4, e ainda deixava o servidor bem mais pesado. Sem ele, o pico de memória da API caiu de cerca de 1 GB para 400 MB, o filtro preto e branco passou de 2,4 segundos para menos de um décimo de segundo e o OCR de 4,9 para 2,7 segundos por página, então decidi retirar essa parte e manter o sistema mais leve e previsível.
+
+Algumas limitações ainda estão em aberto. O histórico é o mesmo para todos que usam o aplicativo, porque ainda não há login, e não dá para excluir um documento salvo pelo próprio aplicativo. As páginas de uma digitalização em andamento ficam só na memória do navegador, então recarregar a página no meio do processo descarta o que não foi salvo. A busca não encontra uma palavra digitada sem acento quando o texto do documento tem acento, o que pode ser resolvido com a extensão unaccent do PostgreSQL. Por fim, a detecção de bordas e o filtro preto e branco foram calibrados com fotos sintéticas, e ainda falta medir o acerto com um conjunto de fotos reais tiradas no celular.
