@@ -82,19 +82,6 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
   // nunca embaixo do dedo, que fica sobre o próprio canto.
   const lupaADireita = cantoLupa !== null && cantoLupa.x < 0.5;
 
-  const recorte = (
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full">
-      <polygon
-        points={pontosSvg}
-        fill="rgb(0 71 224 / 0.12)"
-        stroke="var(--primaria-texto)"
-        strokeWidth="2"
-        vectorEffect="non-scaling-stroke"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
   return (
     // O palco ocupa o maior retângulo com a proporção da foto que cabe na área disponível.
     <div className="flex size-full items-center justify-center [container-type:size]">
@@ -114,8 +101,15 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
             </mask>
           </defs>
           <rect width="100" height="100" fill="rgb(2 6 23 / 0.55)" mask="url(#mascara-recorte)" />
+          <polygon
+            points={pontosSvg}
+            fill="rgb(0 71 224 / 0.12)"
+            stroke="var(--primaria-texto)"
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+            strokeLinejoin="round"
+          />
         </svg>
-        {recorte}
 
         {cantos.map((canto, indice) => (
           <button
@@ -145,7 +139,7 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
               ...(lupaADireita ? { right: MARGEM_LUPA } : { left: MARGEM_LUPA }),
             }}
           >
-            {/* A foto e o recorte ampliados, com o canto arrastado no centro da lupa. */}
+            {/* Só a foto ampliada, com o canto arrastado no centro: as linhas do recorte cobriam a borda do papel. */}
             <div
               className="absolute left-0 top-0 origin-top-left"
               style={{
@@ -158,12 +152,10 @@ export function EditorCantos({ imagemUrl, largura, altura, cantos, aoMudar }: Pr
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- imagem local (blob) */}
               <img src={imagemUrl} alt="" draggable={false} className="size-full object-fill" />
-              {recorte}
             </div>
-            {/* Cruz de mira: o centro é exatamente onde o canto vai ficar. */}
-            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white shadow-[0_0_0_1px_rgb(0_0_0_/_0.45)]" />
-            <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white shadow-[0_0_0_1px_rgb(0_0_0_/_0.45)]" />
-            <span className="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primaria-texto" />
+            {/* Cruz de mira meio transparente: o centro é onde o canto vai ficar, e o papel aparece por trás das linhas. */}
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/70 shadow-[0_0_0_1px_rgb(0_0_0_/_0.3)]" />
+            <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/70 shadow-[0_0_0_1px_rgb(0_0_0_/_0.3)]" />
           </div>
         )}
       </div>
