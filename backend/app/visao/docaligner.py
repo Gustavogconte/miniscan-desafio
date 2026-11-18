@@ -23,6 +23,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from app.config import configuracoes
 from app.visao.perspectiva import (
     CantosInvalidosError,
     ordenar_cantos,
@@ -44,8 +45,6 @@ LIMIAR_MAPA = 0.3
 # acima de 0,78. O corte fica no meio desse vão: recusar só faz cair no OpenCV, mas um
 # erro aceito não tem reserva.
 CONFIANCA_MINIMA = 0.7
-# A VPS limita o container a 1 CPU: mais threads só disputariam o mesmo núcleo.
-THREADS = 1
 # Depois de uma falha ao carregar, espera este tempo antes de tentar de novo.
 ESPERA_APOS_FALHA_S = 60
 
@@ -99,8 +98,9 @@ class DetectorDocAligner:
             import onnxruntime as ort
 
             opcoes = ort.SessionOptions()
-            opcoes.intra_op_num_threads = THREADS
-            opcoes.inter_op_num_threads = THREADS
+            # 0 = uma thread por núcleo; na VPS, MINISCAN_THREADS_ONNX=1 (ver app/config.py).
+            opcoes.intra_op_num_threads = configuracoes.threads_onnx
+            opcoes.inter_op_num_threads = 1
             sessao = ort.InferenceSession(
                 str(CAMINHO_MODELO), opcoes, providers=["CPUExecutionProvider"]
             )

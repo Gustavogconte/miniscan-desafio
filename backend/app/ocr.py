@@ -12,6 +12,8 @@ from collections.abc import Sequence
 import cv2
 import numpy as np
 
+from app.config import configuracoes
+
 logger = logging.getLogger(__name__)
 
 IDIOMA_OCR = "latin"  # modelo multilíngue latino: português, espanhol, inglês, francês...
@@ -83,19 +85,23 @@ class MotorOcr:
         try:
             from rapidocr import LangRec, ModelType, OCRVersion, RapidOCR
 
-            motor = RapidOCR(
-                params={
-                    "Global.log_level": "error",
-                    # Páginas já chegam retificadas e em pé: o classificador de
-                    # orientação de linha só custaria tempo.
-                    "Global.use_cls": False,
-                    "Det.ocr_version": OCRVersion.PPOCRV5,
-                    "Det.model_type": ModelType.MOBILE,
-                    "Rec.ocr_version": OCRVersion.PPOCRV5,
-                    "Rec.model_type": ModelType.MOBILE,
-                    "Rec.lang_type": LangRec.LATIN,
-                }
-            )
+            parametros = {
+                "Global.log_level": "error",
+                # Páginas já chegam retificadas e em pé: o classificador de
+                # orientação de linha só custaria tempo.
+                "Global.use_cls": False,
+                "Det.ocr_version": OCRVersion.PPOCRV5,
+                "Det.model_type": ModelType.MOBILE,
+                "Rec.ocr_version": OCRVersion.PPOCRV5,
+                "Rec.model_type": ModelType.MOBILE,
+                "Rec.lang_type": LangRec.LATIN,
+            }
+            if configuracoes.threads_onnx:
+                parametros["EngineConfig.onnxruntime.intra_op_num_threads"] = (
+                    configuracoes.threads_onnx
+                )
+                parametros["EngineConfig.onnxruntime.inter_op_num_threads"] = 1
+            motor = RapidOCR(params=parametros)
             # O RapidOCR só baixa e carrega os modelos na primeira leitura. Ler uma
             # imagem com texto aqui força isso agora: no build do Docker os modelos
             # ficam na imagem, e /saude só diz "disponível" se o OCR funciona mesmo.

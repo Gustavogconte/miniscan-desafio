@@ -34,6 +34,9 @@ services:
       # O "$$" é um "$" literal para o Compose.
       MINISCAN_ORIGENS_CORS: http://localhost:3000
       MINISCAN_ORIGENS_CORS_REGEX: '^https://miniscan-desafio(-[a-z0-9-]+)?\.vercel\.app$$'
+      # O mesmo número do "cpus" abaixo. Sem isso, o onnxruntime (OCR e detector de
+      # cantos) abre uma thread por núcleo da VPS inteira, e elas disputam 1 CPU.
+      MINISCAN_THREADS_ONNX: "1"
     ports:
       - "8020:8000"
     mem_limit: 1g

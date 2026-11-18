@@ -15,6 +15,12 @@ def _ler_origens_cors() -> list[str]:
     return [origem.strip() for origem in valor.split(",") if origem.strip()]
 
 
+def _ler_threads_onnx() -> int:
+    """Threads do onnxruntime no OCR e no detector de cantos; 0 = uma por núcleo da máquina."""
+    valor = os.getenv("MINISCAN_THREADS_ONNX", "").strip()
+    return int(valor) if valor.isdigit() else 0
+
+
 @dataclass(frozen=True)
 class Configuracoes:
     origens_cors: list[str] = field(default_factory=_ler_origens_cors)
@@ -29,6 +35,10 @@ class Configuracoes:
         default_factory=lambda: os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     )
     bucket: str = field(default_factory=lambda: os.getenv("MINISCAN_BUCKET", "miniscan-files"))
+    # Num contêiner limitado a 1 CPU, use 1. O onnxruntime enxerga todos os núcleos da
+    # máquina e abre uma thread para cada, que ficam disputando o mesmo núcleo: com 5
+    # pessoas ao mesmo tempo, o OCR de uma página passou de 3 s para mais de 60 s.
+    threads_onnx: int = field(default_factory=_ler_threads_onnx)
 
     @property
     def persistencia_configurada(self) -> bool:
