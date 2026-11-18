@@ -12,6 +12,9 @@ QUALIDADE_JPEG = 90
 # recentes; acima disso, um PNG de poucos KB (10000x10000 px de uma cor só) ocuparia
 # centenas de MB na memória ao ser decodificado.
 MAXIMO_PIXELS = 50_000_000
+# Menor lado aceito, em pixels: abaixo disso não há documento para ler, e a redução
+# da imagem para a análise chegaria a um lado de zero pixels.
+LADO_MINIMO = 16
 
 
 class ImagemInvalidaError(ValueError):
@@ -65,7 +68,12 @@ def decodificar_imagem(dados: bytes) -> np.ndarray:
     O `IMREAD_COLOR` já aplica a orientação EXIF, o que corrige fotos tiradas
     com o celular na vertical.
     """
-    return decodificar(dados, cv2.IMREAD_COLOR, "Não foi possível ler a imagem enviada.")
+    imagem = decodificar(dados, cv2.IMREAD_COLOR, "Não foi possível ler a imagem enviada.")
+    if min(imagem.shape[:2]) < LADO_MINIMO:
+        raise ImagemInvalidaError(
+            f"A imagem é pequena demais: o menor lado precisa ter pelo menos {LADO_MINIMO} pixels."
+        )
+    return imagem
 
 
 def codificar_imagem(imagem: np.ndarray, formato: str = ".jpg") -> bytes:

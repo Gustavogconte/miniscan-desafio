@@ -64,6 +64,9 @@ def _normalizar_pagina(dados: bytes, numero: int, carimbo: str | None) -> bytes:
     mantendo o formato (PNG continua PNG, para o P&B não ganhar artefatos).
     """
     imagem = decodificar(dados, cv2.IMREAD_UNCHANGED, f"A página {numero} não é uma imagem válida.")
+    if imagem.dtype != np.uint8:
+        # PNG de 16 bits: o carimbo e o JPEG trabalham com 8 bits por canal.
+        imagem = cv2.convertScaleAbs(imagem, alpha=255 / 65535)
 
     tem_alfa = imagem.ndim == 3 and imagem.shape[2] == 4
     if tem_alfa:
