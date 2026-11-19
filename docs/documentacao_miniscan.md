@@ -488,7 +488,54 @@ ROLLBACK;
 
 ---
 
-## 5. Prototipação de Interface (Estrutura das Telas no Figma)
+## 5. Implantação: Vercel, VPS e Supabase
+
+Para colocar o MiniScan no ar, separei o sistema em três lugares, escolhidos pelo que cada parte precisa. O aplicativo em Next.js está publicado na Vercel, a API em Python roda num contêiner Docker numa VPS, e o banco de dados e os arquivos ficam no Supabase Cloud. A pessoa só acessa o aplicativo; ele conversa com a API, e só a API conversa com o banco.
+
+| Parte | Onde está | Endereço | O que fica lá |
+|---|---|---|---|
+| Aplicativo (PWA) | Vercel | https://miniscan-desafio.vercel.app | Telas, câmera, recorte, editor e visualizador. Não guarda dados, só a sessão no navegador. |
+| API | VPS (Docker) | https://miniscan-api.duckdns.org | Login, detecção de cantos, filtros, OCR, PDF e acesso ao histórico. |
+| Banco e arquivos | Supabase Cloud | painel do Supabase | Contas, sessões, documentos, páginas e textos (PostgreSQL), e os PDFs e as imagens (Storage). |
+
+```mermaid
+flowchart LR
+    Pessoa["Celular<br/>(aplicativo instalado)"]
+    subgraph Vercel
+        App["Next.js<br/>telas e câmera"]
+    end
+    subgraph VPS
+        Caddy["Caddy<br/>HTTPS"]
+        API["API FastAPI<br/>OpenCV, PaddleOCR, DocAligner"]
+    end
+    subgraph Supabase["Supabase Cloud"]
+        BD[("PostgreSQL<br/>usuarios, sessoes,<br/>documents, document_pages")]
+        Arquivos[("Storage<br/>bucket privado")]
+    end
+
+    Pessoa -->|"abre o aplicativo"| App
+    Pessoa -->|"fotos e pedidos,<br/>com o token da sessão"| Caddy
+    Caddy --> API
+    API -->|"chave secreta"| BD
+    API -->|"chave secreta"| Arquivos
+    Pessoa -->|"links assinados de 1 hora"| Arquivos
+```
+
+O aplicativo ficou na Vercel porque, depois do build, ele é um conjunto de páginas estáticas: toda a lógica roda no navegador. A Vercel entrega essas páginas por HTTPS e publica uma versão nova sozinha a cada envio ao GitHub. O HTTPS é exigência do requisito RNF01 e também do próprio celular, que só libera a câmera ao vivo e a instalação na tela de início em sites seguros. A única configuração do aplicativo é o endereço da API.
+
+A API não cabia num serviço sem servidor como as funções da Vercel. Ela carrega na memória os modelos do PaddleOCR e do DocAligner, chegou a 840 MB com cinco pessoas ao mesmo tempo (seção 3) e recebe fotos de 12 megapixels e PDFs maiores que o limite de 4,5 MB do corpo das funções da Vercel. Também cheguei a preparar a publicação no Hugging Face Spaces, que passou a cobrar pelos Spaces com Docker. Por isso ela roda numa VPS, num projeto Docker Compose próprio, isolado dos outros sistemas que dividem a máquina: rede própria, limite de 1 GB de memória e de um núcleo de processador, e reinício automático se cair. O HTTPS da API é feito pelo Caddy, o proxy reverso que já existia na VPS, que ganhou só um bloco novo para o domínio da API, um subdomínio gratuito do DuckDNS.
+
+O Supabase guarda tudo o que precisa durar. As contas, as sessões, os documentos, as páginas e o texto do OCR ficam no PostgreSQL, e os PDFs e as imagens ficam no Storage, num bucket privado. A API acessa os dois com a chave secreta, que só existe no servidor. O aplicativo não tem nenhuma chave do Supabase: desde o login, a chave pública não lê mais nada (seção 4).
+
+O caminho de um documento mostra como as partes se ligam. Ao salvar, o aplicativo manda para a API o PDF, as fotos originais, as páginas tratadas e o texto de cada página, com o token da sessão no cabeçalho. A API confere a sessão antes de receber os arquivos, envia tudo ao Storage e grava as linhas com o dono. Ao abrir o histórico, a API busca só os documentos daquela conta e devolve links assinados, que valem uma hora, para a miniatura e o PDF; o navegador baixa esses arquivos direto do Storage. Em todo o caminho a conexão é HTTPS, e a API só aceita chamadas vindas do endereço do aplicativo (CORS). O aplicativo, por sua vez, só consegue se conectar à própria API e ao Storage, por causa da política de segurança de conteúdo (CSP): se um dia algum script estranho entrar na página, ele não consegue mandar o token da sessão para outro site.
+
+Na implantação, o cuidado maior foi com a VPS, que já atende outros sistemas. Antes de qualquer mudança, conferi os backups do dia e copiei as configurações de todos os projetos. Subi só o contêiner novo e testei que o Caddy alcançava a API antes de mexer nele. A mudança no Caddy foi validada antes de ser aplicada e entrou por um recarregamento que não derruba os outros domínios. No fim, conferi que nenhum outro contêiner tinha reiniciado e que os outros sistemas continuavam respondendo. Na Vercel, o primeiro envio saiu vazio: o projeto foi importado antes de eu indicar a pasta `frontend`, e a Vercel o tratou como site estático comum, publicando só a pasta de imagens. Trocar o tipo do projeto para Next.js resolveu. Por último, rodei o fluxo inteiro no navegador contra a produção (cadastro, digitalização, OCR, PDF, histórico e saída) e apaguei a conta de teste depois.
+
+O passo a passo para atualizar cada parte, conferir o resultado e voltar atrás está em `deploy/README.md`.
+
+---
+
+## 6. Prototipação de Interface (Estrutura das Telas no Figma)
 
 Para o esqueleto visual no Figma (frame mobile 390 x 844 px), o fluxo foi estruturado em quatro telas conectadas:
 
@@ -501,7 +548,7 @@ Depois do protótipo, duas telas entraram no aplicativo para cobrir a visualiza�
 
 ---
 
-## 6. Desafios e Dificuldades
+## 7. Desafios e Dificuldades
 
 A parte que deu mais trabalho foi fazer a detecção automática das bordas funcionar quando o documento branco estava em cima de uma mesa clara ou com pouca luz, porque o algoritmo de bordas (Canny) acabava se perdendo e não fechava os quatro cantos da folha. Consegui resolver isso adicionando um fechamento morfológico (morphologyEx) antes de buscar os contornos e deixando o usuário arrastar os quatro vértices na tela do celular sempre que o fundo tiver pouco contraste. Na hora de rodar no iPhone também tive que ter cuidado com o acesso à câmera e o compartilhamento do arquivo pelo Safari. A câmera ao vivo (getUserMedia) só funciona com o aplicativo aberto por HTTPS, então testei no celular por um túnel HTTPS e deixei o seletor nativo de captura do navegador como alternativa quando a câmera ao vivo não está disponível. O menu de compartilhar do iPhone também só abre logo depois do toque, por isso o PDF já fica pronto na memória antes de a pessoa tocar em compartilhar. O manifesto da aplicação, gerado em src/app/manifest.ts, permite instalar o MiniScan na tela de início.
 
@@ -509,11 +556,11 @@ A detecção de bordas voltou a dar trabalho quando passei a testar com fotos re
 
 Outra dificuldade que apareceu na parte de leitura de texto foi o desempenho baixo do Tesseract nas fotos tiradas com a câmera do celular, porque ele falhava quando a folha tinha alguma inclinação, sombra ou quando existiam fotos e carimbos no meio da página que geravam caracteres errados no resultado. Consegui resolver isso trocando o motor de OCR pelo PaddleOCR (via biblioteca rapidocr), que usa redes neurais para detectar e alinhar as linhas de texto antes de ler. Também cheguei a combinar o pipeline com o modelo DocLayout-YOLO em ONNX para identificar onde estavam as figuras da página e mantê-las originais no PDF, mas num teste com um RG ele classificou o documento inteiro como figura por causa da foto 3x4, e ainda deixava o servidor bem mais pesado. Sem ele, o pico de memória da API caiu de cerca de 1 GB para 400 MB, o filtro preto e branco passou de 2,4 segundos para menos de um décimo de segundo e o OCR de 4,9 para 2,7 segundos por página, então decidi retirar essa parte e manter o sistema mais leve e previsível.
 
-Algumas limitações ainda estão em aberto. O histórico é o mesmo para todos que usam o aplicativo, porque ainda não há login, e não dá para excluir um documento salvo pelo próprio aplicativo. As páginas de uma digitalização em andamento ficam só na memória do navegador, então recarregar a página no meio do processo descarta o que não foi salvo. A busca não encontra uma palavra digitada sem acento quando o texto do documento tem acento, o que pode ser resolvido com a extensão unaccent do PostgreSQL. Por fim, o detector de cantos foi medido com 13 fotos reais, uma amostra pequena, e a folha que ocupa quase a foto toda depende só do pipeline clássico, porque o modelo não a enxerga. O filtro preto e branco ainda foi calibrado só com fotos sintéticas.
+Algumas limitações ainda estão em aberto. Não dá para excluir um documento salvo nem a própria conta pelo aplicativo, o cadastro não confirma o e-mail e não há recuperação de senha. A API divide uma VPS de dois núcleos com outros sistemas e tem um núcleo só para ela, então o OCR forma fila quando várias pessoas digitalizam ao mesmo tempo. As páginas de uma digitalização em andamento ficam só na memória do navegador, então recarregar a página no meio do processo descarta o que não foi salvo. A busca não encontra uma palavra digitada sem acento quando o texto do documento tem acento, o que pode ser resolvido com a extensão unaccent do PostgreSQL. Por fim, o detector de cantos foi medido com 13 fotos reais, uma amostra pequena, e a folha que ocupa quase a foto toda depende só do pipeline clássico, porque o modelo não a enxerga. O filtro preto e branco ainda foi calibrado só com fotos sintéticas.
 
 ---
 
-## 7. Referências
+## 8. Referências
 
 1. YUAN, Z. DocAligner. GitHub, 2023. Disponível em: https://github.com/DocsaidLab/DocAligner. Código e pesos sob a licença Apache-2.0.
 2. VASU, P. K. A. et al. FastViT: A Fast Hybrid Vision Transformer using Structural Reparameterization. IEEE/CVF International Conference on Computer Vision (ICCV), 2023.

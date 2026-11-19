@@ -45,7 +45,9 @@ npm run build
 
 ## Deploy na Vercel
 
-1. Em [vercel.com/new](https://vercel.com/new), importe o repositório do GitHub, mantenha o nome de projeto `miniscan-desafio` (é o que o CORS da API aceita) e defina **Root Directory** como `frontend`. O framework (Next.js) é detectado sozinho.
+O app está publicado em https://miniscan-desafio.vercel.app. O guia completo de deploy, com a API e o banco, está em [`deploy/README.md`](../deploy/README.md). Para criar o projeto do zero:
+
+1. Em [vercel.com/new](https://vercel.com/new), importe o repositório do GitHub, mantenha o nome de projeto `miniscan-desafio` (é o que o CORS da API aceita) e defina **Root Directory** como `frontend`. Confira se o **Framework Preset** ficou **Next.js**: se o projeto for importado antes de escolher a pasta, ele fica "Other", o build termina em 2 segundos e todas as páginas dão 404.
 2. Em *Environment Variables*, cadastre só `NEXT_PUBLIC_API_URL`, com o endereço HTTPS público da API (veja "Deploy numa VPS" em `backend/README.md`). As chaves do Supabase não vão para a Vercel.
 3. Faça o deploy. As variáveis `NEXT_PUBLIC_*` entram no build, então qualquer mudança nelas pede um novo deploy.
 4. Se o projeto tiver outro nome na Vercel, libere o domínio dele no CORS da API (`MINISCAN_ORIGENS_CORS` e `MINISCAN_ORIGENS_CORS_REGEX`; veja `backend/README.md`).

@@ -2,7 +2,7 @@
 
 O MiniScan é um aplicativo de digitalização de documentos inspirado no CamScanner, desenvolvido como projeto de seleção para Iniciação Científica. Ele roda no Android e no iPhone como aplicação web instalável (PWA) e permite capturar ou importar uma foto, corrigir a perspectiva da folha, ver as páginas em tela cheia com zoom, aplicar filtros, extrair o texto via OCR em português e gerar um PDF único para baixar, compartilhar ou salvar no histórico, de onde o documento pode ser aberto de novo.
 
-A câmera faz o recorte ao vivo: a folha é detectada a cada quadro, direto no navegador, e a foto é tirada sozinha quando o documento fica parado. Há também um modo para documentos de identidade (RG ou CNH), que monta frente e verso numa folha A4 em tamanho real.
+Logo depois de cada foto, a API acha os cantos da folha (modelo DocAligner, com o OpenCV de reserva), e a pessoa confere o recorte antes de seguir. Há também um modo para documentos de identidade (RG ou CNH), que monta frente e verso numa folha A4 em tamanho real.
 
 A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica em uma API Python (FastAPI, OpenCV, PaddleOCR em ONNX Runtime e img2pdf), e o histórico e os arquivos ficam no Supabase (PostgreSQL e Storage). Cada pessoa entra com e-mail e senha e vê só os próprios documentos: o login é feito pela própria API, com a senha guardada em hash Argon2id, e o aplicativo só fala com a API, nunca direto com o banco.
 
@@ -19,10 +19,22 @@ A interface é feita em Next.js com Tailwind CSS. O processamento de imagem fica
 ├── supabase/
 │   └── migrations/            # Schema, índices FTS, triggers, RLS e rollback
 ├── backend/                   # FastAPI + OpenCV + PaddleOCR (ONNX)
-├── frontend/                  # Next.js PWA: câmera ao vivo (OpenCV.js), modos e histórico
-├── deploy/vps/                # docker-compose da API para uma VPS
+├── frontend/                  # Next.js PWA: câmera, recorte, editor, login e histórico
+├── deploy/
+│   ├── README.md              # Onde cada parte roda e como fazer um novo deploy
+│   └── vps/                   # docker-compose da API para a VPS
 └── .github/workflows/         # CI do backend e do frontend
 ```
+
+## Em produção
+
+| Parte | Onde | Endereço |
+|---|---|---|
+| Aplicativo | Vercel | https://miniscan-desafio.vercel.app |
+| API | VPS (Docker, atrás do Caddy) | https://miniscan-api.duckdns.org |
+| Banco e arquivos | Supabase Cloud | — |
+
+Para usar, abra o aplicativo no celular, crie uma conta e, se quiser, adicione à tela de início. Como cada parte é atualizada, o que conferir depois de um deploy e como voltar atrás estão em [deploy/README.md](deploy/README.md).
 
 ## Como rodar
 

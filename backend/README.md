@@ -81,7 +81,7 @@ docker compose config --quiet && docker compose up -d --build
 curl -s http://127.0.0.1:8020/saude
 ```
 
-Para atualizar depois de um push: `git pull` na raiz e `docker compose up -d --build` em `deploy/vps`.
+Para atualizar depois de um push: `git pull` na raiz e `docker compose up -d --build` em `deploy/vps`. Em produção, a API está em https://miniscan-api.duckdns.org; o guia de atualização, com as conferências e como voltar atrás, está em [`deploy/README.md`](../deploy/README.md).
 
 ## Deploy no Hugging Face Spaces
 
