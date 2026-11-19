@@ -138,6 +138,26 @@ def test_cors_aceita_origens_de_previa_por_regex(monkeypatch):
     assert not origem_liberada("https://site-malicioso.com")
 
 
+@pytest.mark.parametrize("metodo", ["PATCH", "DELETE"])
+def test_cors_libera_renomear_e_excluir(monkeypatch, metodo):
+    """O navegador pergunta antes (OPTIONS) se pode mandar PATCH e DELETE de outra origem."""
+    from app import main
+    from app.config import Configuracoes
+
+    monkeypatch.setenv("MINISCAN_ORIGENS_CORS", "https://miniscan.vercel.app")
+    monkeypatch.setattr(main, "configuracoes", Configuracoes())
+    resposta = TestClient(main.criar_app()).options(
+        "/documentos/00000000-0000-4000-8000-000000000001",
+        headers={
+            "Origin": "https://miniscan.vercel.app",
+            "Access-Control-Request-Method": metodo,
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+    assert resposta.status_code == 200
+    assert metodo in resposta.headers["access-control-allow-methods"]
+
+
 def test_extrair_ocr_com_cantos_le_a_pagina_retificada_original(foto_documento_jpeg, monkeypatch):
     recebida = {}
 

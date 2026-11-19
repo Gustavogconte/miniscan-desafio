@@ -250,6 +250,8 @@ class TestRotas:
             ("post", "/documentos"),
             ("get", "/documentos"),
             ("get", "/documentos/00000000-0000-4000-8000-000000000001"),
+            ("patch", "/documentos/00000000-0000-4000-8000-000000000001"),
+            ("delete", "/documentos/00000000-0000-4000-8000-000000000001"),
             ("get", "/eu"),
         ]:
             resposta = getattr(cliente, metodo)(caminho)

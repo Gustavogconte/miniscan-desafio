@@ -30,7 +30,9 @@ from app.config import MAXIMO_PAGINAS_PDF, TAMANHO_MAXIMO_ARQUIVO, configuracoes
 from app.contas import Usuario
 from app.esquemas import (
     DocumentoCompleto,
+    DocumentoRenomeado,
     MetadadosPagina,
+    PedidoRenomear,
     Ponto,
     RespostaCantos,
     RespostaDocumento,
@@ -48,7 +50,9 @@ from app.persistencia import (
     RepositorioDocumentos,
     RepositorioSupabase,
     abrir_documento,
+    excluir_documento,
     listar_historico,
+    renomear_documento,
     salvar_documento,
 )
 from app.rotas_contas import cliente_supabase, usuario_logado
@@ -326,3 +330,44 @@ def rota_abrir_documento(
     if documento is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento não encontrado.")
     return DocumentoCompleto.model_validate(documento, from_attributes=True)
+
+
+@roteador.patch(
+    "/documentos/{documento_id}",
+    response_model=DocumentoRenomeado,
+    responses={
+        **ERROS_HISTORICO,
+        status.HTTP_404_NOT_FOUND: {"model": RespostaErro},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": RespostaErro},
+    },
+    tags=["historico"],
+    summary="Muda o nome (título) de um documento da conta",
+)
+def rota_renomear_documento(
+    documento_id: uuid.UUID,
+    pedido: PedidoRenomear,
+    usuario: Annotated[Usuario, Depends(usuario_logado)],
+    repositorio: Annotated[RepositorioDocumentos, Depends(obter_repositorio)],
+) -> DocumentoRenomeado:
+    titulo = renomear_documento(repositorio, usuario.id, str(documento_id), pedido.titulo)
+    if titulo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento não encontrado.")
+    return DocumentoRenomeado(id=str(documento_id), titulo=titulo)
+
+
+@roteador.delete(
+    "/documentos/{documento_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses={**ERROS_HISTORICO, status.HTTP_404_NOT_FOUND: {"model": RespostaErro}},
+    tags=["historico"],
+    summary="Apaga um documento da conta, com as páginas, o PDF e as imagens",
+)
+def rota_excluir_documento(
+    documento_id: uuid.UUID,
+    usuario: Annotated[Usuario, Depends(usuario_logado)],
+    repositorio: Annotated[RepositorioDocumentos, Depends(obter_repositorio)],
+) -> Response:
+    if not excluir_documento(repositorio, usuario.id, str(documento_id), configuracoes.bucket):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento não encontrado.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

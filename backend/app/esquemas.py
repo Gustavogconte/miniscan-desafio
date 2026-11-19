@@ -58,6 +58,16 @@ class RespostaDocumento(BaseModel):
     total_paginas: int
 
 
+class PedidoRenomear(BaseModel):
+    # O limite real (200 caracteres, sem ficar vazio) fica em app/persistencia.py.
+    titulo: Annotated[str, Field(max_length=1000)]
+
+
+class DocumentoRenomeado(BaseModel):
+    id: str
+    titulo: str
+
+
 class ResumoDocumento(BaseModel):
     """Um item do histórico, com a primeira página como capa."""
 

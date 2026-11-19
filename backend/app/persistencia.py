@@ -43,7 +43,13 @@ class RepositorioDocumentos(Protocol):
 
     def inserir_paginas(self, registros: list[dict]) -> None: ...
 
-    def remover_documento(self, documento_id: str) -> None: ...
+    def remover_documento(self, documento_id: str, usuario_id: str | None = None) -> None:
+        """Apaga a linha do documento (as páginas caem em cascata); com dono, só se for dele."""
+        ...
+
+    def atualizar_titulo(self, usuario_id: str, documento_id: str, titulo: str) -> bool:
+        """Troca o título do documento do dono. False se não existe ou é de outra conta."""
+        ...
 
     def listar_documentos(self, usuario_id: str, termo: str, limite: int) -> list[dict]:
         """Documentos do dono, do mais novo para o mais antigo, só com a 1ª página."""
@@ -316,6 +322,46 @@ def abrir_documento(
     )
 
 
+def renomear_documento(
+    repositorio: RepositorioDocumentos, usuario_id: str, documento_id: str, titulo: str
+) -> str | None:
+    """Novo título já limpo, ou None se o documento não existe ou é de outra conta."""
+    titulo = validar_titulo(titulo)
+    if not repositorio.atualizar_titulo(usuario_id, documento_id, titulo):
+        return None
+    return titulo
+
+
+def excluir_documento(
+    repositorio: RepositorioDocumentos, usuario_id: str, documento_id: str, bucket: str
+) -> bool:
+    """Apaga o documento da conta, com as páginas e os arquivos. False se não existe ou é alheio.
+
+    Primeiro sai a linha do banco (as páginas caem em cascata), e o documento some do
+    histórico. Os arquivos saem depois: se o Storage falhar nessa hora, eles sobram no
+    bucket privado, onde ninguém os alcança sem um link assinado, e o caso vai para o log.
+    Na ordem inversa, uma falha no banco deixaria no histórico um documento sem arquivos.
+    """
+    linha = repositorio.obter_documento(usuario_id, documento_id)
+    if linha is None:
+        return False
+    paginas = linha.get("document_pages") or []
+    valores = [linha.get("pdf_url")]
+    valores += [p.get("original_image_url") for p in paginas]
+    valores += [p.get("processed_image_url") for p in paginas]
+    caminhos = sorted({c for valor in valores if (c := caminho_no_bucket(valor, bucket))})
+
+    repositorio.remover_documento(documento_id, usuario_id)
+    if caminhos:
+        try:
+            repositorio.remover_arquivos(caminhos)
+        except Exception:
+            logger.exception(
+                "Documento %s apagado, mas os arquivos ficaram no bucket", documento_id
+            )
+    return True
+
+
 CAMPOS_LISTA = (
     "id, title, pdf_url, page_count, created_at, "
     "document_pages(processed_image_url, ocr_text, filter_applied, page_order)"
@@ -347,8 +393,22 @@ class RepositorioSupabase:
     def inserir_paginas(self, registros: list[dict]) -> None:
         self._cliente.table("document_pages").insert(registros).execute()
 
-    def remover_documento(self, documento_id: str) -> None:
-        self._cliente.table("documents").delete().eq("id", documento_id).execute()
+    def remover_documento(self, documento_id: str, usuario_id: str | None = None) -> None:
+        consulta = self._cliente.table("documents").delete().eq("id", documento_id)
+        if usuario_id is not None:
+            consulta = consulta.eq("usuario_id", usuario_id)
+        consulta.execute()
+
+    def atualizar_titulo(self, usuario_id: str, documento_id: str, titulo: str) -> bool:
+        # O PostgREST devolve as linhas alteradas: nenhuma = não existe ou é de outra conta.
+        resposta = (
+            self._cliente.table("documents")
+            .update({"title": titulo})
+            .eq("id", documento_id)
+            .eq("usuario_id", usuario_id)
+            .execute()
+        )
+        return bool(resposta.data)
 
     def listar_documentos(self, usuario_id: str, termo: str, limite: int) -> list[dict]:
         # A função do banco filtra pelo dono e busca no título e no OCR (português).

@@ -190,7 +190,8 @@ def criar_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=configuracoes.origens_cors,
         allow_origin_regex=configuracoes.origens_cors_regex,
-        allow_methods=["GET", "POST"],
+        # PATCH renomeia e DELETE apaga documentos do histórico.
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
     app.add_exception_handler(ImagemGrandeDemaisError, _erro(status.HTTP_413_CONTENT_TOO_LARGE))

@@ -12,7 +12,9 @@ from app.persistencia import (
     PaginaParaSalvar,
     abrir_documento,
     caminho_no_bucket,
+    excluir_documento,
     listar_historico,
+    renomear_documento,
     salvar_documento,
 )
 from app.rotas import obter_repositorio
@@ -44,6 +46,7 @@ class RepositorioFalso:
         self.arquivos[caminho] = (dados, tipo_mime)
 
     def remover_arquivos(self, caminhos):
+        self._talvez_falhar("remover_arquivos")
         for caminho in caminhos:
             self.arquivos.pop(caminho, None)
 
@@ -55,9 +58,19 @@ class RepositorioFalso:
         self._talvez_falhar("inserir_paginas")
         self.paginas.extend(registros)
 
-    def remover_documento(self, documento_id):
-        self.documentos.pop(documento_id, None)
+    def remover_documento(self, documento_id, usuario_id=None):
+        documento = self.documentos.get(documento_id)
+        if documento is None or usuario_id not in (None, documento["usuario_id"]):
+            return
+        del self.documentos[documento_id]
         self.paginas = [p for p in self.paginas if p["document_id"] != documento_id]
+
+    def atualizar_titulo(self, usuario_id, documento_id, titulo):
+        documento = self.documentos.get(documento_id)
+        if documento is None or documento["usuario_id"] != usuario_id:
+            return False
+        documento["title"] = titulo
+        return True
 
     def _linha(self, documento: dict, paginas: list[dict]) -> dict:
         return {
@@ -294,3 +307,108 @@ class TestRotasHistorico:
         assert [p["ordem"] for p in resposta.json()["paginas"]] == [1, 2]
         assert cliente.get(f"/documentos/{alheio}").status_code == 404
         assert cliente.get("/documentos/nao-e-uuid").status_code == 422
+
+
+def arquivos_do(documento_id: str, repositorio: RepositorioFalso) -> list[str]:
+    return [c for c in repositorio.arquivos if c.startswith(f"documentos/{documento_id}/")]
+
+
+class TestExcluirDocumento:
+    def test_apaga_documento_paginas_e_arquivos_so_da_conta(self):
+        repositorio = RepositorioFalso()
+        meu = salvar_documento(repositorio, USUARIO_TESTE_ID, "Meu", PDF, duas_paginas())
+        alheio = salvar_documento(repositorio, OUTRA_CONTA, "Alheio", PDF, duas_paginas())
+
+        assert excluir_documento(repositorio, USUARIO_TESTE_ID, meu.id, BUCKET) is True
+
+        assert list(repositorio.documentos) == [alheio.id]
+        assert {p["document_id"] for p in repositorio.paginas} == {alheio.id}
+        assert arquivos_do(meu.id, repositorio) == []
+        assert len(arquivos_do(alheio.id, repositorio)) == 5
+
+    def test_documento_de_outra_conta_fica_intacto(self):
+        repositorio = RepositorioFalso()
+        alheio = salvar_documento(repositorio, OUTRA_CONTA, "Alheio", PDF, duas_paginas())
+
+        assert excluir_documento(repositorio, USUARIO_TESTE_ID, alheio.id, BUCKET) is False
+        assert alheio.id in repositorio.documentos
+        assert len(arquivos_do(alheio.id, repositorio)) == 5
+
+    def test_falha_no_storage_nao_devolve_o_documento_ao_historico(self, caplog):
+        repositorio = RepositorioFalso()
+        meu = salvar_documento(repositorio, USUARIO_TESTE_ID, "Meu", PDF, duas_paginas())
+        repositorio.falhar_em = "remover_arquivos"
+
+        assert excluir_documento(repositorio, USUARIO_TESTE_ID, meu.id, BUCKET) is True
+        assert meu.id not in repositorio.documentos
+        # Os arquivos sobram no bucket privado, e o caso fica registrado no log.
+        assert len(arquivos_do(meu.id, repositorio)) == 5
+        assert "ficaram no bucket" in caplog.text
+
+    def test_apaga_arquivos_de_documento_antigo_com_url_publica(self):
+        repositorio = RepositorioFalso()
+        meu = salvar_documento(repositorio, USUARIO_TESTE_ID, "Antigo", PDF, duas_paginas())
+        publica = "https://abc.supabase.co/storage/v1/object/public/miniscan-files/"
+        registro = repositorio.documentos[meu.id]
+        registro["pdf_url"] = publica + registro["pdf_url"]
+
+        assert excluir_documento(repositorio, USUARIO_TESTE_ID, meu.id, BUCKET) is True
+        assert arquivos_do(meu.id, repositorio) == []
+
+
+class TestRenomearDocumento:
+    def test_renomeia_com_o_titulo_limpo(self):
+        repositorio = RepositorioFalso()
+        meu = salvar_documento(repositorio, USUARIO_TESTE_ID, "Velho", PDF, duas_paginas())
+
+        novo = renomear_documento(repositorio, USUARIO_TESTE_ID, meu.id, "  Contrato   novo ")
+
+        assert novo == "Contrato novo"
+        assert repositorio.documentos[meu.id]["title"] == "Contrato novo"
+
+    @pytest.mark.parametrize("titulo", ["   ", "x" * 201])
+    def test_rejeita_titulo_invalido(self, titulo):
+        repositorio = RepositorioFalso()
+        meu = salvar_documento(repositorio, USUARIO_TESTE_ID, "Velho", PDF, duas_paginas())
+        with pytest.raises(DocumentoInvalidoError):
+            renomear_documento(repositorio, USUARIO_TESTE_ID, meu.id, titulo)
+        assert repositorio.documentos[meu.id]["title"] == "Velho"
+
+    def test_nao_renomeia_documento_de_outra_conta(self):
+        repositorio = RepositorioFalso()
+        alheio = salvar_documento(repositorio, OUTRA_CONTA, "Alheio", PDF, duas_paginas())
+        assert renomear_documento(repositorio, USUARIO_TESTE_ID, alheio.id, "Meu agora") is None
+        assert repositorio.documentos[alheio.id]["title"] == "Alheio"
+
+
+class TestRotasExcluirERenomear:
+    def test_exclui_pela_api(self, cliente_com_repositorio):
+        cliente, repositorio = cliente_com_repositorio
+        meu = enviar_documento(cliente).json()["id"]
+        alheio = salvar_documento(repositorio, OUTRA_CONTA, "Alheio", PDF, duas_paginas()).id
+
+        resposta = cliente.delete(f"/documentos/{meu}")
+
+        assert resposta.status_code == 204
+        assert resposta.content == b""
+        assert cliente.get(f"/documentos/{meu}").status_code == 404
+        assert cliente.delete(f"/documentos/{meu}").status_code == 404
+        # Documento de outra conta responde como inexistente e não sai do banco.
+        assert cliente.delete(f"/documentos/{alheio}").status_code == 404
+        assert alheio in repositorio.documentos
+        assert cliente.delete("/documentos/nao-e-uuid").status_code == 422
+
+    def test_renomeia_pela_api(self, cliente_com_repositorio):
+        cliente, repositorio = cliente_com_repositorio
+        meu = enviar_documento(cliente).json()["id"]
+        alheio = salvar_documento(repositorio, OUTRA_CONTA, "Alheio", PDF, duas_paginas()).id
+
+        resposta = cliente.patch(f"/documentos/{meu}", json={"titulo": "  RG da Ana "})
+
+        assert resposta.status_code == 200
+        assert resposta.json() == {"id": meu, "titulo": "RG da Ana"}
+        assert cliente.get(f"/documentos/{meu}").json()["titulo"] == "RG da Ana"
+        assert cliente.patch(f"/documentos/{meu}", json={"titulo": "  "}).status_code == 422
+        assert cliente.patch(f"/documentos/{meu}", json={}).status_code == 422
+        assert cliente.patch(f"/documentos/{alheio}", json={"titulo": "Meu"}).status_code == 404
+        assert repositorio.documentos[alheio]["title"] == "Alheio"
