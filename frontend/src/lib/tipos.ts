@@ -1,16 +1,17 @@
 /** Os três filtros do enunciado, com os mesmos valores da API e do banco. */
 export type Filtro = "original" | "grayscale" | "bw";
 
+// "Colorido", e não "Original": "original" no app é a foto como foi tirada.
 export const FILTROS: { valor: Filtro; rotulo: string }[] = [
-  { valor: "original", rotulo: "Original" },
+  { valor: "original", rotulo: "Colorido" },
   { valor: "grayscale", rotulo: "Cinza" },
-  { valor: "bw", rotulo: "P&B" },
+  { valor: "bw", rotulo: "Preto e branco" },
 ];
 
 export const ROTULO_FILTRO: Record<Filtro, string> = {
-  original: "Original",
+  original: "Colorido",
   grayscale: "Cinza",
-  bw: "P&B",
+  bw: "Preto e branco",
 };
 
 /** Modos da câmera: documento comum (uma ou várias páginas) ou documento de identidade. */

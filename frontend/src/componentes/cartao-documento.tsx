@@ -3,7 +3,7 @@
 import { FileText } from "lucide-react";
 import Link from "next/link";
 
-import { ROTULO_FILTRO, type DocumentoHistorico } from "@/lib/tipos";
+import type { DocumentoHistorico } from "@/lib/tipos";
 
 const formatoHora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 const formatoData = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
@@ -51,14 +51,9 @@ export function CartaoDocumento({ documento }: { documento: DocumentoHistorico }
         {trecho ? (
           <p className="mt-1 line-clamp-2 text-xs leading-snug text-texto-secundario">“{trecho}”</p>
         ) : (
-          <p className="mt-1 text-xs italic text-texto-suave">Sem texto reconhecido</p>
+          <p className="mt-1 text-xs italic text-texto-suave">Sem texto</p>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-texto-secundario">
-          {documento.filtro_capa && (
-            <span className="rounded-md bg-primaria-suave px-2 py-0.5 font-mono font-semibold text-primaria-texto">
-              {ROTULO_FILTRO[documento.filtro_capa]}
-            </span>
-          )}
           <span className="font-mono">{paginas}</span>
           <span aria-hidden>•</span>
           <time dateTime={documento.criado_em}>{formatarData(documento.criado_em)}</time>

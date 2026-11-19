@@ -213,7 +213,7 @@ def salvar_documento(
         repositorio.inserir_paginas(registros_paginas)
     except Exception as erro:
         _desfazer(repositorio, documento_id if documento_inserido else None, enviados)
-        raise FalhaPersistenciaError("Não foi possível salvar o documento no Supabase.") from erro
+        raise FalhaPersistenciaError("Não foi possível salvar o documento.") from erro
 
     return DocumentoSalvo(id=documento_id, titulo=titulo, total_paginas=len(paginas))
 

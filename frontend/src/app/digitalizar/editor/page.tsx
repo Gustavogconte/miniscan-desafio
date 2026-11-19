@@ -32,9 +32,9 @@ import { useVisualizador } from "@/lib/usar-visualizador";
 import type { ImagemVisualizada } from "@/lib/visualizador";
 
 const DESCRICAO_FILTRO: Record<Filtro, string> = {
-  original: "Cores da foto, só com a perspectiva corrigida",
-  grayscale: "Tons de cinza com equalização de luz (CLAHE)",
-  bw: "Preto e branco de scanner: nivela a luz e remove sombras",
+  original: "Cores da foto, só recortada e endireitada",
+  grayscale: "Tons de cinza, com a luz mais uniforme",
+  bw: "Preto e branco de xerox, sem as sombras da foto",
 };
 
 const ID_MENU_PAGINA = "menu-nova-pagina";
@@ -56,7 +56,7 @@ function versaoDaPagina(pagina: Pagina): { url: string; filtro: Filtro | null } 
 }
 
 function detalheDaVersao(filtro: Filtro | null): string {
-  return filtro ? ROTULO_FILTRO[filtro] : "sem recorte";
+  return filtro ? ROTULO_FILTRO[filtro] : "falta recortar";
 }
 
 export default function TelaEditor() {
@@ -163,7 +163,7 @@ function ConteudoEditor() {
     <main className="flex min-h-0 flex-1 flex-col">
       {captura.entradas}
       <CabecalhoEtapa
-        titulo="Filtros e OCR"
+        titulo="Revisar documento"
         subtitulo={`Página ${indiceAtual + 1} de ${paginas.length}`}
         voltarPara="/"
         aoVoltar={confirmarDescarte}
@@ -343,7 +343,7 @@ function ConteudoEditor() {
             className="flex min-h-12 w-full items-center gap-3 px-4 text-sm hover:bg-secundario"
           >
             <Camera className="size-4 text-texto-secundario" aria-hidden />
-            Escanear com a câmera
+            Fotografar com a câmera
           </button>
           <button
             type="button"
@@ -351,7 +351,7 @@ function ConteudoEditor() {
             className="mb-1 flex min-h-12 w-full items-center gap-3 px-4 text-sm hover:bg-secundario"
           >
             <ImageIcon className="size-4 text-texto-secundario" aria-hidden />
-            Escolher da galeria
+            Escolher foto do celular
           </button>
         </div>
       </div>
@@ -397,7 +397,7 @@ function ConteudoEditor() {
             ) : (
               <FileText className="size-4 text-primaria-texto" aria-hidden />
             )}
-            Texto OCR
+            Ver texto
           </button>
           <button
             type="button"

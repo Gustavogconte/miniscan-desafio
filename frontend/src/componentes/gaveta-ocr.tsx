@@ -49,9 +49,9 @@ export function GavetaOcr({ aberta, pagina, aoFechar, aoEditar, aoTentarDeNovo }
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 id="titulo-ocr" className="font-display text-base font-bold">
-              Texto reconhecido (OCR)
+              Texto da página
             </h2>
-            <p className="mt-0.5 text-xs text-texto-secundario">Confira e corrija antes de salvar. Português (pt-BR).</p>
+            <p className="mt-0.5 text-xs text-texto-secundario">O app leu este texto na foto. Confira e corrija o que precisar.</p>
           </div>
           <button
             type="button"
@@ -83,14 +83,14 @@ export function GavetaOcr({ aberta, pagina, aoFechar, aoEditar, aoTentarDeNovo }
         ) : (
           <>
             <label htmlFor="texto-ocr" className="sr-only">
-              Texto reconhecido
+              Texto da página
             </label>
             <textarea
               id="texto-ocr"
               value={pagina.textoOcr}
               onChange={(evento) => aoEditar(evento.target.value)}
               rows={6}
-              placeholder="Nenhum texto foi reconhecido nesta página."
+              placeholder="O app não achou texto nesta página."
               className="max-h-[38dvh] w-full resize-none rounded-xl border border-borda-campo bg-fundo p-3.5 font-mono text-base leading-relaxed text-texto focus:border-primaria-texto focus:outline-none focus:ring-2 focus:ring-primaria-suave sm:text-xs"
             />
           </>

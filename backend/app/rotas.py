@@ -223,7 +223,7 @@ def obter_repositorio() -> RepositorioDocumentos:
     if not configuracoes.persistencia_configurada:
         logger.error("Histórico indisponível: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente")
         raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, "O histórico está indisponível no momento."
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Os documentos salvos estão indisponíveis agora."
         )
     return _repositorio_supabase()
 

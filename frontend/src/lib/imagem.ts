@@ -36,7 +36,7 @@ function carregarImagem(arquivo: Blob): Promise<HTMLImageElement> {
     };
     imagem.onerror = () => {
       URL.revokeObjectURL(url);
-      rejeitar(new Error("Não foi possível abrir essa imagem. Tente uma foto em JPEG ou PNG."));
+      rejeitar(new Error("Não foi possível abrir essa imagem. Tente outra foto."));
     };
     imagem.src = url;
   });

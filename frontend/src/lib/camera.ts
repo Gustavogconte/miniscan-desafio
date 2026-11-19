@@ -92,8 +92,6 @@ export function useCameraAoVivo() {
   const [estado, setEstado] = useState<EstadoCamera>("iniciando");
   const [lanternaSuportada, setLanternaSuportada] = useState(false);
   const [lanternaLigada, setLanternaLigada] = useState(false);
-  /** Nome da câmera em uso (ex.: "Câmera Traseira"), para diagnosticar zoom. */
-  const [nomeCamera, setNomeCamera] = useState("");
   const trilha = useRef<MediaStreamTrack | null>(null);
 
   useEffect(() => {
@@ -127,7 +125,6 @@ export function useCameraAoVivo() {
         video.current.srcObject = fluxo;
         await video.current.play();
         trilha.current = fluxo.getVideoTracks()[0] ?? null;
-        setNomeCamera(trilha.current?.label ?? "");
         const capacidades = trilha.current?.getCapabilities?.() as CapacidadesComLanterna | undefined;
         setLanternaSuportada(Boolean(capacidades?.torch));
         // Foco contínuo onde existir (Chrome no Android); o Safari já faz sozinho.
@@ -179,5 +176,5 @@ export function useCameraAoVivo() {
     return { blob, largura: tela.width, altura: tela.height, copiaDeteccao };
   }, []);
 
-  return { video, estado, nomeCamera, lanternaSuportada, lanternaLigada, alternarLanterna, capturarQuadro };
+  return { video, estado, lanternaSuportada, lanternaLigada, alternarLanterna, capturarQuadro };
 }

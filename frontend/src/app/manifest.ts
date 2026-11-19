@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "MiniScan",
     short_name: "MiniScan",
-    description: "Digitalize documentos com o celular: recorte automático, filtros, OCR em português e PDF.",
+    description: "Digitalize documentos com o celular: recorte automático, filtros, leitura do texto e PDF.",
     lang: "pt-BR",
     start_url: "/",
     scope: "/",

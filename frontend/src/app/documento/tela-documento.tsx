@@ -115,7 +115,7 @@ function ConteudoDocumento({ id }: { id: string }) {
   if (situacao.tipo !== "pronto") {
     return (
       <main className="flex min-h-0 flex-1 flex-col">
-        <CabecalhoEtapa titulo="Documento" voltarPara="/" rotuloVoltar="Voltar ao histórico" />
+        <CabecalhoEtapa titulo="Documento" voltarPara="/" rotuloVoltar="Voltar aos documentos" />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
           {situacao.tipo === "carregando" ? (
             <>
@@ -126,7 +126,7 @@ function ConteudoDocumento({ id }: { id: string }) {
             <>
               <p className="font-display text-sm font-bold text-texto">{situacao.mensagem}</p>
               <Link href="/" className="text-sm font-semibold text-primaria-texto underline underline-offset-2">
-                Voltar ao histórico
+                Voltar aos documentos
               </Link>
             </>
           )}
@@ -226,7 +226,7 @@ function ConteudoDocumento({ id }: { id: string }) {
         titulo={documento.titulo}
         subtitulo={`${paginas.length} ${paginas.length === 1 ? "página" : "páginas"} • ${formatoData.format(new Date(documento.criado_em))}`}
         voltarPara="/"
-        rotuloVoltar="Voltar ao histórico"
+        rotuloVoltar="Voltar aos documentos"
         acao={
           <div className="flex shrink-0">
             <button type="button" onClick={abrirRenomear} aria-label="Mudar o nome do documento" className={`${botaoIcone} hover:text-texto`}>
@@ -260,7 +260,7 @@ function ConteudoDocumento({ id }: { id: string }) {
               id="titulo-texto"
               className="font-mono text-[11px] font-semibold uppercase tracking-wider text-texto-secundario"
             >
-              Texto reconhecido
+              Texto das páginas
             </h2>
             {textoCompleto && (
               <button
@@ -300,7 +300,7 @@ function ConteudoDocumento({ id }: { id: string }) {
                         </button>
                       </>
                     ) : (
-                      <p className="text-xs italic text-texto-suave">Nenhum texto reconhecido nesta página.</p>
+                      <p className="text-xs italic text-texto-suave">O app não achou texto nesta página.</p>
                     )}
                   </div>
                 </details>

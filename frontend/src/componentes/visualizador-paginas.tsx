@@ -121,7 +121,7 @@ export default function VisualizadorPaginas({
                 ) : (
                   <Camera className="size-4" aria-hidden />
                 )}
-                {mostrandoOriginal ? "Ver página tratada" : "Ver foto original"}
+                {mostrandoOriginal ? "Ver página digitalizada" : "Ver foto original"}
               </button>
             )}
           </div>

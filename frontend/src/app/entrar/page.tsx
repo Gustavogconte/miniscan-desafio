@@ -185,7 +185,7 @@ export default function TelaEntrar() {
 
         <p className="mt-6 flex items-start gap-2 text-xs leading-relaxed text-texto-suave">
           <LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          Cada conta vê só os próprios documentos. A senha é guardada com hash Argon2id, nunca em texto.
+          Cada conta vê só os próprios documentos, e a senha fica guardada de um jeito que ninguém consegue ler.
         </p>
       </div>
     </main>

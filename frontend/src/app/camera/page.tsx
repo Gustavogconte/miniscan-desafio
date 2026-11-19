@@ -28,8 +28,8 @@ interface Tamanho {
 
 /** As três formas de fotografar, num seletor só. */
 const OPCOES_CAPTURA = [
-  { valor: "unico", rotulo: "Único" },
-  { valor: "lote", rotulo: "Lote" },
+  { valor: "unico", rotulo: "Uma página" },
+  { valor: "lote", rotulo: "Várias páginas" },
   { valor: "cartao", rotulo: "RG ou CNH" },
 ] as const;
 type OpcaoCaptura = (typeof OPCOES_CAPTURA)[number]["valor"];
@@ -72,7 +72,6 @@ export default function TelaCamera() {
   const {
     video,
     estado: estadoCamera,
-    nomeCamera,
     lanternaSuportada,
     lanternaLigada,
     alternarLanterna,
@@ -281,15 +280,6 @@ export default function TelaCamera() {
         >
           <X className="size-6" aria-hidden />
         </Link>
-        {estadoCamera === "ativa" && tamanhoVideo.largura > 1 && (
-          // Resolução real entregue pela câmera: ajuda a entender fotos com pouca nitidez.
-          <span
-            title={nomeCamera || undefined}
-            className="mr-auto truncate rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white/80"
-          >
-            {tamanhoVideo.largura}×{tamanhoVideo.altura}
-          </span>
-        )}
         <div className="flex items-center gap-2">
           {lanternaSuportada && (
             <button
@@ -351,18 +341,18 @@ export default function TelaCamera() {
         {(estadoCamera === "negada" || estadoCamera === "indisponivel") && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black p-8 pb-64 text-center">
             <Camera className="size-10 text-slate-400" aria-hidden />
-            <h1 className="font-display text-lg font-bold">Câmera ao vivo indisponível</h1>
+            <h1 className="font-display text-lg font-bold">Não foi possível abrir a câmera aqui</h1>
             <p className="text-sm text-slate-300">
               {estadoCamera === "negada"
-                ? "O acesso à câmera foi negado. Libere a permissão nas configurações do navegador ou use as opções abaixo."
-                : "Este navegador não liberou a câmera nesta página. No celular, ela só funciona com o app aberto por HTTPS."}
+                ? "O app não tem permissão para usar a câmera. Libere a câmera nos ajustes do navegador ou use as opções abaixo."
+                : "Este navegador não liberou a câmera para o app. Use as opções abaixo."}
             </p>
             <div className="grid w-full max-w-xs gap-2.5">
               <button type="button" onClick={() => cameraSistema.current?.click()} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primaria font-semibold">
-                <Camera className="size-5" aria-hidden /> Câmera do sistema
+                <Camera className="size-5" aria-hidden /> Abrir a câmera do celular
               </button>
               <button type="button" onClick={() => galeria.current?.click()} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white/10 font-semibold">
-                <ImageIcon className="size-5" aria-hidden /> Galeria
+                <ImageIcon className="size-5" aria-hidden /> Escolher foto do celular
               </button>
             </div>
           </div>
@@ -409,7 +399,7 @@ export default function TelaCamera() {
                 aria-checked={opcaoAtual === valor}
                 onClick={() => escolherOpcao(valor)}
                 disabled={temFotoNoLote && valor !== "lote"}
-                className={`min-h-10 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition disabled:opacity-40 ${
+                className={`min-h-10 whitespace-nowrap rounded-full px-3 text-[13px] font-semibold transition disabled:opacity-40 ${
                   opcaoAtual === valor ? "bg-white text-black" : "text-white"
                 }`}
               >
@@ -424,10 +414,13 @@ export default function TelaCamera() {
             type="button"
             onClick={() => galeria.current?.click()}
             disabled={Boolean(processando)}
-            aria-label="Escolher da galeria"
-            className="flex size-12 items-center justify-center justify-self-start rounded-xl bg-black/50 disabled:opacity-50"
+            aria-label="Escolher foto do celular"
+            className="flex size-14 flex-col items-center justify-center gap-0.5 justify-self-start rounded-xl bg-black/50 disabled:opacity-50"
           >
             <ImageIcon className="size-5" aria-hidden />
+            <span className="text-[11px] font-semibold leading-none" aria-hidden>
+              Fotos
+            </span>
           </button>
 
           <button

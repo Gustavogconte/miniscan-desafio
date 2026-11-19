@@ -98,7 +98,7 @@ class MotorOcr:
                     and time.monotonic() - cls._ultima_falha < ESPERA_APOS_FALHA_S
                 )
                 if falhou_ha_pouco:
-                    raise OcrIndisponivelError("O OCR está indisponível no momento.")
+                    raise OcrIndisponivelError("A leitura do texto está indisponível agora.")
                 try:
                     cls._instancia = cls._carregar()
                 except OcrIndisponivelError:
@@ -136,7 +136,7 @@ class MotorOcr:
         except Exception as erro:
             # O detalhe fica no log; o cliente recebe uma mensagem genérica.
             logger.exception("Falha ao carregar o OCR")
-            raise OcrIndisponivelError("O OCR está indisponível no momento.") from erro
+            raise OcrIndisponivelError("A leitura do texto está indisponível agora.") from erro
 
     @classmethod
     def ler(cls, imagem: np.ndarray):

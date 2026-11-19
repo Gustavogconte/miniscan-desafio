@@ -116,7 +116,7 @@ function ConteudoExportar() {
           textoOcr: p.textoOcr,
         })),
       });
-      avisar("Documento salvo no histórico");
+      avisar("Documento salvo");
       reiniciar();
       router.push("/");
     } catch (erro) {
@@ -128,8 +128,8 @@ function ConteudoExportar() {
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <CabecalhoEtapa
-        titulo="Exportar PDF"
-        subtitulo="Compartilhe, baixe ou salve no histórico"
+        titulo="Salvar documento"
+        subtitulo="Salve no app, compartilhe ou baixe o PDF"
         voltarPara="/digitalizar/editor"
         rotuloVoltar="Voltar ao editor"
       />
@@ -218,8 +218,8 @@ function ConteudoExportar() {
                   {p.estadoOcr === "pronto"
                     ? `${p.textoOcr.split(/\s+/).filter(Boolean).length} palavras`
                     : p.estadoOcr === "erro"
-                      ? "sem OCR"
-                      : "lendo texto…"}
+                      ? "sem texto"
+                      : "lendo o texto…"}
                 </span>
               </li>
             ))}
@@ -258,7 +258,7 @@ function ConteudoExportar() {
             ) : (
               <CloudUpload className="size-4 text-primaria-texto" aria-hidden />
             )}
-            {salvando ? "Salvando…" : ocrPendente ? "Aguardando OCR…" : "Salvar no histórico"}
+            {salvando ? "Salvando…" : ocrPendente ? "Lendo o texto…" : "Salvar no app"}
           </button>
         </div>
       </div>

@@ -28,7 +28,7 @@ const fonteMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "MiniScan",
-  description: "Digitalize documentos com o celular: recorte automático, filtros, OCR em português e PDF.",
+  description: "Digitalize documentos com o celular: recorte automático, filtros, leitura do texto e PDF.",
   applicationName: "MiniScan",
   appleWebApp: {
     capable: true,

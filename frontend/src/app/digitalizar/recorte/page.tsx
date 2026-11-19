@@ -30,7 +30,6 @@ function RecortePagina() {
   const avisar = useAviso();
   const { paginaAtual: pagina, paginas, indiceAtual, atualizarPagina, removerPagina } = useGuardaDigitalizacao();
   const { confirmarPagina } = useProcessamento();
-  const [detectando, setDetectando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const detectadoPara = useRef<string | null>(null);
 
@@ -41,7 +40,6 @@ function RecortePagina() {
     if (!id || !precisaDetectar || detectadoPara.current === id) return;
     detectadoPara.current = id;
     const original = pagina!.original.blob;
-    setDetectando(true);
     // A câmera já pediu os cantos ao servidor na captura: aproveita a resposta e só pede
     // de novo se esse pedido falhou (ou se a foto veio de outro caminho).
     Promise.resolve(usarDeteccaoDaCaptura(id))
@@ -53,8 +51,7 @@ function RecortePagina() {
       .catch((erro) => {
         atualizarPagina(id, { cantos: CANTOS_TELA_INTEIRA, detectado: false });
         avisar(mensagemDeErro(erro), "erro");
-      })
-      .finally(() => setDetectando(false));
+      });
   }, [id, precisaDetectar, pagina, atualizarPagina, avisar]);
 
   if (!pagina) return null;
@@ -107,15 +104,6 @@ function RecortePagina() {
         voltarPara={voltarPara}
         aoVoltar={aoVoltar}
         rotuloVoltar={rotuloVoltar}
-        acao={
-          <span
-            className={`rounded-lg px-2.5 py-1 font-mono text-[11px] font-semibold ${
-              pagina.detectado ? "bg-primaria-suave text-primaria-texto" : "bg-secundario text-texto"
-            }`}
-          >
-            {detectando ? "DETECTANDO" : pagina.detectado ? "AUTO" : "MANUAL"}
-          </span>
-        }
       />
 
       <div className="relative min-h-0 flex-1 bg-palco-recorte">
@@ -144,7 +132,7 @@ function RecortePagina() {
             className={BOTAO_SECUNDARIO}
           >
             <ScanLine className="size-4 text-primaria-texto" aria-hidden />
-            Detecção automática
+            Recorte automático
           </button>
           <button
             type="button"
@@ -158,7 +146,7 @@ function RecortePagina() {
         </div>
         <button type="button" onClick={confirmar} disabled={!cantos || confirmando} className={BOTAO_CONFIRMAR}>
           {confirmando ? <LoaderCircle className="size-5 animate-spin" aria-hidden /> : <Check className="size-5" aria-hidden />}
-          {confirmando ? "Corrigindo perspectiva…" : "Confirmar recorte"}
+          {confirmando ? "Endireitando a página…" : "Confirmar recorte"}
         </button>
       </div>
     </main>
@@ -275,7 +263,7 @@ function RecorteCartao() {
             ) : (
               <ScanLine className="size-4 text-primaria-texto" aria-hidden />
             )}
-            Detecção automática
+            Recorte automático
           </button>
           <button
             type="button"

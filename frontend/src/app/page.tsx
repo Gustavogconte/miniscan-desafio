@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, IdCard, ImageIcon, LoaderCircle, LogOut, Search } from "lucide-react";
+import { Camera, ImageIcon, LoaderCircle, LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -11,7 +11,7 @@ import { listarDocumentos, sair } from "@/lib/api";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { aplicarMudancas } from "@/lib/mudancas-historico";
 import { useSessao } from "@/lib/sessao";
-import type { DocumentoHistorico, Modo } from "@/lib/tipos";
+import type { DocumentoHistorico } from "@/lib/tipos";
 
 type EstadoLista =
   | { tipo: "carregando" }
@@ -67,8 +67,9 @@ export default function TelaInicio() {
     await sair();
   }
 
-  function abrirCamera(modo: Modo) {
-    configurar({ modo });
+  // O RG ou CNH fica no seletor da própria câmera.
+  function abrirCamera() {
+    configurar({ modo: "digitalizar" });
     router.push("/camera");
   }
   // A lista na tela ainda é de outro termo: a busca nova está em andamento.
@@ -85,7 +86,7 @@ export default function TelaInicio() {
               <Logo className="h-9 w-auto" />
             </h1>
             <p className="mt-1 truncate text-xs text-texto-secundario">
-              {primeiroNome ? `Olá, ${primeiroNome}` : "Digitalizador de documentos com OCR"}
+              {primeiroNome ? `Olá, ${primeiroNome}` : "Digitalize documentos com o celular"}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -108,7 +109,7 @@ export default function TelaInicio() {
 
         <div className="relative mt-4">
           <label htmlFor="busca" className="sr-only">
-            Buscar documento por título ou texto extraído
+            Buscar documento pelo nome ou por uma palavra escrita nele
           </label>
           <Search
             className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-texto-suave"
@@ -119,7 +120,7 @@ export default function TelaInicio() {
             type="search"
             value={termo}
             onChange={(evento) => setTermo(evento.target.value)}
-            placeholder="Buscar por título ou texto (OCR)"
+            placeholder="Buscar por nome ou palavra"
             autoComplete="off"
             className="h-11 w-full rounded-xl border border-borda-campo bg-cartao pl-10 pr-10 text-base text-texto placeholder:text-texto-suave focus:border-primaria-texto focus:outline-none focus:ring-2 focus:ring-primaria-suave sm:text-sm"
           />
@@ -130,15 +131,6 @@ export default function TelaInicio() {
             />
           )}
         </div>
-
-        <button
-          type="button"
-          onClick={() => abrirCamera("cartao")}
-          className="mt-3 flex min-h-11 items-center gap-1.5 rounded-xl border border-borda bg-cartao px-3 text-xs font-semibold text-texto transition hover:border-primaria-texto"
-        >
-          <IdCard className="size-4 text-primaria-texto" aria-hidden />
-          RG ou CNH
-        </button>
 
         <p className="mt-3 text-xs font-medium text-texto-secundario" aria-live="polite">
           {buscando && termo
@@ -151,13 +143,13 @@ export default function TelaInicio() {
         </p>
       </div>
 
-      <section aria-label="Histórico de documentos" aria-busy={buscando} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 pb-4">
+      <section aria-label="Documentos salvos" aria-busy={buscando} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-5 pb-4">
         {lista.tipo === "carregando" &&
           [0, 1, 2].map((i) => <div key={i} className="h-[100px] animate-pulse rounded-2xl bg-secundario" />)}
 
         {lista.tipo === "erro" && (
           <div className="rounded-2xl border border-borda bg-cartao p-5 text-center">
-            <p className="font-display text-sm font-bold text-texto">Histórico indisponível</p>
+            <p className="font-display text-sm font-bold text-texto">Não foi possível carregar seus documentos</p>
             <p className="mt-1 text-xs text-texto-secundario">{lista.mensagem}</p>
           </div>
         )}
@@ -169,7 +161,7 @@ export default function TelaInicio() {
             </p>
             <p className="mt-1 text-xs text-texto-secundario">
               {termo
-                ? "A busca procura no título e no texto reconhecido das páginas."
+                ? "A busca olha o nome e as palavras escritas nas páginas."
                 : "Toque em Digitalizar para fotografar sua primeira folha."}
             </p>
           </div>
@@ -180,7 +172,21 @@ export default function TelaInicio() {
         ))}
       </section>
 
-      <div className="grid shrink-0 grid-cols-5 gap-2.5 border-t border-borda bg-cartao p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 space-y-2.5 border-t border-borda bg-cartao p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <button
+          type="button"
+          onClick={abrirCamera}
+          disabled={captura.preparando}
+          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-primaria font-display text-sm font-bold text-white shadow-sm transition hover:bg-primaria-hover active:scale-[0.98] disabled:opacity-60"
+        >
+          {captura.preparando ? (
+            <LoaderCircle className="size-5 animate-spin" aria-hidden />
+          ) : (
+            <Camera className="size-5" aria-hidden />
+          )}
+          {captura.preparando ? "Preparando foto…" : "Digitalizar com a câmera"}
+        </button>
+        {/* Uma foto que já está no celular (a galeria do Android ou o Fotos do iPhone). */}
         <button
           type="button"
           onClick={() => {
@@ -188,23 +194,10 @@ export default function TelaInicio() {
             captura.abrirGaleria();
           }}
           disabled={captura.preparando}
-          className="col-span-2 flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-borda bg-secundario text-sm font-semibold text-texto transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-borda bg-secundario text-sm font-semibold text-texto transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
         >
           <ImageIcon className="size-4 text-texto-secundario" aria-hidden />
-          Galeria
-        </button>
-        <button
-          type="button"
-          onClick={() => abrirCamera("digitalizar")}
-          disabled={captura.preparando}
-          className="col-span-3 flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-primaria font-display text-sm font-bold text-white shadow-sm transition hover:bg-primaria-hover active:scale-[0.98] disabled:opacity-60"
-        >
-          {captura.preparando ? (
-            <LoaderCircle className="size-5 animate-spin" aria-hidden />
-          ) : (
-            <Camera className="size-5" aria-hidden />
-          )}
-          {captura.preparando ? "Preparando foto…" : "Digitalizar"}
+          Escolher foto do celular
         </button>
       </div>
     </main>
