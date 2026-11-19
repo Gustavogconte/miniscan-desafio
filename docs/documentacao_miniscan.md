@@ -10,7 +10,7 @@ Nesse trabalho o objetivo foi desenvolver um aplicativo de digitalização de do
 
 ### Requisitos Funcionais e Não Funcionais
 
-Na definição do escopo, segui a lista do enunciado e acrescentei duas funções. O sistema precisa capturar ou selecionar imagens pela câmera ou pela galeria (RF01), visualizar as imagens capturadas em tela cheia, com zoom, troca de página e comparação entre a foto original e a página tratada, tanto durante a digitalização quanto nos documentos já salvos (RF02), aplicar e alternar entre os filtros original, escala de cinza e preto e branco (RF03), gerar um arquivo PDF único a partir das páginas digitalizadas (RF04) e salvar o documento no histórico na nuvem ou compartilhá-lo e baixá-lo pelo celular (RF05). O enunciado coloca o reconhecimento de texto como funcionalidade adicional, mas decidi tratá-lo como obrigatório, então o sistema também extrai o texto de cada página via OCR em português (RF06). Por fim, incluí a detecção automática das bordas da folha com correção de perspectiva, que deixa a página reta como num scanner e pode ser ajustada à mão (RF07). O modo de cartão de identidade, o carimbo de data e hora no PDF e a busca pelo texto reconhecido são extras, descritos nas seções 3 e 4. Já nos requisitos não funcionais, a aplicação precisa rodar de forma instalável tanto no Android quanto no iPhone via navegador seguro com certificado SSL (RNF01), processar cada página em menos de 3 segundos em rede móvel comum (RNF02) e manter o servidor separado da interface através de uma API REST documentada (RNF03).
+Na definição do escopo, segui a lista do enunciado e acrescentei duas funções. O sistema precisa capturar ou selecionar imagens pela câmera ou pela galeria (RF01), visualizar as imagens capturadas em tela cheia, com zoom, troca de página e comparação entre a foto original e a página tratada, tanto durante a digitalização quanto nos documentos já salvos (RF02), aplicar e alternar entre os filtros original, escala de cinza e preto e branco (RF03), gerar um arquivo PDF único a partir das páginas digitalizadas (RF04) e salvar o documento no histórico na nuvem ou compartilhá-lo e baixá-lo pelo celular (RF05). O enunciado coloca o reconhecimento de texto como funcionalidade adicional, mas decidi tratá-lo como obrigatório, então o sistema também extrai o texto de cada página via OCR em português (RF06). Por fim, incluí a detecção automática das bordas da folha com correção de perspectiva, que deixa a página reta como num scanner e pode ser ajustada à mão (RF07), e o acesso por conta, com cadastro de nome, e-mail e senha, em que cada pessoa vê e abre só os próprios documentos (RF08). O modo de cartão de identidade, o carimbo de data e hora no PDF e a busca pelo texto reconhecido são extras, descritos nas seções 3 e 4. Já nos requisitos não funcionais, a aplicação precisa rodar de forma instalável tanto no Android quanto no iPhone via navegador seguro com certificado SSL (RNF01), processar cada página em menos de 3 segundos em rede móvel comum (RNF02) e manter o servidor separado da interface através de uma API REST documentada (RNF03).
 
 A tabela abaixo liga cada item do enunciado ao requisito, ao caso de uso e ao lugar do aplicativo onde ele aparece.
 
@@ -23,10 +23,11 @@ A tabela abaixo liga cada item do enunciado ao requisito, ao caso de uso e ao lu
 | Salvar ou compartilhar os documentos gerados | RF05 | UC06 e UC07 | Exportação, histórico (`/`) e documento salvo (`/documento`) |
 | Reconhecimento de texto (adicional no enunciado) | RF06 | UC05 | Gaveta de texto do editor e documento salvo |
 | Detecção de bordas e correção de perspectiva (extensão) | RF07 | UC02 | Recorte (`/digitalizar/recorte`), com os cantos detectados pela API logo na captura |
+| Login e histórico por conta (extensão) | RF08 | UC08 | Tela de entrada (`/entrar`) e botão de sair no início |
 
 ### Casos de Uso do Sistema
 
-O fluxo de interação conta apenas com o ator principal, o usuário final. Ele começa capturando uma foto ou escolhendo uma imagem da galeria (UC01) e confere o recorte da folha, com os quatro cantos detectados sozinhos e arrastáveis na tela (UC02); no modo lote e no cartão de identidade, o recorte detectado é aplicado direto e pode ser refeito depois pelo editor. Depois ele pode visualizar as páginas em tela cheia, ampliando para conferir se o texto ficou legível e comparando com a foto original (UC03); no modo lote, essa revisão também acontece antes do processamento, para excluir as fotos que saíram ruins. Em seguida escolhe o filtro de cada página (UC04) e confere o texto extraído pelo OCR, que roda sozinho depois de cada recorte, para copiar ou corrigir alguma palavra (UC05). Por fim, gera o PDF e o compartilha, baixa ou salva no histórico (UC06), onde pode buscar pelo título ou pelo texto e abrir o documento para ver de novo as páginas e o texto (UC07).
+O fluxo de interação conta apenas com o ator principal, o usuário final. Antes de tudo, ele entra na conta ou cria uma (UC08); sem sessão, todas as telas levam para a entrada. Depois ele começa capturando uma foto ou escolhendo uma imagem da galeria (UC01) e confere o recorte da folha, com os quatro cantos detectados sozinhos e arrastáveis na tela (UC02); no modo lote e no cartão de identidade, o recorte detectado é aplicado direto e pode ser refeito depois pelo editor. Depois ele pode visualizar as páginas em tela cheia, ampliando para conferir se o texto ficou legível e comparando com a foto original (UC03); no modo lote, essa revisão também acontece antes do processamento, para excluir as fotos que saíram ruins. Em seguida escolhe o filtro de cada página (UC04) e confere o texto extraído pelo OCR, que roda sozinho depois de cada recorte, para copiar ou corrigir alguma palavra (UC05). Por fim, gera o PDF e o compartilha, baixa ou salva no histórico (UC06), onde pode buscar pelo título ou pelo texto e abrir o documento para ver de novo as páginas e o texto (UC07).
 
 ### Diagrama de Casos de Uso
 
@@ -42,8 +43,10 @@ flowchart LR
         UC5([UC05: Extrair Texto via OCR])
         UC6([UC06: Gerar PDF, Compartilhar e Salvar])
         UC7([UC07: Consultar o Histórico e Abrir Documento])
+        UC8([UC08: Entrar ou Criar Conta])
     end
 
+    Usuario --> UC8
     Usuario --> UC1
     Usuario --> UC2
     Usuario --> UC3
@@ -55,6 +58,7 @@ flowchart LR
     UC2 -.->|include| UC5
     UC3 -.->|extend| UC1
     UC3 -.->|extend| UC7
+    UC7 -.->|include| UC8
 ```
 
 ---
@@ -191,15 +195,33 @@ Para guardar os arquivos e permitir a pesquisa pelo texto lido dentro das imagen
 
 Na revisão de segurança e desempenho do banco, ativei a segurança em nível de linha (Row Level Security) em todas as tabelas e no armazenamento de arquivos, criei índices compostos para acelerar as consultas e exclusões em cascata, adicionei índices de busca textual em português (GIN com to_tsvector) para pesquisar documentos pelo conteúdo extraído no OCR, configurei gatilhos automáticos (Triggers) para atualizar o contador de páginas e a data de modificação, e limitei o armazenamento do bucket (miniscan-files) a arquivos de imagem e PDF de até 15 MB.
 
-Na primeira versão do MVP, as políticas liberavam leitura, escrita e exclusão para o papel anônimo, o que permitia que qualquer pessoa com a chave pública do projeto alterasse ou apagasse o histórico. Para fechar essa brecha, concentrei todas as gravações na API, que usa a chave secreta do Supabase, e criei uma segunda migração (20261116000002_restringe_escrita_anonima.sql) que deixa o papel anônimo apenas com leitura nas tabelas e no Storage, além de revogar as permissões de escrita dessas tabelas. O bucket continua público para que os links de download funcionem. Por enquanto o histórico é o mesmo para todos que usam o aplicativo; a próxima evolução planejada é o login de usuário, com cadastro e senha guardada como hash, para que cada pessoa veja só os próprios documentos.
+Na primeira versão do MVP, as políticas liberavam leitura, escrita e exclusão para o papel anônimo, o que permitia que qualquer pessoa com a chave pública do projeto alterasse ou apagasse o histórico. Para fechar essa brecha, concentrei todas as gravações na API, que usa a chave secreta do Supabase, e criei uma segunda migração (20261116000002_restringe_escrita_anonima.sql) que deixa o papel anônimo apenas com leitura nas tabelas e no Storage, além de revogar as permissões de escrita dessas tabelas. Mesmo assim, o histórico continuava o mesmo para todos que usavam o aplicativo, e uma busca por "CPF" devolvia os RG salvos por outras pessoas. Por isso a terceira mudança de segurança foi o login (migração 20261118000004_adiciona_login.sql). Preferi fazer a autenticação na própria API, e não usar o Supabase Auth, para controlar e poder explicar cada etapa. A tabela usuarios guarda o nome, o e-mail e só o hash da senha, feito com Argon2id (o algoritmo recomendado pela OWASP, com 19 MiB de memória e 2 passadas, cerca de 50 ms por senha), com sal aleatório e os parâmetros dentro do próprio texto do hash. Ao entrar, a API sorteia um token de 256 bits e entrega ao navegador uma única vez; a tabela sessoes guarda só o SHA-256 dele, com validade de 30 dias, então quem ler o banco não consegue se passar por ninguém. O token vai em toda chamada no cabeçalho Authorization, e não num cookie, porque o aplicativo (Vercel) e a API (VPS) ficam em domínios diferentes e o Safari do iPhone bloqueia cookie de outro site. Cada documento ganhou o dono (documents.usuario_id), e a busca passou para a função buscar_documentos_usuario, que filtra pelo dono antes de procurar no título e no OCR.
+
+Com o login, a chave pública deixou de ler qualquer coisa. A migração revoga a leitura das tabelas, apaga as políticas públicas e torna o bucket privado, e o aplicativo deixou de falar direto com o Supabase: o histórico vem das rotas GET /documentos e GET /documentos/{id} da API, que confere o dono e devolve links assinados que valem uma hora. Um documento de outra conta responde igual a um documento que não existe. Para dificultar a adivinhação de senhas, e-mail inexistente e senha errada dão a mesma mensagem e levam o mesmo tempo, e depois de cinco erros seguidos o e-mail fica bloqueado por 15 minutos. Todas as rotas da API, inclusive as de visão e OCR, passaram a exigir a sessão, o que também impede que alguém de fora ocupe a CPU da VPS. Os documentos salvos antes do login ficaram sem dono e saíram do histórico; o comentário no início da migração mostra o comando que os passa para uma conta.
 
 ### Diagrama Entidade-Relacionamento (DER)
 
 ```mermaid
 erDiagram
+    USUARIOS ||--o{ DOCUMENTS : "é dono de"
+    USUARIOS ||--o{ SESSOES : "abre"
     DOCUMENTS ||--|{ DOCUMENT_PAGES : "possui"
+    USUARIOS {
+        uuid id PK
+        text nome
+        text email UK
+        text senha_hash
+        timestamptz criado_em
+    }
+    SESSOES {
+        text token_hash PK
+        uuid usuario_id FK
+        timestamptz criada_em
+        timestamptz expira_em
+    }
     DOCUMENTS {
         uuid id PK
+        uuid usuario_id FK
         text title
         text pdf_url
         int page_count
