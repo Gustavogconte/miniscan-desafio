@@ -74,6 +74,8 @@ export interface Pagina {
   filtro: Filtro;
   processadas: Partial<Record<Filtro, ImagemLocal>>;
   textoOcr: string;
+  /** Nome para o documento sugerido pela API a partir do texto ("" se não houver). */
+  tituloOcr: string;
   estadoOcr: EstadoOcr;
   /**
    * Página montada pelo modo RG ou CNH: guarda a foto de cada lado para dar para recortar

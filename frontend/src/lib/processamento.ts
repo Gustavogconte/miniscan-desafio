@@ -134,8 +134,8 @@ export function useProcessamento() {
       };
       atualizarPagina(id, { estadoOcr: "carregando" });
       try {
-        const texto = await extrairOcr(pagina.original.blob, cantos);
-        if (aindaValida()) atualizarPagina(id, { textoOcr: texto, estadoOcr: "pronto" });
+        const { texto, titulo } = await extrairOcr(pagina.original.blob, cantos);
+        if (aindaValida()) atualizarPagina(id, { textoOcr: texto, tituloOcr: titulo, estadoOcr: "pronto" });
       } catch (erro) {
         if (aindaValida()) atualizarPagina(id, { estadoOcr: "erro" });
         console.warn("OCR falhou:", mensagemDeErro(erro));
@@ -159,6 +159,7 @@ export function useProcessamento() {
         cantosConfirmados: cantos,
         processadas: { [pagina.filtro]: criarImagemLocal(blob) },
         textoOcr: "",
+        tituloOcr: "",
         estadoOcr: "pendente",
       });
       void executarOcr(id);

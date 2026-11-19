@@ -12,14 +12,10 @@ import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { formatarTamanho } from "@/lib/imagem";
 import { useProcessamento } from "@/lib/processamento";
 import { ROTULO_FILTRO } from "@/lib/tipos";
+import { sugerirTitulo } from "@/lib/titulo";
 import { useGuardaDigitalizacao } from "@/lib/usar-guarda";
 
 type EstadoPdf = { tipo: "gerando" } | { tipo: "pronto"; blob: Blob } | { tipo: "erro"; mensagem: string };
-
-function tituloPadrao(): string {
-  const hoje = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date());
-  return `Documento ${hoje}`;
-}
 
 /** Data e hora locais no formato aceito pela API: 16/11/2026 14:32. */
 function carimboAgora(): string {
@@ -39,7 +35,8 @@ function ConteudoExportar() {
   const avisar = useAviso();
   const { paginas, reiniciar } = useGuardaDigitalizacao();
   const { garantirProcessada } = useProcessamento();
-  // null = o usuário ainda não editou; o padrão com a data só é calculado no navegador.
+  // null = a pessoa ainda não mudou o nome: vale a sugestão, que melhora quando o texto
+  // da primeira página fica pronto.
   const [tituloEditado, setTitulo] = useState<string | null>(null);
   const [pdf, setPdf] = useState<EstadoPdf>({ tipo: "gerando" });
   const [salvando, setSalvando] = useState(false);
@@ -80,7 +77,7 @@ function ConteudoExportar() {
 
   if (paginas.length === 0) return null;
 
-  const titulo = tituloEditado ?? tituloPadrao();
+  const titulo = tituloEditado ?? sugerirTitulo(paginas, new Date());
   const nomeArquivo = nomeDoArquivo(titulo);
   const ocrPendente = paginas.some((p) => p.estadoOcr === "carregando" || p.estadoOcr === "pendente");
   const pronto = pdf.tipo === "pronto";
@@ -102,7 +99,7 @@ function ConteudoExportar() {
   async function salvar() {
     if (pdf.tipo !== "pronto") return;
     if (!titulo.trim()) {
-      avisar("Dê um título ao documento antes de salvar.", "erro");
+      avisar("Dê um nome ao documento antes de salvar.", "erro");
       return;
     }
     setSalvando(true);
@@ -194,7 +191,7 @@ function ConteudoExportar() {
 
         <div className="space-y-2 rounded-2xl border border-borda bg-cartao p-4 shadow-cartao">
           <label htmlFor="titulo" className="block text-xs font-semibold text-texto">
-            Título do documento
+            Nome do documento
           </label>
           <input
             id="titulo"
@@ -203,7 +200,7 @@ function ConteudoExportar() {
             maxLength={200}
             className="h-11 w-full rounded-xl border border-borda-campo bg-fundo px-3.5 text-base text-texto focus:border-primaria-texto focus:outline-none focus:ring-2 focus:ring-primaria-suave sm:text-sm"
           />
-          <p className="text-[11px] text-texto-secundario">O título também é usado na busca do histórico.</p>
+          <p className="text-[11px] text-texto-secundario">Depois, você acha o documento buscando por este nome.</p>
         </div>
 
         <div className="rounded-2xl border border-borda bg-cartao p-4 shadow-cartao">

@@ -143,12 +143,13 @@ export async function processarPagina(imagem: Blob, cantos: Cantos, filtro: Filt
  * versão sem filtro, porque o OCR erra muito na versão binarizada (P&B), que serve
  * só para a tela e o PDF.
  */
-export async function extrairOcr(fotoOriginal: Blob, cantos: Cantos): Promise<string> {
+export async function extrairOcr(fotoOriginal: Blob, cantos: Cantos): Promise<{ texto: string; titulo: string }> {
   const corpo = new FormData();
   corpo.append("imagem", fotoOriginal, nomeArquivo(fotoOriginal, "foto"));
   corpo.append("cantos", JSON.stringify(cantos));
-  const resposta: { texto: string } = await (await enviar("/extrair-ocr", corpo)).json();
-  return resposta.texto;
+  const resposta: { texto: string; titulo?: string } = await (await enviar("/extrair-ocr", corpo)).json();
+  // `titulo` é o nome sugerido pela API; uma API antiga não manda, e fica sem sugestão.
+  return { texto: resposta.texto, titulo: resposta.titulo ?? "" };
 }
 
 /** `carimbo`: data e hora escritas em cada página (ex.: "16/11/2026 14:32"). */

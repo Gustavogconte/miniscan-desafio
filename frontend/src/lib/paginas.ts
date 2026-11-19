@@ -26,6 +26,7 @@ export function novaPagina(blob: Blob, largura: number, altura: number, opcoes: 
     filtro: opcoes.filtro ?? "bw",
     processadas: {},
     textoOcr: "",
+    tituloOcr: "",
     estadoOcr: "pendente",
   };
 }
