@@ -90,9 +90,14 @@ const TEMPO_LIGADA_MS = 2 * 60 * 1000;
 
 // A câmera aberta, guardada entre uma visita e outra à tela da câmera.
 let fluxoGuardado: MediaStream | null = null;
+// A câmera que já passou pelo ajuste de foco e de resolução (feito uma vez por câmera).
+let fluxoAjustado: MediaStream | null = null;
 // Abertura em andamento: duas visitas seguidas esperam a mesma, sem abrir duas câmeras.
 let abrindo: Promise<MediaStream> | null = null;
 let desligamento: ReturnType<typeof setTimeout> | undefined;
+// Desligada (pelo tempo, em segundo plano ou ao sair da conta) desde a última visita:
+// uma abertura que só termine agora não pode ficar ligada sem ninguém na tela.
+let desligada = false;
 
 /** Abre a câmera traseira principal (aqui o navegador pode pedir a permissão). */
 async function abrirCamera(): Promise<MediaStream> {
@@ -113,18 +118,23 @@ async function abrirCamera(): Promise<MediaStream> {
   return fluxo;
 }
 
-/** A câmera guardada, se ainda estiver funcionando; senão, abre outra. */
-async function obterFluxo(): Promise<{ fluxo: MediaStream; nova: boolean }> {
-  if (fluxoGuardado && fluxoGuardado.getVideoTracks().some((t) => t.readyState === "live")) {
-    return { fluxo: fluxoGuardado, nova: false };
-  }
+/** A câmera guardada, se ainda estiver funcionando (null se não há nenhuma ligada). */
+function cameraLigada(): MediaStream | null {
+  if (fluxoGuardado && fluxoGuardado.getVideoTracks().some((t) => t.readyState === "live")) return fluxoGuardado;
+  return null;
+}
+
+/** A câmera guardada ou, sem ela, uma nova. */
+async function obterFluxo(): Promise<MediaStream> {
+  const ligada = cameraLigada();
+  if (ligada) return ligada;
   if (abrindo === null) abrindo = abrirCamera();
   try {
     fluxoGuardado = await abrindo;
   } finally {
     abrindo = null;
   }
-  return { fluxo: fluxoGuardado, nova: true };
+  return fluxoGuardado;
 }
 
 function desligarAoEsconder() {
@@ -133,6 +143,7 @@ function desligarAoEsconder() {
 
 /** Desliga a câmera guardada na hora: ao sair da conta ou com o app em segundo plano. */
 export function desligarCamera() {
+  desligada = true;
   clearTimeout(desligamento);
   document.removeEventListener("visibilitychange", desligarAoEsconder);
   fluxoGuardado?.getTracks().forEach((t) => t.stop());
@@ -157,6 +168,7 @@ export function useCameraAoVivo() {
   useEffect(() => {
     let cancelado = false;
     // De volta à câmera: ela não desliga mais sozinha.
+    desligada = false;
     clearTimeout(desligamento);
     document.removeEventListener("visibilitychange", desligarAoEsconder);
 
@@ -165,16 +177,23 @@ export function useCameraAoVivo() {
         setEstado("indisponivel");
         return;
       }
+      // A tela guardada pelo Next pode voltar "ativa" sobre uma câmera que já foi desligada.
+      if (!cameraLigada()) setEstado("iniciando");
       try {
-        const { fluxo, nova } = await obterFluxo();
-        if (cancelado || !video.current) return;
+        const fluxo = await obterFluxo();
+        if (cancelado) {
+          // A câmera foi desligada enquanto abria: esta também desliga.
+          if (desligada) desligarCamera();
+          return;
+        }
+        if (!video.current) return;
         if (video.current.srcObject !== fluxo) video.current.srcObject = fluxo;
         await video.current.play();
         trilha.current = fluxo.getVideoTracks()[0] ?? null;
         const capacidades = trilha.current?.getCapabilities?.() as CapacidadesComLanterna | undefined;
         setLanternaSuportada(Boolean(capacidades?.torch));
-        // A câmera guardada já foi ajustada na primeira visita.
-        if (nova) {
+        // Foco e resolução: uma vez por câmera aberta (a guardada já foi ajustada).
+        if (fluxoAjustado !== fluxo) {
           // Foco contínuo onde existir (Chrome no Android); o Safari já faz sozinho.
           const modosFoco = (capacidades as { focusMode?: string[] } | undefined)?.focusMode;
           const extras: MediaTrackConstraints = modosFoco?.includes("continuous")
@@ -182,6 +201,7 @@ export function useCameraAoVivo() {
             : {};
           if (extras.advanced) await trilha.current?.applyConstraints(extras).catch(() => {});
           if (trilha.current) await maximizarResolucao(trilha.current, extras);
+          fluxoAjustado = fluxo;
         }
         if (cancelado) return;
         setEstado("ativa");
@@ -210,11 +230,13 @@ export function useCameraAoVivo() {
     const atual = trilha.current;
     if (!atual) return;
     const ligar = !lanternaLigada;
+    // Marcada antes de esperar: se a tela sair no meio, a limpeza já sabe que deve apagar.
+    lanternaAcesa.current = ligar;
     try {
       await atual.applyConstraints({ advanced: [{ torch: ligar } as MediaTrackConstraintSet] });
       setLanternaLigada(ligar);
-      lanternaAcesa.current = ligar;
     } catch {
+      lanternaAcesa.current = !ligar;
       setLanternaSuportada(false);
     }
   }, [lanternaLigada]);
