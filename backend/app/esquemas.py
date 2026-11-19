@@ -31,6 +31,11 @@ class RespostaCantos(BaseModel):
 
 class RespostaOcr(BaseModel):
     texto: str
+    titulo: str = Field(
+        default="",
+        description="Sugestão de nome para o documento: a linha de letra maior na metade de "
+        "cima da página ou, sem destaque, a primeira com palavras. Vazio se nada servir.",
+    )
     idioma: str
 
 

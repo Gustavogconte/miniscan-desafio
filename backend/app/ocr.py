@@ -8,6 +8,7 @@ import logging
 import threading
 import time
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
@@ -26,6 +27,31 @@ INCLINACAO_MAXIMA = 0.17
 # Depois de uma falha ao carregar o OCR, espera este tempo antes de tentar de novo,
 # em vez de recarregar o modelo a cada /saude ou /extrair-ocr.
 ESPERA_APOS_FALHA_S = 60
+# Sugestão de nome do documento: o título fica na metade de cima da página e tem letra
+# pelo menos 25% maior que a mediana das linhas. Sem destaque, vale a primeira linha
+# com palavras. O nome sugerido tem no máximo 60 caracteres.
+FRACAO_TOPO_TITULO = 0.5
+DESTAQUE_TITULO = 1.25
+TAMANHO_MAXIMO_TITULO = 60
+PONTUACAO_NAS_PONTAS = " .,;:-–—|•*_/\\"
+
+
+@dataclass(frozen=True)
+class Linha:
+    """Uma linha de texto da página, na ordem de leitura."""
+
+    texto: str
+    # Centro vertical na página (pixels), antes de desfazer a inclinação.
+    centro_y: float
+    # Altura mediana das caixas da linha: o tamanho da letra.
+    altura: float
+
+
+@dataclass(frozen=True)
+class LeituraOcr:
+    texto: str
+    # Sugestão de nome para o documento ("" se nenhuma linha servir).
+    titulo: str
 
 
 class OcrIndisponivelError(RuntimeError):
@@ -147,49 +173,95 @@ def _desfazer_inclinacao(pontos: list[np.ndarray]) -> list[np.ndarray]:
     return [p @ giro for p in pontos]
 
 
-def ordenar_em_linhas(caixas: Sequence[np.ndarray], textos: Sequence[str]) -> str:
-    """Monta o texto na ordem natural de leitura: de cima para baixo, da esquerda para a direita.
+def agrupar_em_linhas(caixas: Sequence[np.ndarray], textos: Sequence[str]) -> list[Linha]:
+    """Linhas na ordem natural de leitura: de cima para baixo, da esquerda para a direita.
 
     O detector devolve caixas soltas. Depois de desfazer a inclinação da página, caixas
     com centro vertical próximo formam uma linha; dentro da linha, a ordem é pela
     borda esquerda.
     """
     if not textos:
-        return ""
-    pontos = _desfazer_inclinacao(
-        [np.asarray(caixa, dtype=np.float32).reshape(-1, 2) for caixa in caixas]
-    )
+        return []
+    originais = [np.asarray(caixa, dtype=np.float32).reshape(-1, 2) for caixa in caixas]
+    pontos = _desfazer_inclinacao(originais)
     itens = [
         {
             "texto": texto.strip(),
             "esquerda": float(p[:, 0].min()),
             "centro_y": float(p[:, 1].mean()),
+            "centro_y_pagina": float(o[:, 1].mean()),
             "altura": float(p[:, 1].max() - p[:, 1].min()),
         }
-        for p, texto in zip(pontos, textos, strict=True)
+        for p, o, texto in zip(pontos, originais, textos, strict=True)
         if texto.strip()
     ]
     if not itens:
-        return ""
+        return []
     tolerancia = TOLERANCIA_LINHA * float(np.median([item["altura"] for item in itens]))
 
-    linhas: list[list[dict]] = []
+    grupos: list[list[dict]] = []
     for item in sorted(itens, key=lambda i: i["centro_y"]):
-        linha_atual = linhas[-1] if linhas else None
-        if linha_atual is not None:
-            centro_linha = float(np.mean([i["centro_y"] for i in linha_atual]))
-            if abs(item["centro_y"] - centro_linha) <= tolerancia:
-                linha_atual.append(item)
+        grupo_atual = grupos[-1] if grupos else None
+        if grupo_atual is not None:
+            centro_grupo = float(np.mean([i["centro_y"] for i in grupo_atual]))
+            if abs(item["centro_y"] - centro_grupo) <= tolerancia:
+                grupo_atual.append(item)
                 continue
-        linhas.append([item])
+        grupos.append([item])
 
-    return "\n".join(
-        " ".join(i["texto"] for i in sorted(linha, key=lambda i: i["esquerda"])) for linha in linhas
-    )
+    return [
+        Linha(
+            texto=" ".join(i["texto"] for i in sorted(grupo, key=lambda i: i["esquerda"])),
+            centro_y=float(np.mean([i["centro_y_pagina"] for i in grupo])),
+            altura=float(np.median([i["altura"] for i in grupo])),
+        )
+        for grupo in grupos
+    ]
 
 
-def extrair_texto_ocr(imagem: np.ndarray) -> str:
-    """Lê o texto da página retificada ORIGINAL (sem filtro).
+def ordenar_em_linhas(caixas: Sequence[np.ndarray], textos: Sequence[str]) -> str:
+    """O texto da página, uma linha por linha impressa, na ordem natural de leitura."""
+    return "\n".join(linha.texto for linha in agrupar_em_linhas(caixas, textos))
+
+
+def _tem_palavras(texto: str) -> bool:
+    """Ao menos 4 letras, e mais letras que números e símbolos (descarta datas e códigos)."""
+    letras = sum(caractere.isalpha() for caractere in texto)
+    visiveis = sum(not caractere.isspace() for caractere in texto)
+    return letras >= 4 and letras >= 0.6 * visiveis
+
+
+def _encurtar(texto: str) -> str:
+    texto = " ".join(texto.split()).strip(PONTUACAO_NAS_PONTAS)
+    if len(texto) > TAMANHO_MAXIMO_TITULO:
+        corte = texto[: TAMANHO_MAXIMO_TITULO + 1]
+        texto = corte.rsplit(" ", 1)[0] if " " in corte else corte[:TAMANHO_MAXIMO_TITULO]
+    return texto.strip(PONTUACAO_NAS_PONTAS)
+
+
+def sugerir_titulo(linhas: Sequence[Linha], altura_pagina: float) -> str:
+    """Nome para o documento a partir das linhas da primeira página.
+
+    Título costuma ter letra maior: vence a linha de letra mais alta na metade de cima
+    da página, desde que se destaque das outras. Numa página de letra toda igual (uma
+    carta, um recibo), fica a primeira linha com palavras, que costuma ser o cabeçalho.
+    """
+    candidatas = [
+        linha
+        for linha in linhas
+        if linha.centro_y <= FRACAO_TOPO_TITULO * altura_pagina and _tem_palavras(linha.texto)
+    ]
+    if not candidatas:
+        return ""
+    mediana = float(np.median([linha.altura for linha in linhas]))
+    destacadas = [linha for linha in candidatas if linha.altura >= DESTAQUE_TITULO * mediana]
+    # max() fica com a primeira das empatadas: a mais alta na página.
+    escolhida = max(destacadas, key=lambda linha: linha.altura) if destacadas else candidatas[0]
+    return _encurtar(escolhida.texto)
+
+
+def ler_pagina(imagem: np.ndarray) -> LeituraOcr:
+    """Lê o texto da página retificada ORIGINAL (sem filtro) e sugere um nome.
 
     A rede do PaddleOCR usa os gradientes suaves (anti-aliasing) das bordas das letras;
     a binarização do filtro P&B destrói esses gradientes. Com texto pequeno, ler a
@@ -206,5 +278,14 @@ def extrair_texto_ocr(imagem: np.ndarray) -> str:
         logger.exception("Falha ao executar o OCR")
         raise OcrIndisponivelError("Não foi possível ler o texto desta página.") from erro
     if resultado.boxes is None or resultado.txts is None:
-        return ""
-    return ordenar_em_linhas(list(resultado.boxes), list(resultado.txts))
+        return LeituraOcr(texto="", titulo="")
+    linhas = agrupar_em_linhas(list(resultado.boxes), list(resultado.txts))
+    return LeituraOcr(
+        texto="\n".join(linha.texto for linha in linhas),
+        titulo=sugerir_titulo(linhas, imagem.shape[0]),
+    )
+
+
+def extrair_texto_ocr(imagem: np.ndarray) -> str:
+    """Só o texto da página (ver ``ler_pagina``)."""
+    return ler_pagina(imagem).texto

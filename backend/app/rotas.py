@@ -43,7 +43,7 @@ from app.esquemas import (
     validador_cantos,
     validador_metadados,
 )
-from app.ocr import IDIOMA_OCR, extrair_texto_ocr, ocr_disponivel
+from app.ocr import IDIOMA_OCR, ler_pagina, ocr_disponivel
 from app.pdf import gerar_pdf
 from app.persistencia import (
     PaginaParaSalvar,
@@ -150,7 +150,7 @@ def rota_processar_pagina(
     response_model=RespostaOcr,
     responses={**ERROS_ENTRADA, status.HTTP_503_SERVICE_UNAVAILABLE: {"model": RespostaErro}},
     tags=["ocr"],
-    summary="Extrai o texto da página (foto original + cantos), em pt-BR",
+    summary="Extrai o texto da página (foto original + cantos) e sugere um nome",
 )
 def rota_extrair_ocr(
     imagem: Annotated[UploadFile, File(description="Foto original da página (ou já retificada)")],
@@ -165,8 +165,8 @@ def rota_extrair_ocr(
     # filtro escolhido para exibição.
     if cantos is not None:
         matriz = corrigir_perspectiva(matriz, ler_cantos(cantos))
-    texto = extrair_texto_ocr(matriz)
-    return RespostaOcr(texto=texto, idioma=IDIOMA_OCR)
+    leitura = ler_pagina(matriz)
+    return RespostaOcr(texto=leitura.texto, titulo=leitura.titulo, idioma=IDIOMA_OCR)
 
 
 @roteador.post(

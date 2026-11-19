@@ -5,7 +5,14 @@ import cv2
 import numpy as np
 import pytest
 
-from app.ocr import extrair_texto_ocr, ocr_disponivel, ordenar_em_linhas
+from app.ocr import (
+    Linha,
+    extrair_texto_ocr,
+    ler_pagina,
+    ocr_disponivel,
+    ordenar_em_linhas,
+    sugerir_titulo,
+)
 from app.pdf import gerar_pdf
 from app.visao.imagem import ImagemInvalidaError
 
@@ -59,11 +66,74 @@ class TestOrdenarEmLinhas:
         assert ordenar_em_linhas([], []) == ""
 
 
+class TestSugerirTitulo:
+    """Página de 1000 px de altura; ``linha(texto, y, altura da letra)``."""
+
+    @staticmethod
+    def linha(texto: str, centro_y: float, altura: float = 20) -> Linha:
+        return Linha(texto=texto, centro_y=centro_y, altura=altura)
+
+    def test_vence_a_letra_maior_da_metade_de_cima(self):
+        linhas = [
+            self.linha("Rua das Flores, 123 - Curitiba", 40),
+            self.linha("CONTRATO DE LOCAÇÃO", 120, altura=42),
+            self.linha("Pelo presente instrumento particular", 200),
+            self.linha("as partes abaixo assinadas", 230),
+        ]
+        assert sugerir_titulo(linhas, 1000) == "CONTRATO DE LOCAÇÃO"
+
+    def test_sem_destaque_fica_a_primeira_linha_com_palavras(self):
+        linhas = [
+            self.linha("19/11/2026 - 14:32", 30),
+            self.linha("Prezado cliente,", 80),
+            self.linha("Segue o boleto do mês.", 110),
+        ]
+        assert sugerir_titulo(linhas, 1000) == "Prezado cliente"
+
+    def test_letra_grande_embaixo_nao_conta(self):
+        linhas = [
+            self.linha("Recibo de pagamento", 100),
+            self.linha("valor recebido", 140),
+            self.linha("ASSINATURA", 900, altura=60),
+        ]
+        assert sugerir_titulo(linhas, 1000) == "Recibo de pagamento"
+
+    def test_sem_palavras_devolve_vazio(self):
+        assert (
+            sugerir_titulo([self.linha("123.456.789-00", 50), self.linha("R$ 10", 90)], 1000) == ""
+        )
+        assert sugerir_titulo([], 1000) == ""
+
+    def test_encurta_no_limite_de_palavra(self):
+        longo = "Relatório anual de atividades do laboratório de visão computacional - 2026"
+        titulo = sugerir_titulo([self.linha(longo, 50, altura=40), self.linha("corpo", 80)], 1000)
+        assert titulo == "Relatório anual de atividades do laboratório de visão"
+        assert len(titulo) <= 60
+
+
 @requer_ocr
 def test_ocr_le_o_texto_da_pagina(pagina_plana):
     texto = extrair_texto_ocr(pagina_plana).upper()
     assert "MINISCAN" in texto
     assert "DOCUMENTO" in texto
+
+
+@requer_ocr
+def test_ocr_sugere_o_titulo_de_letra_maior():
+    pagina = np.full((1400, 1000, 3), 250, np.uint8)
+    escrever = [
+        ("Curitiba, 19 de novembro", 90, 0.9, 2),
+        ("RECIBO DE PAGAMENTO", 260, 2.0, 5),
+        ("Recebi de Ana Souza a quantia", 400, 0.9, 2),
+        ("referente ao aluguel de novembro", 460, 0.9, 2),
+    ]
+    for texto, y, escala, espessura in escrever:
+        cv2.putText(
+            pagina, texto, (60, y), cv2.FONT_HERSHEY_SIMPLEX, escala, (20, 20, 20), espessura
+        )
+    leitura = ler_pagina(pagina)
+    assert leitura.titulo.upper() == "RECIBO DE PAGAMENTO"
+    assert leitura.texto.splitlines()[0].startswith("Curitiba")
 
 
 @requer_ocr

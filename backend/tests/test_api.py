@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.config import TAMANHO_MAXIMO_ARQUIVO
 from app.main import app
-from app.ocr import MotorOcr, OcrIndisponivelError, ocr_disponivel
+from app.ocr import LeituraOcr, MotorOcr, OcrIndisponivelError, ocr_disponivel
 from tests.conftest import CANTOS_FOLHA_NORMALIZADOS
 
 cliente = TestClient(app)
@@ -163,9 +163,9 @@ def test_extrair_ocr_com_cantos_le_a_pagina_retificada_original(foto_documento_j
 
     def ocr_falso(imagem):
         recebida["imagem"] = imagem
-        return "texto"
+        return LeituraOcr(texto="texto", titulo="")
 
-    monkeypatch.setattr("app.rotas.extrair_texto_ocr", ocr_falso)
+    monkeypatch.setattr("app.rotas.ler_pagina", ocr_falso)
     resposta = cliente.post(
         "/extrair-ocr",
         files={"imagem": arquivo(foto_documento_jpeg)},
