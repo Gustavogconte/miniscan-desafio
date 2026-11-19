@@ -56,42 +56,23 @@ def _ajustar(imagem: np.ndarray, largura: int, altura: int) -> np.ndarray:
     return cv2.resize(imagem, (largura, altura), interpolation=interpolacao)
 
 
-def _mascara_arredondada(largura: int, altura: int, raio: int) -> np.ndarray:
-    """Máscara (255 dentro) de um retângulo com os cantos arredondados."""
-    mascara = np.zeros((altura, largura), np.uint8)
-    cv2.rectangle(mascara, (raio, 0), (largura - 1 - raio, altura - 1), 255, -1)
-    cv2.rectangle(mascara, (0, raio), (largura - 1, altura - 1 - raio), 255, -1)
-    for cx, cy in [
-        (raio, raio),
-        (largura - 1 - raio, raio),
-        (largura - 1 - raio, altura - 1 - raio),
-        (raio, altura - 1 - raio),
-    ]:
-        cv2.circle(mascara, (cx, cy), raio, 255, -1, cv2.LINE_AA)
-    return mascara
+def _retangulo_arredondado(largura: int, altura: int, raio: int) -> np.ndarray:
+    """Pontos da borda de um retângulo com os cantos arredondados, em volta da imagem.
 
-
-def _contorno_arredondado(folha: np.ndarray, x: int, y: int, largura: int, altura: int, raio: int):
-    """Linha fina e clara em volta do documento, seguindo os cantos arredondados."""
-    direita, baixo = x + largura - 1, y + altura - 1
-    linhas = [
-        ((x + raio, y), (direita - raio, y)),
-        ((x + raio, baixo), (direita - raio, baixo)),
-        ((x, y + raio), (x, baixo - raio)),
-        ((direita, y + raio), (direita, baixo - raio)),
-    ]
-    for inicio, fim in linhas:
-        cv2.line(folha, inicio, fim, COR_CONTORNO, 3, cv2.LINE_AA)
+    Cada canto é um arco de 90 graus (ellipse2Poly), na ordem superior esquerdo,
+    superior direito, inferior direito e inferior esquerdo. Ligando os arcos, os
+    lados retos aparecem sozinhos.
+    """
+    pontos = []
     arcos = [
-        ((x + raio, y + raio), 180),
-        ((direita - raio, y + raio), 270),
-        ((direita - raio, baixo - raio), 0),
-        ((x + raio, baixo - raio), 90),
+        ((raio, raio), 180),
+        ((largura - 1 - raio, raio), 270),
+        ((largura - 1 - raio, altura - 1 - raio), 0),
+        ((raio, altura - 1 - raio), 90),
     ]
     for centro, inicio in arcos:
-        cv2.ellipse(
-            folha, centro, (raio, raio), 0, inicio, inicio + 90, COR_CONTORNO, 3, cv2.LINE_AA
-        )
+        pontos.extend(cv2.ellipse2Poly(centro, (raio, raio), 0, inicio, inicio + 90, 5))
+    return np.array(pontos, dtype=np.int32)
 
 
 def compor_cartao(lados: list[np.ndarray], formato: FormatoCartao) -> np.ndarray:
@@ -130,15 +111,18 @@ def compor_cartao(lados: list[np.ndarray], formato: FormatoCartao) -> np.ndarray
     altura_total = quantidade * cartao_a + (quantidade - 1) * espaco
     y = (folha_a - altura_total) // 3  # um pouco acima do centro
     x = (folha_l - cartao_l) // 2
-    mascara = _mascara_arredondada(cartao_l, cartao_a, raio)[:, :, None] / 255.0
+
+    # Máscara de verdadeiro ou falso: a cópia fica na própria folha, sem contas em ponto
+    # flutuante, que passavam de 250 MB por pedido numa API limitada a 1 GB.
+    mascara = np.zeros((cartao_a, cartao_l), np.uint8)
+    cv2.fillPoly(mascara, [_retangulo_arredondado(cartao_l, cartao_a, raio)], 255)
+    dentro = (mascara > 0)[:, :, None]
+    # O contorno fica 2 px para dentro, para a linha não passar da borda do documento.
+    contorno = _retangulo_arredondado(cartao_l - 4, cartao_a - 4, raio - 2) + 2
 
     for lado in lados:
-        ajustado = _ajustar(lado, cartao_l, cartao_a).astype(np.float32)
-        area = folha[y : y + cartao_a, x : x + cartao_l].astype(np.float32)
-        folha[y : y + cartao_a, x : x + cartao_l] = np.round(
-            ajustado * mascara + area * (1 - mascara)
-        ).astype(np.uint8)
-        # 2 px para dentro: com o anti-aliasing, a linha não passa da borda do documento.
-        _contorno_arredondado(folha, x + 2, y + 2, cartao_l - 4, cartao_a - 4, raio - 2)
+        area = folha[y : y + cartao_a, x : x + cartao_l]
+        np.copyto(area, _ajustar(lado, cartao_l, cartao_a), where=dentro)
+        cv2.polylines(area, [contorno], True, COR_CONTORNO, 3, cv2.LINE_AA)
         y += cartao_a + espaco
     return folha
