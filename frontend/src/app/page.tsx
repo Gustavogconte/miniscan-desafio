@@ -8,6 +8,7 @@ import { useCapturaFoto } from "@/componentes/captura-foto";
 import { CartaoDocumento } from "@/componentes/cartao-documento";
 import { Logo } from "@/componentes/logo";
 import { listarDocumentos, sair } from "@/lib/api";
+import { desligarCamera } from "@/lib/camera";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { aplicarMudancas } from "@/lib/mudancas-historico";
 import { useSessao } from "@/lib/sessao";
@@ -63,6 +64,8 @@ export default function TelaInicio() {
 
   async function sairDaConta() {
     setSaindo(true);
+    // A câmera guardada (lib/camera.ts) não fica ligada para a próxima pessoa.
+    desligarCamera();
     // Apaga a sessão do aparelho; a guarda do layout leva para a tela de entrada.
     await sair();
   }
