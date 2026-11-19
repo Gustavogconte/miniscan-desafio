@@ -70,6 +70,49 @@ export async function prepararFoto(arquivo: File): Promise<FotoPreparada> {
   return { blob, largura, altura, copiaDeteccao: await copiaParaDeteccao(tela, largura, altura) };
 }
 
+// Montagem com as fotos de cada lado do RG ou CNH, para o "Ver foto original": basta
+// para conferir o que foi fotografado, sem guardar duas fotos inteiras.
+const LADO_MONTAGEM = 2400;
+const ESPACO_MONTAGEM = 32;
+
+/**
+ * Junta as fotos dos lados do documento numa imagem só: lado a lado quando as fotos
+ * estão em pé (como o celular costuma fotografar), uma embaixo da outra quando estão
+ * deitadas. Cada foto fica com a mesma altura (ou largura) das outras.
+ */
+export async function juntarFotos(fotos: Blob[]): Promise<Blob> {
+  const imagens = await Promise.all(fotos.map(carregarImagem));
+  const emPe = imagens.every((imagem) => imagem.naturalHeight >= imagem.naturalWidth);
+  const medida = (imagem: HTMLImageElement) => (emPe ? imagem.naturalHeight : imagem.naturalWidth);
+  const base = Math.min(...imagens.map(medida));
+  const partes = imagens.map((imagem) => {
+    const fator = base / medida(imagem);
+    return { imagem, largura: imagem.naturalWidth * fator, altura: imagem.naturalHeight * fator };
+  });
+  const comprimento =
+    partes.reduce((soma, parte) => soma + (emPe ? parte.largura : parte.altura), 0) +
+    ESPACO_MONTAGEM * (partes.length - 1);
+  const [largura, altura] = emPe ? [comprimento, base] : [base, comprimento];
+  const escala = Math.min(1, LADO_MONTAGEM / Math.max(largura, altura));
+
+  const tela = document.createElement("canvas");
+  tela.width = Math.round(largura * escala);
+  tela.height = Math.round(altura * escala);
+  const contexto = tela.getContext("2d");
+  if (!contexto) throw new Error("Seu navegador não conseguiu processar a imagem.");
+  contexto.fillStyle = "#0f172a";
+  contexto.fillRect(0, 0, tela.width, tela.height);
+  let posicao = 0;
+  for (const parte of partes) {
+    const [x, y] = emPe ? [posicao, 0] : [0, posicao];
+    contexto.drawImage(parte.imagem, x * escala, y * escala, parte.largura * escala, parte.altura * escala);
+    posicao += (emPe ? parte.largura : parte.altura) + ESPACO_MONTAGEM;
+  }
+  const blob = await new Promise<Blob | null>((resolver) => tela.toBlob(resolver, "image/jpeg", 0.85));
+  if (!blob) throw new Error("Seu navegador não conseguiu processar a imagem.");
+  return blob;
+}
+
 export function formatarTamanho(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;

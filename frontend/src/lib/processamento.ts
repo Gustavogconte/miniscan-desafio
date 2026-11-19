@@ -10,6 +10,7 @@ import {
   processarPagina,
 } from "@/lib/api";
 import { criarImagemLocal, liberarImagens, useDigitalizacao } from "@/lib/estado-digitalizacao";
+import { juntarFotos } from "@/lib/imagem";
 import { novaPagina } from "@/lib/paginas";
 import { cantosDoLado } from "@/lib/deteccao";
 import {
@@ -198,7 +199,11 @@ export function useProcessamento() {
           cantos: cantosDoLado(lado.cantos, (await deteccao) ?? null) ?? (await detectarCantos(lado.blob)).cantos,
         })),
       );
-      const folha = await comporFolha(comCantos, formato);
+      // As fotos juntas são só para o "Ver foto original": se falharem, a folha sai mesmo assim.
+      const [folha, fotos] = await Promise.all([
+        comporFolha(comCantos, formato),
+        juntarFotos(comCantos.map((lado) => lado.blob)).catch(() => null),
+      ]);
       const cantos = folhaInteira();
       const pagina: Pagina = {
         ...novaPagina(folha, A4_300DPI.largura, A4_300DPI.altura, { cantos, filtro: "original" }),
@@ -210,6 +215,7 @@ export function useProcessamento() {
             altura: lado.altura,
             cantos: lado.cantos,
           })),
+          fotos: fotos && criarImagemLocal(fotos),
         },
       };
       adicionarPagina(pagina);
@@ -233,8 +239,9 @@ export function useProcessamento() {
       liberarImagens([atual.original]);
       atualizarPagina(id, {
         original: criarImagemLocal(folha),
+        // As fotos dos lados não mudam com o recorte: a montagem continua valendo.
         cartao: {
-          formato,
+          ...atual.cartao,
           lados: atual.cartao.lados.map((lado, indice) => ({ ...lado, cantos: cantosDosLados[indice] })),
         },
       });

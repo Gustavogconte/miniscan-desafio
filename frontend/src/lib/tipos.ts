@@ -75,8 +75,12 @@ export interface Pagina {
   processadas: Partial<Record<Filtro, ImagemLocal>>;
   textoOcr: string;
   estadoOcr: EstadoOcr;
-  /** Página montada pelo modo RG ou CNH: guarda a foto de cada lado para dar para recortar de novo. */
-  cartao?: { formato: FormatoCartao; lados: LadoDoDocumento[] };
+  /**
+   * Página montada pelo modo RG ou CNH: guarda a foto de cada lado para dar para recortar
+   * de novo. `fotos` junta as fotos dos lados numa imagem só: é a "foto original" desta
+   * página, porque `original` é a folha A4 já montada (null se a montagem falhou).
+   */
+  cartao?: { formato: FormatoCartao; lados: LadoDoDocumento[]; fotos: ImagemLocal | null };
 }
 
 /*

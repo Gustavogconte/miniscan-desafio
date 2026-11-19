@@ -69,6 +69,7 @@ function urlsDaPagina(pagina: Pagina): string[] {
     pagina.original.url,
     ...Object.values(pagina.processadas).map((imagem) => imagem!.url),
     ...(pagina.cartao?.lados.map((lado) => lado.original.url) ?? []),
+    ...(pagina.cartao?.fotos ? [pagina.cartao.fotos.url] : []),
   ];
 }
 

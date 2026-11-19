@@ -113,7 +113,8 @@ function ConteudoEditor() {
         return {
           id: p.id,
           src: versao.url,
-          srcOriginal: foiRecortada(p) ? p.original.url : undefined,
+          // No RG ou CNH, `original` é a folha já montada: as fotos de verdade são as dos lados.
+          srcOriginal: !foiRecortada(p) ? undefined : p.cartao ? p.cartao.fotos?.url : p.original.url,
           detalhe: detalheDaVersao(versao.filtro),
         };
       }),

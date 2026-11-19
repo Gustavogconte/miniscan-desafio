@@ -112,7 +112,8 @@ function ConteudoExportar() {
         titulo: titulo.trim(),
         pdf: pdf.blob,
         paginas: paginas.map((p, i) => ({
-          original: p.original.blob,
+          // No RG ou CNH, a "foto original" guardada são as fotos dos lados, juntas.
+          original: p.cartao?.fotos?.blob ?? p.original.blob,
           processada: imagens[i].blob,
           filtro: p.filtro,
           textoOcr: p.textoOcr,
