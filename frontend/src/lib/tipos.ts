@@ -18,7 +18,7 @@ export type Modo = "digitalizar" | "cartao";
 
 export const MODOS: { valor: Modo; rotulo: string; dica: string }[] = [
   { valor: "digitalizar", rotulo: "Digitalizar", dica: "Enquadre o documento" },
-  { valor: "cartao", rotulo: "RG ou CNH", dica: "Frente e verso numa folha A4, em tamanho real" },
+  { valor: "cartao", rotulo: "RG ou CNH", dica: "Frente e verso juntos numa folha A4" },
 ];
 
 /** "id": RG e CNH (tamanho ISO ID-1, frente e verso). */

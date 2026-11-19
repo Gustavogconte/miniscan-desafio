@@ -189,7 +189,7 @@ export default function TelaCamera() {
   }
 
   async function finalizarCartao(lados: LadoDoCartao[]) {
-    setProcessando("Montando o documento em tamanho real…");
+    setProcessando("Montando a folha com frente e verso…");
     try {
       await montarCartao(lados, formatoCartao);
       setLadosCartao([]);

@@ -175,7 +175,7 @@ export function mensagemDeErro(erro: unknown): string {
   return "Algo deu errado. Tente novamente.";
 }
 
-/** Monta frente (e verso) já retificados numa folha A4, em tamanho real. */
+/** Monta frente (e verso) já retificados numa folha A4, ampliados até o dobro do tamanho real. */
 export async function comporCartao(frente: Blob, verso: Blob | null, formato: FormatoCartao): Promise<Blob> {
   const corpo = new FormData();
   corpo.append("frente", frente, nomeArquivo(frente, "frente"));

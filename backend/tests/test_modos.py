@@ -16,17 +16,54 @@ def png(imagem: np.ndarray) -> bytes:
     return cv2.imencode(".png", imagem)[1].tobytes()
 
 
+def pixels_da_cor(folha: np.ndarray, cor: tuple[int, int, int]) -> tuple[np.ndarray, np.ndarray]:
+    """Linhas e colunas da folha que têm a cor exata (o contorno cinza fica de fora)."""
+    mascara = (folha == np.array(cor, np.uint8)).all(axis=2)
+    return np.flatnonzero(mascara.any(axis=1)), np.flatnonzero(mascara.any(axis=0))
+
+
+def area_ocupada(folha: np.ndarray) -> tuple[int, int, int, int]:
+    """Topo, base, esquerda e direita de tudo o que não é branco (documento e contorno)."""
+    mascara = (folha != 255).any(axis=2)
+    linhas, colunas = np.flatnonzero(mascara.any(axis=1)), np.flatnonzero(mascara.any(axis=0))
+    return int(linhas.min()), int(linhas.max()), int(colunas.min()), int(colunas.max())
+
+
 class TestCartao:
-    def test_frente_e_verso_em_tamanho_real_na_a4(self):
-        frente = np.full((540, 856, 3), (200, 80, 40), np.uint8)
-        verso = np.full((856, 540, 3), (40, 160, 40), np.uint8)  # em pé: deve ser girado
+    FRENTE = (200, 80, 40)
+    VERSO = (40, 160, 40)
+
+    def test_frente_e_verso_ampliados_na_a4(self):
+        frente = np.full((540, 856, 3), self.FRENTE, np.uint8)
+        verso = np.full((856, 540, 3), self.VERSO, np.uint8)  # em pé: deve ser girado
         folha = compor_cartao([frente, verso], "id")
         assert folha.shape == (3508, 2480, 3)  # A4 a 300 dpi
-        # 85,6 mm a 300 dpi = 1011 px: a linha central da folha cruza os dois cartões.
-        cores = {tuple(int(v) for v in folha[y, 1240]) for y in range(0, 3508, 4)}
-        assert (200, 80, 40) in cores and (40, 160, 40) in cores
-        largura_frente = (folha[:, :, 0] == 200).any(axis=0).sum()
-        assert largura_frente == pytest.approx(1011, abs=3)
+        # O dobro do tamanho real: cada lado com 171,2 x 108 mm (2022 x 1276 px a 300
+        # dpi), e 12 mm (142 px) entre eles.
+        topo, base, esquerda, direita = area_ocupada(folha)
+        assert direita - esquerda + 1 == pytest.approx(2022, abs=3)
+        assert base - topo + 1 == pytest.approx(2 * 1276 + 142, abs=3)
+        # Centrado na largura, com margem branca embaixo.
+        assert esquerda == pytest.approx(2480 - 1 - direita, abs=2)
+        assert base < 3508 - 150
+        # O verso, girado, fica embaixo da frente.
+        linhas_frente, _ = pixels_da_cor(folha, self.FRENTE)
+        linhas_verso, _ = pixels_da_cor(folha, self.VERSO)
+        assert len(linhas_frente) > 1200 and len(linhas_verso) > 1200
+        assert linhas_verso.min() > linhas_frente.max()
+
+    def test_cantos_arredondados_como_no_documento(self):
+        folha = compor_cartao([np.full((540, 856, 3), self.FRENTE, np.uint8)], "id")
+        topo, _, esquerda, _ = area_ocupada(folha)
+        # A ponta do retângulo fica branca; um pouco para dentro já é o documento.
+        assert tuple(int(v) for v in folha[topo + 3, esquerda + 3]) == (255, 255, 255)
+        assert tuple(int(v) for v in folha[topo + 100, esquerda + 100]) == self.FRENTE
+
+    def test_passaporte_cabe_na_largura_da_folha(self):
+        folha = compor_cartao([np.full((880, 1250, 3), (30, 30, 200), np.uint8)], "passaporte")
+        _, _, esquerda, direita = area_ocupada(folha)
+        # 125 mm não cabem dobrados: a ampliação para nas margens de 15 mm (180 mm).
+        assert direita - esquerda + 1 == pytest.approx(2126, abs=3)
 
     def test_passaporte_aceita_um_lado_so(self):
         with pytest.raises(CartaoInvalidoError):

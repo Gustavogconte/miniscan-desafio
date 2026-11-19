@@ -200,7 +200,7 @@ def rota_gerar_pdf(
     response_class=Response,
     responses={200: {"content": {"image/jpeg": {}}}, **ERROS_ENTRADA},
     tags=["visao"],
-    summary="Monta frente e verso do documento numa folha A4, em tamanho real",
+    summary="Monta frente e verso do documento numa folha A4, ampliados",
 )
 def rota_compor_cartao(
     frente: Annotated[UploadFile, File(description="Frente já retificada")],

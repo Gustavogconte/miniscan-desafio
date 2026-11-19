@@ -73,7 +73,7 @@ function folhaInteira(): Cantos {
   return CANTOS_TELA_INTEIRA.map((ponto) => ({ ...ponto })) as Cantos;
 }
 
-/** Retifica cada lado com os seus cantos e monta a folha A4 com o documento em tamanho real. */
+/** Retifica cada lado com os seus cantos e monta a folha A4 com o documento ampliado. */
 async function comporFolha(lados: { blob: Blob; cantos: Cantos }[], formato: FormatoCartao): Promise<Blob> {
   const retificados = await Promise.all(lados.map((lado) => processarPagina(lado.blob, lado.cantos, "original")));
   return comporCartao(retificados[0], retificados[1] ?? null, formato);
@@ -187,7 +187,7 @@ export function useProcessamento() {
   );
 
   /**
-   * Retifica cada lado do cartão e monta tudo numa folha A4 em tamanho real. As fotos
+   * Retifica cada lado do cartão e monta tudo numa folha A4, ampliado. As fotos
    * de cada lado ficam guardadas na página, para o recorte poder ser refeito depois.
    */
   const montarCartao = useCallback(
