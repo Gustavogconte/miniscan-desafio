@@ -14,6 +14,7 @@ dependencies = [
     "rapidocr>=3.10.0",
     "onnxruntime>=1.32.0",
     "pillow>=13.0.0",
+    "argon2-cffi>=23.1",
 ]
 
 [dependency-groups]

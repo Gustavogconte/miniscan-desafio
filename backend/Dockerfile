@@ -34,4 +34,6 @@ USER miniscan
 EXPOSE 8000
 
 # Plataformas como Render e Railway informam a porta pela variável PORT.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# --limit-concurrency: acima de 64 conexões ao mesmo tempo, a API responde 503 em vez
+# de abrir mais e estourar a memória do contêiner (1 GB na VPS).
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --limit-concurrency 64"]

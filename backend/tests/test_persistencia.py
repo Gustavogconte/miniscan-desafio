@@ -10,9 +10,16 @@ from app.persistencia import (
     DocumentoInvalidoError,
     FalhaPersistenciaError,
     PaginaParaSalvar,
+    abrir_documento,
+    caminho_no_bucket,
+    listar_historico,
     salvar_documento,
 )
 from app.rotas import obter_repositorio
+from tests.conftest import USUARIO_TESTE_ID
+
+OUTRA_CONTA = "00000000-0000-4000-8000-0000000000ff"
+BUCKET = "miniscan-files"
 
 JPEG = cv2.imencode(".jpg", np.full((60, 40, 3), 200, np.uint8))[1].tobytes()
 PNG = cv2.imencode(".png", np.full((60, 40), 255, np.uint8))[1].tobytes()
@@ -35,7 +42,6 @@ class RepositorioFalso:
     def enviar_arquivo(self, caminho, dados, tipo_mime):
         self._talvez_falhar("enviar_arquivo")
         self.arquivos[caminho] = (dados, tipo_mime)
-        return f"https://exemplo.supabase.co/storage/v1/object/public/miniscan-files/{caminho}"
 
     def remover_arquivos(self, caminhos):
         for caminho in caminhos:
@@ -53,6 +59,44 @@ class RepositorioFalso:
         self.documentos.pop(documento_id, None)
         self.paginas = [p for p in self.paginas if p["document_id"] != documento_id]
 
+    def _linha(self, documento: dict, paginas: list[dict]) -> dict:
+        return {
+            "id": documento["id"],
+            "title": documento["title"],
+            "pdf_url": documento["pdf_url"],
+            "page_count": len([p for p in self.paginas if p["document_id"] == documento["id"]]),
+            "created_at": "2026-11-18T12:00:00+00:00",
+            "document_pages": [{"id": f"p{p['page_order']}", **p} for p in paginas],
+        }
+
+    def listar_documentos(self, usuario_id, termo, limite):
+        self.busca = (usuario_id, termo, limite)
+        linhas = []
+        for documento in self.documentos.values():
+            if documento["usuario_id"] != usuario_id:
+                continue
+            paginas = sorted(
+                (p for p in self.paginas if p["document_id"] == documento["id"]),
+                key=lambda p: p["page_order"],
+            )
+            linhas.append(self._linha(documento, paginas[:1]))
+        return linhas
+
+    def obter_documento(self, usuario_id, documento_id):
+        documento = self.documentos.get(documento_id)
+        if documento is None or documento["usuario_id"] != usuario_id:
+            return None
+        # Fora de ordem de propósito: quem abre o documento ordena as páginas.
+        paginas = sorted(
+            (p for p in self.paginas if p["document_id"] == documento_id),
+            key=lambda p: -p["page_order"],
+        )
+        return self._linha(documento, paginas)
+
+    def assinar_urls(self, caminhos, validade_s):
+        self.assinados = (list(caminhos), validade_s)
+        return {c: f"https://exemplo.supabase.co/assinado/{c}?token=t" for c in caminhos}
+
 
 def duas_paginas() -> list[PaginaParaSalvar]:
     return [
@@ -64,11 +108,19 @@ def duas_paginas() -> list[PaginaParaSalvar]:
 class TestSalvarDocumento:
     def test_salva_arquivos_documento_e_paginas(self):
         repositorio = RepositorioFalso()
-        salvo = salvar_documento(repositorio, "  Contrato   de estágio ", PDF, duas_paginas())
+        salvo = salvar_documento(
+            repositorio, USUARIO_TESTE_ID, "  Contrato   de estágio ", PDF, duas_paginas()
+        )
 
         assert salvo.titulo == "Contrato de estágio"
         assert salvo.total_paginas == 2
-        assert salvo.pdf_url.endswith(f"documentos/{salvo.id}/documento.pdf")
+        # O banco guarda o caminho no bucket (que é privado), e não um link.
+        registro = repositorio.documentos[salvo.id]
+        assert registro["pdf_url"] == f"documentos/{salvo.id}/documento.pdf"
+        assert registro["usuario_id"] == USUARIO_TESTE_ID
+        assert repositorio.paginas[0]["original_image_url"] == (
+            f"documentos/{salvo.id}/pagina-01-original.jpg"
+        )
         assert sorted(repositorio.arquivos) == sorted(
             [
                 f"documentos/{salvo.id}/documento.pdf",
@@ -89,7 +141,7 @@ class TestSalvarDocumento:
     def test_desfaz_tudo_quando_uma_etapa_falha(self, etapa):
         repositorio = RepositorioFalso(falhar_em=etapa)
         with pytest.raises(FalhaPersistenciaError):
-            salvar_documento(repositorio, "Documento", PDF, duas_paginas())
+            salvar_documento(repositorio, USUARIO_TESTE_ID, "Documento", PDF, duas_paginas())
         assert repositorio.arquivos == {}
         assert repositorio.documentos == {}
         assert repositorio.paginas == []
@@ -112,7 +164,7 @@ class TestSalvarDocumento:
     def test_rejeita_entrada_invalida_sem_gravar_nada(self, titulo, pdf, paginas):
         repositorio = RepositorioFalso()
         with pytest.raises(DocumentoInvalidoError):
-            salvar_documento(repositorio, titulo, pdf, paginas)
+            salvar_documento(repositorio, USUARIO_TESTE_ID, titulo, pdf, paginas)
         assert repositorio.arquivos == {}
 
 
@@ -169,3 +221,76 @@ class TestRotaDocumentos:
     def test_sem_configuracao_responde_503(self):
         resposta = enviar_documento(TestClient(app))
         assert resposta.status_code == 503
+
+
+class TestHistorico:
+    def test_caminho_no_bucket_aceita_caminho_e_url_publica_antiga(self):
+        caminho = "documentos/a/documento.pdf"
+        assert caminho_no_bucket(caminho, BUCKET) == caminho
+        antiga = (
+            "https://abc.supabase.co/storage/v1/object/public/miniscan-files/"
+            "documentos/a/p%C3%A1gina.png"
+        )
+        assert caminho_no_bucket(antiga, BUCKET) == "documentos/a/página.png"
+        assert caminho_no_bucket("https://outro.site/arquivo.pdf", BUCKET) is None
+        assert caminho_no_bucket(None, BUCKET) is None
+
+    def test_lista_so_os_documentos_da_conta_com_links_assinados(self):
+        repositorio = RepositorioFalso()
+        meu = salvar_documento(repositorio, USUARIO_TESTE_ID, "Meu", PDF, duas_paginas())
+        salvar_documento(repositorio, OUTRA_CONTA, "De outra pessoa", PDF, duas_paginas())
+
+        resumos = listar_historico(repositorio, USUARIO_TESTE_ID, "  contrato ", BUCKET)
+
+        assert [r.titulo for r in resumos] == ["Meu"]
+        assert repositorio.busca == (USUARIO_TESTE_ID, "contrato", 50)
+        resumo = resumos[0]
+        assert resumo.total_paginas == 2
+        assert resumo.url_pdf.endswith(f"documentos/{meu.id}/documento.pdf?token=t")
+        assert resumo.url_miniatura.endswith(
+            f"documentos/{meu.id}/pagina-01-processada.png?token=t"
+        )
+        assert (resumo.filtro_capa, resumo.texto_capa) == ("bw", "primeira")
+        # Todos os links saem numa chamada só, com validade de uma hora.
+        assert repositorio.assinados[1] == 3600
+
+    def test_abre_documento_com_paginas_em_ordem(self):
+        repositorio = RepositorioFalso()
+        salvo = salvar_documento(repositorio, USUARIO_TESTE_ID, "Meu", PDF, duas_paginas())
+
+        documento = abrir_documento(repositorio, USUARIO_TESTE_ID, salvo.id, BUCKET)
+
+        assert [p.ordem for p in documento.paginas] == [1, 2]
+        assert documento.paginas[0].url_original.endswith("pagina-01-original.jpg?token=t")
+        assert documento.paginas[1].url_processada.endswith("pagina-02-processada.jpg?token=t")
+        assert len(repositorio.assinados[0]) == 5
+
+    def test_documento_de_outra_conta_nao_abre(self):
+        repositorio = RepositorioFalso()
+        alheio = salvar_documento(repositorio, OUTRA_CONTA, "Alheio", PDF, duas_paginas())
+        assert abrir_documento(repositorio, USUARIO_TESTE_ID, alheio.id, BUCKET) is None
+
+
+class TestRotasHistorico:
+    def test_lista_pela_api(self, cliente_com_repositorio):
+        cliente, repositorio = cliente_com_repositorio
+        assert enviar_documento(cliente).status_code == 201
+
+        resposta = cliente.get("/documentos", params={"busca": "meu"})
+
+        assert resposta.status_code == 200
+        (item,) = resposta.json()
+        assert item["titulo"] == "Meu documento"
+        assert item["url_miniatura"].endswith("pagina-01-processada.png?token=t")
+        assert repositorio.busca[:2] == (USUARIO_TESTE_ID, "meu")
+
+    def test_abre_pela_api_e_esconde_documento_alheio(self, cliente_com_repositorio):
+        cliente, repositorio = cliente_com_repositorio
+        meu = enviar_documento(cliente).json()["id"]
+        alheio = salvar_documento(repositorio, OUTRA_CONTA, "Alheio", PDF, duas_paginas()).id
+
+        resposta = cliente.get(f"/documentos/{meu}")
+        assert resposta.status_code == 200
+        assert [p["ordem"] for p in resposta.json()["paginas"]] == [1, 2]
+        assert cliente.get(f"/documentos/{alheio}").status_code == 404
+        assert cliente.get("/documentos/nao-e-uuid").status_code == 422

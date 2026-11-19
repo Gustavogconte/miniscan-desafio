@@ -1,5 +1,6 @@
 """Contratos de entrada e saída da API."""
 
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, Field, TypeAdapter
@@ -54,8 +55,63 @@ validador_metadados = TypeAdapter(ListaDeMetadados)
 class RespostaDocumento(BaseModel):
     id: str
     titulo: str
-    pdf_url: str
     total_paginas: int
+
+
+class ResumoDocumento(BaseModel):
+    """Um item do histórico, com a primeira página como capa."""
+
+    id: str
+    titulo: str
+    total_paginas: int
+    criado_em: datetime
+    url_pdf: str | None = Field(description="Link temporário (1 hora) do PDF")
+    url_miniatura: str | None = Field(description="Link temporário da 1ª página tratada")
+    filtro_capa: Filtro | None
+    texto_capa: str = Field(description="Texto do OCR da 1ª página")
+
+
+class PaginaDocumento(BaseModel):
+    id: str
+    ordem: int
+    url_original: str | None
+    url_processada: str | None
+    filtro: Filtro
+    texto_ocr: str
+
+
+class DocumentoCompleto(BaseModel):
+    id: str
+    titulo: str
+    total_paginas: int
+    criado_em: datetime
+    url_pdf: str | None
+    paginas: list[PaginaDocumento]
+
+
+# Os limites aqui só protegem a memória; as regras (tamanho mínimo da senha, formato
+# do e-mail) ficam em app/contas.py, com mensagens em português.
+class PedidoCadastro(BaseModel):
+    nome: Annotated[str, Field(max_length=500)]
+    email: Annotated[str, Field(max_length=500)]
+    senha: Annotated[str, Field(max_length=1024)]
+
+
+class PedidoEntrada(BaseModel):
+    email: Annotated[str, Field(max_length=500)]
+    senha: Annotated[str, Field(max_length=1024)]
+
+
+class RespostaUsuario(BaseModel):
+    id: str
+    nome: str
+    email: str
+
+
+class RespostaSessao(BaseModel):
+    token: str = Field(description="Enviar em toda chamada: Authorization: Bearer <token>")
+    expira_em: datetime
+    usuario: RespostaUsuario
 
 
 class RespostaErro(BaseModel):

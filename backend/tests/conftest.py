@@ -14,17 +14,41 @@ def sem_supabase_real(monkeypatch):
     A rota /documentos gravaria no bucket público e no histórico real. Os testes que
     precisam de persistência usam um repositório falso (dependency_overrides).
     """
-    from app import rotas
+    from app import contas, rotas, rotas_contas
     from app.config import Configuracoes
 
     for nome in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"):
         monkeypatch.delenv(nome, raising=False)
     monkeypatch.setattr(rotas, "configuracoes", Configuracoes())
+    monkeypatch.setattr(rotas_contas, "configuracoes", Configuracoes())
 
     def supabase_proibido():
         pytest.fail("um teste tentou usar o Supabase real")
 
     monkeypatch.setattr(rotas, "_repositorio_supabase", supabase_proibido)
+    monkeypatch.setattr(rotas_contas, "_contas_supabase", supabase_proibido)
+    # Contagem de senhas erradas e cache de sessões novos em cada teste.
+    monkeypatch.setattr(contas, "limitador_entrada", contas.LimitadorDeTentativas())
+    monkeypatch.setattr(contas, "cache_sessoes", contas.CacheDeSessoes())
+
+
+USUARIO_TESTE_ID = "00000000-0000-4000-8000-000000000001"
+
+
+@pytest.fixture(autouse=True)
+def sessao_de_teste(monkeypatch):
+    """As rotas que exigem sessão recebem uma conta de teste, sem token nem Supabase.
+
+    O middleware ExigeSessao chama ``rotas_contas.autenticar``; aqui ela devolve a
+    conta de teste para qualquer requisição. Os testes do próprio login
+    (test_contas.py) desfazem esta troca com a fixture ``login_de_verdade``.
+    """
+    from app import rotas_contas
+    from app.contas import Usuario
+
+    usuario = Usuario(id=USUARIO_TESTE_ID, nome="Pessoa de Teste", email="teste@miniscan.dev")
+    monkeypatch.setattr(rotas_contas, "autenticar", lambda _token: usuario)
+    return usuario
 
 
 def pytest_collection_modifyitems(config, items):

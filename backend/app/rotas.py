@@ -2,17 +2,34 @@
 
 As rotas são síncronas de propósito: o processamento com OpenCV e onnxruntime usa CPU,
 e o FastAPI executa rotas síncronas em uma thread separada, sem travar o servidor.
+
+Só o /saude é público (``roteador_publico``). Tudo do ``roteador`` exige sessão: o
+app/main.py o inclui com a dependência ``usuario_logado``.
 """
 
+import logging
+import uuid
 from functools import lru_cache
 from typing import Annotated
 
 import numpy as np
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import ValidationError
 
 from app.config import MAXIMO_PAGINAS_PDF, TAMANHO_MAXIMO_ARQUIVO, configuracoes
+from app.contas import Usuario
 from app.esquemas import (
+    DocumentoCompleto,
     MetadadosPagina,
     Ponto,
     RespostaCantos,
@@ -20,6 +37,7 @@ from app.esquemas import (
     RespostaErro,
     RespostaOcr,
     RespostaSaude,
+    ResumoDocumento,
     validador_cantos,
     validador_metadados,
 )
@@ -29,8 +47,11 @@ from app.persistencia import (
     PaginaParaSalvar,
     RepositorioDocumentos,
     RepositorioSupabase,
+    abrir_documento,
+    listar_historico,
     salvar_documento,
 )
+from app.rotas_contas import cliente_supabase, usuario_logado
 from app.visao.bordas import detectar_cantos
 from app.visao.cartao import FormatoCartao, compor_cartao
 from app.visao.docaligner import docaligner_disponivel
@@ -38,7 +59,10 @@ from app.visao.filtros import Filtro, aplicar_filtro, formato_saida
 from app.visao.imagem import codificar_imagem, decodificar_imagem
 from app.visao.perspectiva import corrigir_perspectiva
 
-roteador = APIRouter()
+logger = logging.getLogger(__name__)
+
+roteador_publico = APIRouter()
+roteador = APIRouter(responses={status.HTTP_401_UNAUTHORIZED: {"model": RespostaErro}})
 
 
 ERROS_ENTRADA = {
@@ -69,7 +93,7 @@ def ler_cantos(cantos_json: str) -> np.ndarray:
     return np.array([[ponto.x, ponto.y] for ponto in pontos], dtype=np.float32)
 
 
-@roteador.get("/saude", response_model=RespostaSaude, tags=["infra"])
+@roteador_publico.get("/saude", response_model=RespostaSaude, tags=["infra"])
 def rota_saude() -> RespostaSaude:
     return RespostaSaude(
         status="ok",
@@ -188,16 +212,14 @@ def rota_compor_cartao(
 
 @lru_cache(maxsize=1)
 def _repositorio_supabase() -> RepositorioSupabase:
-    return RepositorioSupabase(
-        configuracoes.supabase_url, configuracoes.supabase_chave_servico, configuracoes.bucket
-    )
+    return RepositorioSupabase(cliente_supabase(), configuracoes.bucket)
 
 
 def obter_repositorio() -> RepositorioDocumentos:
     if not configuracoes.persistencia_configurada:
+        logger.error("Histórico indisponível: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente")
         raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "Persistência não configurada: defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.",
+            status.HTTP_503_SERVICE_UNAVAILABLE, "O histórico está indisponível no momento."
         )
     return _repositorio_supabase()
 
@@ -225,6 +247,7 @@ def ler_metadados(paginas_json: str) -> list[MetadadosPagina]:
     summary="Salva PDF, imagens e textos OCR no histórico (Supabase)",
 )
 def rota_salvar_documento(
+    usuario: Annotated[Usuario, Depends(usuario_logado)],
     repositorio: Annotated[RepositorioDocumentos, Depends(obter_repositorio)],
     titulo: Annotated[str, Form()],
     pdf: Annotated[UploadFile, File()],
@@ -248,6 +271,7 @@ def rota_salvar_documento(
 
     salvo = salvar_documento(
         repositorio,
+        usuario.id,
         titulo,
         ler_arquivo(pdf),
         [
@@ -260,6 +284,45 @@ def rota_salvar_documento(
             for original, processada, meta in zip(originais, processadas, metadados, strict=True)
         ],
     )
-    return RespostaDocumento(
-        id=salvo.id, titulo=salvo.titulo, pdf_url=salvo.pdf_url, total_paginas=salvo.total_paginas
-    )
+    return RespostaDocumento(id=salvo.id, titulo=salvo.titulo, total_paginas=salvo.total_paginas)
+
+
+ERROS_HISTORICO = {
+    status.HTTP_502_BAD_GATEWAY: {"model": RespostaErro},
+    status.HTTP_503_SERVICE_UNAVAILABLE: {"model": RespostaErro},
+}
+
+
+@roteador.get(
+    "/documentos",
+    response_model=list[ResumoDocumento],
+    responses=ERROS_HISTORICO,
+    tags=["historico"],
+    summary="Documentos da conta, do mais novo ao mais antigo (busca no título e no OCR)",
+)
+def rota_listar_documentos(
+    usuario: Annotated[Usuario, Depends(usuario_logado)],
+    repositorio: Annotated[RepositorioDocumentos, Depends(obter_repositorio)],
+    busca: Annotated[str, Query(max_length=200)] = "",
+) -> list[ResumoDocumento]:
+    resumos = listar_historico(repositorio, usuario.id, busca, configuracoes.bucket)
+    return [ResumoDocumento.model_validate(r, from_attributes=True) for r in resumos]
+
+
+@roteador.get(
+    "/documentos/{documento_id}",
+    response_model=DocumentoCompleto,
+    responses={**ERROS_HISTORICO, status.HTTP_404_NOT_FOUND: {"model": RespostaErro}},
+    tags=["historico"],
+    summary="Um documento da conta com todas as páginas, o texto e o PDF",
+)
+def rota_abrir_documento(
+    documento_id: uuid.UUID,
+    usuario: Annotated[Usuario, Depends(usuario_logado)],
+    repositorio: Annotated[RepositorioDocumentos, Depends(obter_repositorio)],
+) -> DocumentoCompleto:
+    documento = abrir_documento(repositorio, usuario.id, str(documento_id), configuracoes.bucket)
+    # Documento de outra conta responde igual a documento inexistente.
+    if documento is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento não encontrado.")
+    return DocumentoCompleto.model_validate(documento, from_attributes=True)

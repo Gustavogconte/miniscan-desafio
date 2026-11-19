@@ -8,6 +8,9 @@ MAXIMO_PAGINAS_PDF = 50
 # Teto do corpo inteiro da requisição (todos os arquivos somados). Sem ele, uma
 # requisição com dezenas de arquivos de 15 MB derrubaria a API por falta de memória.
 TAMANHO_MAXIMO_REQUISICAO = 100 * 1024 * 1024
+# Teto de qualquer corpo que não seja upload de arquivos (o JSON do /entrar e do
+# /cadastrar tem poucas centenas de bytes).
+TAMANHO_MAXIMO_REQUISICAO_SEM_ARQUIVO = 64 * 1024
 
 
 def _ler_origens_cors() -> list[str]:
