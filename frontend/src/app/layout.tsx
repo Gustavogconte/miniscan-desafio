@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 
 import { ProvedorAvisos } from "@/componentes/aviso";
 import { GuardaSessao } from "@/componentes/guarda-sessao";
-import { SCRIPT_TEMA_INICIAL } from "@/componentes/tema";
 import { ProvedorDigitalizacao } from "@/lib/estado-digitalizacao";
 
 import "./globals.css";
@@ -45,7 +44,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   // No Android, o teclado virtual encolhe a área útil (dvh) em vez de cobrir a tela.
   interactiveWidget: "resizes-content",
-  // Uma única cor, atualizada pelo botão de tema (tema.tsx), e não pelo sistema.
+  // Barra do navegador na cor do fundo do app (o app tem só o tema claro).
   themeColor: "#f8fafc",
 };
 
@@ -55,13 +54,8 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html
       lang="pt-BR"
-      data-theme="light"
-      suppressHydrationWarning
       className={`${fonteDisplay.variable} ${fonteCorpo.variable} ${fonteMono.variable} h-full antialiased`}
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA_INICIAL }} />
-      </head>
       <body className="h-full">
         <ProvedorAvisos>
           <GuardaSessao>

@@ -1,11 +1,7 @@
 @import "tailwindcss";
 
-/* Tema controlado pelo atributo data-theme no <html> (claro é o padrão). */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-
-/* Tokens Clean Professional (docs/figma/miniscan-tokens.json). */
-:root,
-[data-theme="light"] {
+/* Tokens Clean Professional (docs/figma/miniscan-tokens.json). O app tem só o tema claro. */
+:root {
   --fundo: #f8fafc;
   --cartao: #ffffff;
   --secundario: #f1f5f9;
@@ -25,29 +21,6 @@
   --palco-recorte: #0f172a;
   --sombra-cartao: 0 1px 3px rgb(15 23 42 / 0.04), 0 1px 2px rgb(15 23 42 / 0.02);
   color-scheme: light;
-}
-
-[data-theme="dark"] {
-  --fundo: #0f172a;
-  --cartao: #1e293b;
-  --secundario: #334155;
-  --borda: #334155;
-  --borda-campo: #64748b;
-  /* No escuro, preenchimento e texto azul precisam de tons diferentes:
-     #2563eb dá 5,17:1 com texto branco; #60a5fa dá 5,75:1 sobre o cartão. */
-  --primaria: #2563eb;
-  --primaria-hover: #1d4ed8;
-  --primaria-texto: #60a5fa;
-  --primaria-suave: rgb(59 130 246 / 0.16);
-  --texto: #f8fafc;
-  --texto-secundario: #cbd5e1;
-  --texto-suave: #94a3b8;
-  --sucesso: #4ade80;
-  --alerta: #fbbf24;
-  --perigo: #f87171;
-  --palco-recorte: #020617;
-  --sombra-cartao: 0 2px 6px rgb(0 0 0 / 0.25);
-  color-scheme: dark;
 }
 
 @theme inline {

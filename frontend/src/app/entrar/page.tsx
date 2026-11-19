@@ -4,7 +4,6 @@ import { Eye, EyeOff, LoaderCircle, LockKeyhole } from "lucide-react";
 import { useRef, useState, type FormEvent } from "react";
 
 import { Logo } from "@/componentes/logo";
-import { BotaoTema } from "@/componentes/tema";
 import { cadastrar, entrar, mensagemDeErro } from "@/lib/api";
 
 type Modo = "entrar" | "cadastrar";
@@ -59,9 +58,8 @@ export default function TelaEntrar() {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <Logo className="h-9 w-auto" />
-        <BotaoTema />
       </div>
 
       <div className="flex flex-1 flex-col justify-center px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">

@@ -14,7 +14,7 @@ function origemDaApi(): string {
  * O ponto principal é o connect-src: o token da sessão fica no localStorage, e,
  * se um dia entrar um XSS ou uma dependência maliciosa, ela não consegue mandá-lo
  * para fora. Só a API, o próprio app e o Storage do Supabase (links assinados do
- * PDF) são alcançáveis. Os scripts embutidos do Next e o do tema pedem 'unsafe-inline'.
+ * PDF) são alcançáveis. Os scripts embutidos do Next pedem 'unsafe-inline'.
  */
 function politicaDeConteudo(): string {
   return [

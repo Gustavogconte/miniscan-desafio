@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { useCapturaFoto } from "@/componentes/captura-foto";
 import { CartaoDocumento } from "@/componentes/cartao-documento";
 import { Logo } from "@/componentes/logo";
-import { BotaoTema } from "@/componentes/tema";
 import { listarDocumentos, sair } from "@/lib/api";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
 import { aplicarMudancas } from "@/lib/mudancas-historico";
@@ -90,7 +89,6 @@ export default function TelaInicio() {
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <BotaoTema />
             <button
               type="button"
               onClick={sairDaConta}
