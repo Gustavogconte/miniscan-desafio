@@ -2,6 +2,12 @@ import type { Pagina } from "@/lib/tipos";
 
 const formatoDia = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
+/** Tira os acentos: "Habilitação" vira "Habilitacao". */
+export function semAcentos(texto: string): string {
+  // O normalize("NFD") separa cada letra do seu acento, e o \p{M} apaga os acentos soltos.
+  return texto.normalize("NFD").replace(/\p{M}/gu, "");
+}
+
 /**
  * Nome do documento antes de a pessoa mudar, tirado do texto da primeira página: no RG
  * ou CNH, o tipo do documento; nas outras, o título que a API achou (a linha de letra
@@ -16,10 +22,10 @@ export function sugerirTitulo(paginas: Pagina[], hoje: Date): string {
 
 /** "CNH" ou "RG" pelas palavras impressas no documento. */
 export function tipoDoCartao(texto: string): string {
-  // Sem acento e em maiúsculas: "Habilitação" e "HABILITACAO" contam igual.
-  const simples = texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
-  // A CNH também tem a palavra "IDENTIDADE" (no campo do RG), por isso vem primeiro.
-  if (simples.includes("HABILITACAO")) return "CNH";
+  const simples = semAcentos(texto).toUpperCase();
+  // A CNH também tem a palavra "IDENTIDADE" (no campo do RG), por isso vem primeiro. O
+  // "TRANSITO" do cabeçalho da CNH ainda acerta se o OCR errar a palavra "HABILITAÇÃO".
+  if (simples.includes("HABILITACAO") || simples.includes("TRANSITO")) return "CNH";
   if (simples.includes("IDENTIDADE") || simples.includes("REGISTRO GERAL")) return "RG";
   return "RG ou CNH";
 }

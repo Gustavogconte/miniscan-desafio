@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { sugerirTitulo, tipoDoCartao } from "../src/lib/titulo.ts";
+import { semAcentos, sugerirTitulo, tipoDoCartao } from "../src/lib/titulo.ts";
 
 const hoje = new Date(2026, 10, 19);
 
@@ -33,7 +33,17 @@ describe("tipoDoCartao", () => {
     assert.equal(tipoDoCartao("CARTEIRA DE IDENTIDADE NACIONAL"), "RG");
   });
 
+  it("reconhece a CNH pelo Departamento de Trânsito quando o OCR erra HABILITAÇÃO", () => {
+    assert.equal(tipoDoCartao("DEPARTAMENTO NACIONAL DE TRÂNSITO\nCARTEIRA NACIONAL DE HABILlTACA0\nDOC. IDENTIDADE"), "CNH");
+  });
+
   it("sem as palavras, fica RG ou CNH", () => {
     assert.equal(tipoDoCartao(""), "RG ou CNH");
+  });
+});
+
+describe("semAcentos", () => {
+  it("tira os acentos e mantém as letras", () => {
+    assert.equal(semAcentos("Habilitação, Ação e Trânsito"), "Habilitacao, Acao e Transito");
   });
 });

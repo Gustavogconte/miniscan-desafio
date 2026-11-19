@@ -105,7 +105,14 @@ export async function obterDocumento(id: string): Promise<DocumentoCompleto | nu
 
 /** Apaga o documento da conta, com as páginas, as imagens e o PDF. */
 export async function excluirDocumento(id: string): Promise<void> {
-  await chamar(`/documentos/${encodeURIComponent(id)}`, { method: "DELETE" });
+  try {
+    await chamar(`/documentos/${encodeURIComponent(id)}`, { method: "DELETE" });
+  } catch (erro) {
+    // Já não existe: a resposta de uma tentativa anterior se perdeu no caminho, mas o
+    // documento foi apagado do mesmo jeito.
+    if (erro instanceof ErroApi && erro.status === 404) return;
+    throw erro;
+  }
 }
 
 /** Muda o nome do documento e devolve o nome como ficou salvo (sem espaços sobrando). */

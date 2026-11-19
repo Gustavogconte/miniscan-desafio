@@ -1,8 +1,8 @@
+import { semAcentos } from "@/lib/titulo";
+
 /** Nome de arquivo seguro: sem acentos, barras ou espaços. */
 export function nomeDoArquivo(titulo: string): string {
-  const limpo = titulo
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+  const limpo = semAcentos(titulo)
     .replace(/[^\w\- ]+/g, "")
     .trim()
     .replace(/\s+/g, "_");

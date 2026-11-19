@@ -10,7 +10,7 @@ import { Logo } from "@/componentes/logo";
 import { listarDocumentos, sair } from "@/lib/api";
 import { desligarCamera } from "@/lib/camera";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
-import { aplicarMudancas } from "@/lib/mudancas-historico";
+import { aplicarMudancas, limparMudancas } from "@/lib/mudancas-historico";
 import { useSessao } from "@/lib/sessao";
 import type { DocumentoHistorico } from "@/lib/tipos";
 
@@ -43,7 +43,10 @@ export default function TelaInicio() {
       async () => {
         try {
           const documentos = await listarDocumentos(termo);
-          if (!cancelado) setLista({ tipo: "pronto", documentos, termo });
+          if (!cancelado) {
+            setLista({ tipo: "pronto", documentos, termo });
+            limparMudancas();
+          }
         } catch (erro) {
           if (!cancelado) {
             setLista({ tipo: "erro", mensagem: erro instanceof Error ? erro.message : "Erro ao carregar.", termo });

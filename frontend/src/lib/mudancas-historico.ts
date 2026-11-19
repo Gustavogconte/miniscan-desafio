@@ -1,8 +1,8 @@
 import type { DocumentoHistorico } from "@/lib/tipos";
 
-// Documentos excluídos e renomeados nesta visita. O Next guarda a tela inicial escondida
-// e a mostra de novo antes de buscar a lista na API: sem isto, o documento excluído
-// aparecia por um instante, ou com o nome antigo.
+// Documentos excluídos e renomeados desde a última vez que a lista veio da API. O Next
+// guarda a tela inicial escondida e a mostra de novo antes de buscar a lista: sem isto,
+// o documento excluído aparecia por um instante, ou com o nome antigo.
 const excluidos = new Set<string>();
 const nomesNovos = new Map<string, string>();
 
@@ -12,6 +12,12 @@ export function marcarExcluido(id: string) {
 
 export function marcarRenomeado(id: string, titulo: string) {
   nomesNovos.set(id, titulo);
+}
+
+/** A lista nova da API já tem as mudanças: daqui em diante vale só ela. */
+export function limparMudancas() {
+  excluidos.clear();
+  nomesNovos.clear();
 }
 
 export function aplicarMudancas(documentos: DocumentoHistorico[]): DocumentoHistorico[] {
