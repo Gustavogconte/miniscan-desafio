@@ -8,12 +8,14 @@ O app já teve um recorte ao vivo, com o OpenCV.js num Web Worker e captura auto
 
 Modos da câmera:
 
-- **Digitalizar:** fluxo padrão, uma foto por vez (Único) ou várias seguidas (Lote). No editor, o botão "+ Página" volta para a câmera e acrescenta páginas ao mesmo documento.
-- **RG ou CNH:** frente e verso do documento, montados numa folha A4 em tamanho real.
+- **Digitalizar:** fluxo padrão, uma foto por vez (Uma página) ou várias seguidas (Várias páginas, o `lote` no código). No editor, o botão "+ Página" volta para a câmera e acrescenta páginas ao mesmo documento.
+- **RG ou CNH:** frente e verso do documento, montados numa folha A4 e ampliados até o dobro do tamanho real.
 
-O texto reconhecido (OCR) de cada página fica no botão "Texto OCR" do editor.
+O texto reconhecido (OCR) de cada página fica no botão "Ver texto" do editor. A tela de salvar já vem com um nome sugerido pelo texto da primeira página (`src/lib/titulo.ts`): o que a API achou como título ou, no RG ou CNH, "CNH" ou "RG" pelas palavras do documento.
 
-As páginas abrem em tela cheia no visualizador (`src/componentes/visualizador-paginas.tsx`, com a biblioteca `yet-another-react-lightbox`): pinça e dois toques ampliam, deslizar troca de página e um botão alterna entre a página tratada e a foto original. Ele aparece no editor, na revisão das fotos do lote (tocando na miniatura da câmera) e na tela do documento salvo (`/documento?id=...`), que o histórico abre com as páginas, o texto do OCR e os botões do PDF. O gesto de voltar do celular fecha o visualizador sem sair da tela (`src/lib/usar-visualizador.ts`).
+Os textos das telas evitam termos técnicos: nada de "OCR", "lote", "P&B" ou "histórico" para a pessoa. Os filtros aparecem como Colorido, Cinza e Preto e branco, e o app tem só o tema claro.
+
+As páginas abrem em tela cheia no visualizador (`src/componentes/visualizador-paginas.tsx`, com a biblioteca `yet-another-react-lightbox`): pinça e dois toques ampliam, deslizar troca de página e um botão alterna entre a página digitalizada e a foto original (no RG ou CNH, as fotos da frente e do verso juntas, de `juntarFotos`). Ele aparece no editor, na revisão das fotos de Várias páginas (tocando na miniatura da câmera) e na tela do documento salvo (`/documento?id=...`), que o histórico abre com as páginas, o texto e os botões do PDF. No cabeçalho dessa tela, o lápis muda o nome e a lixeira exclui o documento, depois de confirmar numa janela (`src/componentes/dialogo.tsx`). O gesto de voltar do celular fecha o visualizador sem sair da tela (`src/lib/usar-visualizador.ts`).
 
 ## Rodando localmente
 
@@ -28,16 +30,18 @@ No `.env.local`, preencha `NEXT_PUBLIC_API_URL` com o endereço da API. É a ún
 
 ## Login
 
-Toda tela exige uma conta. Sem sessão, a guarda do layout (`src/componentes/guarda-sessao.tsx`) leva para `/entrar`, onde dá para entrar ou criar a conta com nome, e-mail e senha de pelo menos 8 caracteres. A API devolve um token, que fica no `localStorage` (`src/lib/sessao.ts`) e vai em toda chamada no cabeçalho `Authorization: Bearer`. Se a API recusar o token (vencido depois de 30 dias, ou encerrado), o app apaga a sessão e volta para a tela de entrada. O botão de sair fica ao lado do tema, na tela inicial, e sair desmonta as telas abertas, para nenhuma foto ficar na memória para a próxima pessoa. No iPhone, o app instalado na tela de início guarda os dados à parte do Safari, então é preciso entrar uma vez nele também.
+Toda tela exige uma conta. Sem sessão, a guarda do layout (`src/componentes/guarda-sessao.tsx`) leva para `/entrar`, onde dá para entrar ou criar a conta com nome, e-mail e senha de pelo menos 8 caracteres. A API devolve um token, que fica no `localStorage` (`src/lib/sessao.ts`) e vai em toda chamada no cabeçalho `Authorization: Bearer`. Se a API recusar o token (vencido depois de 30 dias, ou encerrado), o app apaga a sessão e volta para a tela de entrada. O botão de sair fica no alto da tela inicial, e sair desmonta as telas abertas, para nenhuma foto ficar na memória para a próxima pessoa. No iPhone, o app instalado na tela de início guarda os dados à parte do Safari, então é preciso entrar uma vez nele também.
 
 Os PDFs e as fotos do histórico chegam por links assinados que valem 1 hora, porque o bucket do Supabase é privado. Por isso o cartão do histórico não tem mais o botão de compartilhar link: a tela do documento baixa o PDF ao abrir e compartilha o próprio arquivo.
 
 A câmera ao vivo usa a `getUserMedia`, que exige contexto seguro. Ela funciona em `localhost` e em sites HTTPS. No celular, pela rede local em http, a tela oferece a câmera nativa do sistema e a galeria como alternativa.
 
+No iPhone, a permissão da câmera cai cerca de 1 minuto depois que ela para, e o app instalado na tela de início não a guarda de uma abertura para outra. Por isso a câmera continua ligada por 2 minutos depois de sair da tela dela (`src/lib/camera.ts`): voltando nesse tempo, o app reaproveita a mesma câmera e o celular não pergunta de novo. Ela desliga na hora quando o app vai para segundo plano ou a pessoa sai da conta (`desligarCamera`).
+
 ## Testes e verificações
 
 ```bash
-npm test          # regras do visualizador e dos cantos do cartão (node:test, Node 22.18+)
+npm test          # regras do visualizador, dos cantos do cartão e do nome sugerido (node:test, Node 22.18+)
 npx tsc --noEmit
 npm run lint
 npm run build

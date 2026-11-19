@@ -8,12 +8,14 @@ Os cantos da folha vêm primeiro do modelo [DocAligner](https://github.com/Docsa
 |---|---|---|
 | `POST /detectar-cantos` | `imagem` (arquivo) | `{cantos: [{x, y}] × 4, detectado}`, coordenadas de 0 a 1 |
 | `POST /processar-pagina` | `imagem`, `cantos` (JSON), `filtro` (`original`, `grayscale` ou `bw`) | página retificada em JPEG, ou PNG no filtro `bw` |
-| `POST /extrair-ocr` | `imagem` (foto original), `cantos` (JSON; com eles a API retifica a foto e lê a página sem filtro). Sem `cantos`, a imagem é tratada como já retificada | `{texto, idioma}`, com o texto em ordem de leitura |
+| `POST /extrair-ocr` | `imagem` (foto original), `cantos` (JSON; com eles a API retifica a foto e lê a página sem filtro). Sem `cantos`, a imagem é tratada como já retificada | `{texto, titulo, idioma}`, com o texto em ordem de leitura e, em `titulo`, um nome sugerido para o documento (a linha de letra maior na metade de cima da página ou, sem destaque, a primeira com palavras, e vazio se nada servir) |
 | `POST /gerar-pdf` | `paginas` (vários arquivos, na ordem), `carimbo` opcional (data e hora escritas em cada página) | PDF A4 |
-| `POST /compor-cartao` | `frente` e `verso` opcional (já retificados), `formato` (`id` ou `passaporte`) | folha A4 em JPEG com o cartão em tamanho real |
+| `POST /compor-cartao` | `frente` e `verso` opcional (já retificados), `formato` (`id` ou `passaporte`) | folha A4 em JPEG com os lados ampliados até o dobro do tamanho real, um embaixo do outro e com os cantos arredondados |
 | `POST /documentos` | `titulo`, `pdf`, `originais` e `processadas` (arquivos, na ordem), `paginas` (JSON com `filtro` e `texto_ocr` de cada página) | `201` com `{id, titulo, total_paginas}` |
 | `GET /documentos?busca=` | termo opcional (título e texto do OCR, em português) | documentos da conta, do mais novo ao mais antigo, com links de 1 hora para o PDF e a miniatura |
 | `GET /documentos/{id}` | — | o documento com todas as páginas, o texto e os links; `404` se não existe ou é de outra conta |
+| `PATCH /documentos/{id}` | JSON `{titulo}` | `{id, titulo}` com o nome novo; `422` se ficar vazio ou passar de 200 caracteres, `404` se não existe ou é de outra conta |
+| `DELETE /documentos/{id}` | — | `204`, com o documento, as páginas, o PDF e as imagens apagados; `404` se não existe ou é de outra conta |
 | `POST /cadastrar` | JSON `{nome, email, senha}` | `201` com `{token, expira_em, usuario}`; `409` se o e-mail já tem conta |
 | `POST /entrar` | JSON `{email, senha}` | `{token, expira_em, usuario}`; `401` se não confere, `429` depois de 5 erros seguidos |
 | `POST /sair` | — | `204`, e o token deixa de valer |
@@ -24,7 +26,7 @@ Só `/saude`, `/cadastrar` e `/entrar` são abertas. Todas as outras rotas, incl
 
 Os cantos seguem sempre a ordem superior esquerdo, superior direito, inferior direito e inferior esquerdo. Cada arquivo pode ter até 15 MB, o mesmo limite do bucket no Supabase. A requisição inteira pode ter até 100 MB, e cada imagem até 50 megapixels: a API confere as dimensões pelo cabeçalho antes de decodificar, porque um PNG de 100 KB pode descrever 10000 x 10000 pixels e ocupar centenas de MB na memória. Acima desses limites, a resposta é 413. O PDF aceita até 50 páginas, e o título de um documento salvo, até 200 caracteres.
 
-O `POST /documentos` é a única rota que grava documentos no Supabase. Ela envia os arquivos para `miniscan-files/documentos/<id>/`, insere as linhas em `documents` (com o dono em `usuario_id`) e `document_pages`, e guarda nas colunas `*_url` o caminho do arquivo no bucket, e não um link. Se alguma etapa falhar, ela apaga o que já tinha gravado e responde 502. O bucket é privado: a leitura do histórico gera na hora links assinados que valem 1 hora. Sem `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` configuradas, as contas e o histórico respondem 503, e por isso as rotas que exigem sessão também.
+O `POST /documentos` é a única rota que cria documentos no Supabase. Ela envia os arquivos para `miniscan-files/documentos/<id>/`, insere as linhas em `documents` (com o dono em `usuario_id`) e `document_pages`, e guarda nas colunas `*_url` o caminho do arquivo no bucket, e não um link. Se alguma etapa falhar, ela apaga o que já tinha gravado e responde 502. O bucket é privado: a leitura do histórico gera na hora links assinados que valem 1 hora. O `PATCH` troca só o título. O `DELETE` apaga primeiro a linha em `documents` (as páginas caem em cascata) e depois os arquivos do bucket. Se o Storage falhar nessa hora, os arquivos sobram no bucket privado e o caso vai para o log, sem o documento voltar ao histórico. Sem `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` configuradas, as contas e o histórico respondem 503, e por isso as rotas que exigem sessão também.
 
 ## Contas e sessão
 
