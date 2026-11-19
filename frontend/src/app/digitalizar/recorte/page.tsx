@@ -45,8 +45,8 @@ function RecortePagina() {
     Promise.resolve(usarDeteccaoDaCaptura(id))
       .then((daCaptura) => daCaptura ?? detectarCantos(original))
       .then(({ cantos, detectado }) => {
+        // Sem a folha, o aviso fica no cabeçalho (ver `semFolha`), e não por cima dos cantos.
         atualizarPagina(id, { cantos, cantosDetectados: cantos, detectado });
-        if (!detectado) avisar("Não encontrei as bordas da folha. Arraste os cantos até ela.", "erro");
       })
       .catch((erro) => {
         atualizarPagina(id, { cantos: CANTOS_TELA_INTEIRA, detectado: false });
@@ -65,6 +65,14 @@ function RecortePagina() {
     : paginas.length > 1
       ? "Descartar esta página e voltar ao editor"
       : "Cancelar e voltar ao início";
+  // O servidor não achou a folha nesta foto nova: os cantos estão nas pontas da foto.
+  const semFolha = cantos !== null && !pagina.detectado && nuncaConfirmada;
+  let subtitulo = "Arraste os 4 cantos até as bordas da folha";
+  if (semFolha) subtitulo = "Não achei a folha. Arraste os 4 cantos até ela.";
+  if (paginas.length > 1) {
+    const qual = `Página ${indiceAtual + 1} de ${paginas.length}`;
+    subtitulo = semFolha ? `${qual} • não achei a folha, arraste os cantos` : `${qual} • arraste os 4 cantos`;
+  }
 
   function aoVoltar() {
     const alvo = pagina!;
@@ -87,7 +95,7 @@ function RecortePagina() {
       avisar(mensagemDeErro(erro), "erro");
     } finally {
       // O Next mantém esta tela montada (escondida) ao navegar: sem isto, ao voltar
-      // pelo botão "Recortar" do editor o botão continuaria em "Corrigindo perspectiva…".
+      // pelo botão "Recortar" do editor o botão continuaria em "Endireitando a página…".
       setConfirmando(false);
     }
   }
@@ -96,11 +104,8 @@ function RecortePagina() {
     <main className="flex min-h-0 flex-1 flex-col">
       <CabecalhoEtapa
         titulo="Ajustar recorte"
-        subtitulo={
-          paginas.length > 1
-            ? `Página ${indiceAtual + 1} de ${paginas.length} • arraste os 4 cantos`
-            : "Arraste os 4 cantos até as bordas da folha"
-        }
+        subtitulo={subtitulo}
+        alerta={semFolha}
         voltarPara={voltarPara}
         aoVoltar={aoVoltar}
         rotuloVoltar={rotuloVoltar}
@@ -164,12 +169,15 @@ function RecorteCartao() {
   const [editados, setEditados] = useState<Cantos[] | null>(null);
   const [detectando, setDetectando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  // A detecção pedida de novo não achou o documento neste lado.
+  const [semDocumento, setSemDocumento] = useState(false);
 
   // O Next guarda esta tela escondida ao navegar: sair sem confirmar descarta os ajustes.
   useEffect(
     () => () => {
       setEditados(null);
       setLadoAtivo(0);
+      setSemDocumento(false);
     },
     [],
   );
@@ -193,7 +201,7 @@ function RecorteCartao() {
     try {
       const { cantos, detectado } = await detectarCantos(lado.original.blob);
       if (detectado) usarCantos(cantos);
-      else avisar("Não encontrei as bordas do documento. Arraste os cantos até ele.", "erro");
+      setSemDocumento(!detectado);
     } catch (erro) {
       avisar(mensagemDeErro(erro), "erro");
     } finally {
@@ -218,7 +226,12 @@ function RecorteCartao() {
     <main className="flex min-h-0 flex-1 flex-col">
       <CabecalhoEtapa
         titulo="Recortar documento"
-        subtitulo="Arraste os 4 cantos até as bordas do documento"
+        subtitulo={
+          semDocumento
+            ? "Não achei o documento. Arraste os 4 cantos até ele."
+            : "Arraste os 4 cantos até as bordas do documento"
+        }
+        alerta={semDocumento}
         voltarPara="/digitalizar/editor"
         rotuloVoltar="Voltar ao editor sem mudar o recorte"
       />
@@ -232,7 +245,10 @@ function RecorteCartao() {
                 type="button"
                 role="radio"
                 aria-checked={indice === i}
-                onClick={() => setLadoAtivo(i)}
+                onClick={() => {
+                  setLadoAtivo(i);
+                  setSemDocumento(false);
+                }}
                 className={`min-h-10 rounded-full px-5 text-sm font-semibold transition ${
                   indice === i ? "bg-primaria text-white" : "text-texto"
                 }`}
