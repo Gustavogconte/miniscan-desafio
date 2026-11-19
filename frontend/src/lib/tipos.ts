@@ -79,33 +79,36 @@ export interface Pagina {
   cartao?: { formato: FormatoCartao; lados: LadoDoDocumento[] };
 }
 
+/*
+ * Histórico, como a API devolve (GET /documentos). Os links de arquivo são
+ * assinados e valem 1 hora: o bucket do Supabase é privado.
+ */
+
 /** Documento salvo com todas as páginas, para a tela do documento. */
 export interface DocumentoCompleto {
   id: string;
-  title: string;
-  pdf_url: string | null;
-  page_count: number;
-  created_at: string;
-  document_pages: {
+  titulo: string;
+  total_paginas: number;
+  criado_em: string;
+  url_pdf: string | null;
+  paginas: {
     id: string;
-    page_order: number;
-    original_image_url: string;
-    processed_image_url: string;
-    filter_applied: Filtro;
-    ocr_text: string;
+    ordem: number;
+    url_original: string | null;
+    url_processada: string | null;
+    filtro: Filtro;
+    texto_ocr: string;
   }[];
 }
 
+/** Um item da lista da tela inicial, com a 1ª página como capa. */
 export interface DocumentoHistorico {
   id: string;
-  title: string;
-  pdf_url: string | null;
-  page_count: number;
-  created_at: string;
-  document_pages: {
-    processed_image_url: string;
-    ocr_text: string;
-    filter_applied: Filtro;
-    page_order: number;
-  }[];
+  titulo: string;
+  total_paginas: number;
+  criado_em: string;
+  url_pdf: string | null;
+  url_miniatura: string | null;
+  filtro_capa: Filtro | null;
+  texto_capa: string;
 }

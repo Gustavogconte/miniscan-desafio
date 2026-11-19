@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, IdCard, ImageIcon, LoaderCircle, Search } from "lucide-react";
+import { Camera, IdCard, ImageIcon, LoaderCircle, LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -8,8 +8,9 @@ import { useCapturaFoto } from "@/componentes/captura-foto";
 import { CartaoDocumento } from "@/componentes/cartao-documento";
 import { Logo } from "@/componentes/logo";
 import { BotaoTema } from "@/componentes/tema";
+import { listarDocumentos, sair } from "@/lib/api";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
-import { buscarDocumentos } from "@/lib/supabase";
+import { useSessao } from "@/lib/sessao";
 import type { DocumentoHistorico, Modo } from "@/lib/tipos";
 
 type EstadoLista =
@@ -25,6 +26,9 @@ export default function TelaInicio() {
   const captura = useCapturaFoto();
   const [termo, setTermo] = useState("");
   const [lista, setLista] = useState<EstadoLista>({ tipo: "carregando" });
+  const [saindo, setSaindo] = useState(false);
+  const usuario = useSessao()?.usuario;
+  const primeiroNome = usuario?.nome.split(" ")[0] ?? "";
 
   // Voltar ao início descarta uma digitalização que não foi salva.
   useEffect(() => {
@@ -37,7 +41,7 @@ export default function TelaInicio() {
     const temporizador = setTimeout(
       async () => {
         try {
-          const documentos = await buscarDocumentos(termo);
+          const documentos = await listarDocumentos(termo);
           if (!cancelado) setLista({ tipo: "pronto", documentos, termo });
         } catch (erro) {
           if (!cancelado) {
@@ -54,6 +58,12 @@ export default function TelaInicio() {
   }, [termo]);
 
   const quantidade = lista.tipo === "pronto" ? lista.documentos.length : null;
+
+  async function sairDaConta() {
+    setSaindo(true);
+    // Apaga a sessão do aparelho; a guarda do layout leva para a tela de entrada.
+    await sair();
+  }
 
   function abrirCamera(modo: Modo) {
     configurar({ modo });
@@ -72,9 +82,27 @@ export default function TelaInicio() {
             <h1>
               <Logo className="h-9 w-auto" />
             </h1>
-            <p className="mt-1 text-xs text-texto-secundario">Digitalizador de documentos com OCR</p>
+            <p className="mt-1 truncate text-xs text-texto-secundario">
+              {primeiroNome ? `Olá, ${primeiroNome}` : "Digitalizador de documentos com OCR"}
+            </p>
           </div>
-          <BotaoTema />
+          <div className="flex shrink-0 items-center gap-2">
+            <BotaoTema />
+            <button
+              type="button"
+              onClick={sairDaConta}
+              disabled={saindo}
+              aria-label={usuario ? `Sair da conta ${usuario.email}` : "Sair da conta"}
+              title="Sair"
+              className="flex size-11 items-center justify-center rounded-xl border border-borda bg-cartao text-texto-secundario transition hover:bg-secundario hover:text-texto disabled:opacity-60"
+            >
+              {saindo ? (
+                <LoaderCircle className="size-5 animate-spin" aria-hidden />
+              ) : (
+                <LogOut className="size-5" aria-hidden />
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="relative mt-4">

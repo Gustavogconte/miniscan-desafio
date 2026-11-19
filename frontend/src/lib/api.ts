@@ -1,4 +1,5 @@
-import type { Cantos, Deteccao, Filtro, FormatoCartao } from "@/lib/tipos";
+import { encerrarSessao, guardarSessao, obterSessao, type Sessao, type UsuarioSessao } from "@/lib/sessao";
+import type { Cantos, Deteccao, DocumentoCompleto, DocumentoHistorico, Filtro, FormatoCartao } from "@/lib/tipos";
 
 const URL_API = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -12,10 +13,18 @@ class ErroApi extends Error {
   }
 }
 
-async function enviar(caminho: string, corpo: FormData): Promise<Response> {
+/**
+ * Chama a API com o token da sessão. Se a API recusar a sessão (401), ela é apagada
+ * do aparelho, e a guarda do layout leva a pessoa para a tela de entrada.
+ */
+async function chamar(caminho: string, init: RequestInit = {}): Promise<Response> {
+  const token = obterSessao()?.token;
+  const cabecalhos = new Headers(init.headers);
+  if (token) cabecalhos.set("Authorization", `Bearer ${token}`);
+
   let resposta: Response;
   try {
-    resposta = await fetch(`${URL_API}${caminho}`, { method: "POST", body: corpo });
+    resposta = await fetch(`${URL_API}${caminho}`, { ...init, headers: cabecalhos });
   } catch {
     throw new ErroApi("Não foi possível conectar ao servidor. Verifique sua internet.", 0);
   }
@@ -27,9 +36,71 @@ async function enviar(caminho: string, corpo: FormData): Promise<Response> {
     } catch {
       // resposta sem JSON: mantém a mensagem genérica
     }
+    // Só derruba a sessão que foi enviada: um 401 de senha errada em /entrar não conta.
+    if (resposta.status === 401 && token && obterSessao()?.token === token) encerrarSessao();
     throw new ErroApi(detalhe, resposta.status);
   }
   return resposta;
+}
+
+function enviar(caminho: string, corpo: FormData): Promise<Response> {
+  return chamar(caminho, { method: "POST", body: corpo });
+}
+
+function enviarJson(caminho: string, corpo: unknown): Promise<Response> {
+  return chamar(caminho, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corpo),
+  });
+}
+
+interface RespostaSessao {
+  token: string;
+  expira_em: string;
+  usuario: UsuarioSessao;
+}
+
+async function abrirSessao(resposta: Response): Promise<Sessao> {
+  const dados: RespostaSessao = await resposta.json();
+  const sessao: Sessao = { token: dados.token, expiraEm: dados.expira_em, usuario: dados.usuario };
+  guardarSessao(sessao);
+  return sessao;
+}
+
+export async function entrar(email: string, senha: string): Promise<Sessao> {
+  return abrirSessao(await enviarJson("/entrar", { email, senha }));
+}
+
+export async function cadastrar(nome: string, email: string, senha: string): Promise<Sessao> {
+  return abrirSessao(await enviarJson("/cadastrar", { nome, email, senha }));
+}
+
+/** Encerra a sessão no servidor e no aparelho. Sem internet, sai do aparelho mesmo assim. */
+export async function sair(): Promise<void> {
+  try {
+    await chamar("/sair", { method: "POST" });
+  } catch {
+    // o token some do aparelho de qualquer jeito, e vence sozinho no servidor
+  } finally {
+    encerrarSessao();
+  }
+}
+
+/** Histórico da conta; com texto, procura no título e no OCR (português). */
+export async function listarDocumentos(busca: string): Promise<DocumentoHistorico[]> {
+  const parametros = new URLSearchParams({ busca: busca.trim() });
+  return (await chamar(`/documentos?${parametros}`)).json();
+}
+
+/** Um documento salvo com todas as páginas (null se não existe ou é de outra conta). */
+export async function obterDocumento(id: string): Promise<DocumentoCompleto | null> {
+  try {
+    return await (await chamar(`/documentos/${encodeURIComponent(id)}`)).json();
+  } catch (erro) {
+    if (erro instanceof ErroApi && erro.status === 404) return null;
+    throw erro;
+  }
 }
 
 function nomeArquivo(blob: Blob, base: string): string {
@@ -81,7 +152,6 @@ export interface DadosDocumento {
 export interface DocumentoSalvo {
   id: string;
   titulo: string;
-  pdf_url: string;
   total_paginas: number;
 }
 

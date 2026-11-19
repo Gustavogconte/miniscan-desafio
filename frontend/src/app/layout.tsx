@@ -3,6 +3,7 @@ import { IBM_Plex_Sans, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { ProvedorAvisos } from "@/componentes/aviso";
+import { GuardaSessao } from "@/componentes/guarda-sessao";
 import { SCRIPT_TEMA_INICIAL } from "@/componentes/tema";
 import { ProvedorDigitalizacao } from "@/lib/estado-digitalizacao";
 
@@ -63,11 +64,13 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       </head>
       <body className="h-full">
         <ProvedorAvisos>
-          <ProvedorDigitalizacao>
-            <div className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden bg-fundo sm:border-x sm:border-borda">
-              {children}
-            </div>
-          </ProvedorDigitalizacao>
+          <GuardaSessao>
+            <ProvedorDigitalizacao>
+              <div className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden bg-fundo sm:border-x sm:border-borda">
+                {children}
+              </div>
+            </ProvedorDigitalizacao>
+          </GuardaSessao>
         </ProvedorAvisos>
       </body>
     </html>

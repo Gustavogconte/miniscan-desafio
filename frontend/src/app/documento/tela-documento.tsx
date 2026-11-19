@@ -9,8 +9,8 @@ import { useAviso } from "@/componentes/aviso";
 import { CabecalhoEtapa } from "@/componentes/cabecalho-etapa";
 import { GradePaginas } from "@/componentes/grade-paginas";
 import { adiantarVisualizador, VisualizadorPaginas } from "@/componentes/visualizador-sob-demanda";
+import { obterDocumento } from "@/lib/api";
 import { baixarArquivo, compartilharPdf, nomeDoArquivo } from "@/lib/arquivo";
-import { buscarDocumento } from "@/lib/supabase";
 import { ROTULO_FILTRO, type DocumentoCompleto } from "@/lib/tipos";
 import { useVisualizador } from "@/lib/usar-visualizador";
 import type { ImagemVisualizada } from "@/lib/visualizador";
@@ -53,7 +53,7 @@ function ConteudoDocumento({ id }: { id: string }) {
   useEffect(() => {
     if (!idValido) return;
     let cancelado = false;
-    buscarDocumento(id)
+    obterDocumento(id)
       .then((documento) => {
         if (cancelado) return;
         setEstado(
@@ -70,7 +70,7 @@ function ConteudoDocumento({ id }: { id: string }) {
     };
   }, [id, idValido]);
 
-  const urlPdf = estado.tipo === "pronto" ? estado.documento.pdf_url : null;
+  const urlPdf = estado.tipo === "pronto" ? estado.documento.url_pdf : null;
   // Já baixado (ou já falhou) para este endereço: voltar à tela não baixa de novo.
   const pdfResolvido = arquivoPdf !== null && arquivoPdf.url === urlPdf;
 
@@ -93,11 +93,11 @@ function ConteudoDocumento({ id }: { id: string }) {
   const imagensDoVisualizador = useMemo<ImagemVisualizada[]>(
     () =>
       estado.tipo === "pronto"
-        ? estado.documento.document_pages.map((p) => ({
+        ? estado.documento.paginas.map((p) => ({
             id: p.id,
-            src: p.processed_image_url,
-            srcOriginal: p.original_image_url,
-            detalhe: ROTULO_FILTRO[p.filter_applied],
+            src: p.url_processada ?? "",
+            srcOriginal: p.url_original ?? undefined,
+            detalhe: ROTULO_FILTRO[p.filtro],
           }))
         : [],
     [estado],
@@ -129,10 +129,10 @@ function ConteudoDocumento({ id }: { id: string }) {
   }
 
   const { documento } = situacao;
-  const paginas = documento.document_pages;
-  const nomeArquivo = nomeDoArquivo(documento.title);
+  const paginas = documento.paginas;
+  const nomeArquivo = nomeDoArquivo(documento.titulo);
   const textoCompleto = paginas
-    .map((p) => p.ocr_text.trim())
+    .map((p) => p.texto_ocr.trim())
     .filter(Boolean)
     .join("\n\n");
   const pdf = pdfResolvido ? arquivoPdf.blob : null;
@@ -150,19 +150,15 @@ function ConteudoDocumento({ id }: { id: string }) {
 
   async function compartilhar() {
     if (preparandoPdf) return;
+    // Sem o arquivo, não há o que compartilhar: o link do PDF vence em uma hora, e
+    // mandar o link entregaria um endereço que para de funcionar.
+    if (!pdf) {
+      avisar("Não foi possível baixar o PDF. Toque em Abrir PDF ou volte e abra o documento de novo.", "erro");
+      return;
+    }
     try {
-      if (pdf) {
-        const resultado = await compartilharPdf(pdf, nomeArquivo, documento.title);
-        if (resultado === "baixado") avisar("Este navegador não compartilha arquivos; o PDF foi baixado.");
-        return;
-      }
-      // O download do arquivo falhou: compartilha o link do PDF.
-      if (!documento.pdf_url) return;
-      if (navigator.share) await navigator.share({ title: documento.title, url: documento.pdf_url });
-      else {
-        await navigator.clipboard.writeText(documento.pdf_url);
-        avisar("Link do PDF copiado");
-      }
+      const resultado = await compartilharPdf(pdf, nomeArquivo, documento.titulo);
+      if (resultado === "baixado") avisar("Este navegador não compartilha arquivos; o PDF foi baixado.");
     } catch (erro) {
       if (erro instanceof DOMException && erro.name === "AbortError") return;
       avisar("Não foi possível compartilhar. Use o botão Baixar.", "erro");
@@ -172,7 +168,7 @@ function ConteudoDocumento({ id }: { id: string }) {
   function baixar() {
     if (preparandoPdf) return;
     if (pdf) baixarArquivo(pdf, nomeArquivo);
-    else if (documento.pdf_url) window.open(documento.pdf_url, "_blank", "noopener");
+    else if (documento.url_pdf) window.open(documento.url_pdf, "_blank", "noopener");
   }
 
   const botaoSecundario =
@@ -181,8 +177,8 @@ function ConteudoDocumento({ id }: { id: string }) {
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <CabecalhoEtapa
-        titulo={documento.title}
-        subtitulo={`${paginas.length} ${paginas.length === 1 ? "página" : "páginas"} • ${formatoData.format(new Date(documento.created_at))}`}
+        titulo={documento.titulo}
+        subtitulo={`${paginas.length} ${paginas.length === 1 ? "página" : "páginas"} • ${formatoData.format(new Date(documento.criado_em))}`}
         voltarPara="/"
         rotuloVoltar="Voltar ao histórico"
       />
@@ -196,7 +192,7 @@ function ConteudoDocumento({ id }: { id: string }) {
             Páginas
           </h2>
           <GradePaginas
-            itens={paginas.map((p) => ({ id: p.id, src: p.processed_image_url, detalhe: ROTULO_FILTRO[p.filter_applied] }))}
+            itens={paginas.map((p) => ({ id: p.id, src: p.url_processada ?? "", detalhe: ROTULO_FILTRO[p.filtro] }))}
             aoEscolher={visualizador.abrir}
             acao="Ampliar"
           />
@@ -223,7 +219,7 @@ function ConteudoDocumento({ id }: { id: string }) {
           </div>
           <div className="space-y-2">
             {paginas.map((p, indice) => {
-              const palavras = contarPalavras(p.ocr_text);
+              const palavras = contarPalavras(p.texto_ocr);
               return (
                 <details key={p.id} className="group rounded-xl border border-borda bg-cartao shadow-cartao">
                   <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 px-3.5 text-sm font-semibold text-texto">
@@ -233,14 +229,14 @@ function ConteudoDocumento({ id }: { id: string }) {
                     </span>
                   </summary>
                   <div className="space-y-2 border-t border-borda p-3.5">
-                    {p.ocr_text.trim() ? (
+                    {p.texto_ocr.trim() ? (
                       <>
                         <p className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-texto">
-                          {p.ocr_text}
+                          {p.texto_ocr}
                         </p>
                         <button
                           type="button"
-                          onClick={() => copiar(p.ocr_text, p.id)}
+                          onClick={() => copiar(p.texto_ocr, p.id)}
                           className="flex min-h-9 items-center gap-1.5 rounded-lg text-xs font-semibold text-primaria-texto"
                         >
                           {copiado === p.id ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
@@ -258,7 +254,7 @@ function ConteudoDocumento({ id }: { id: string }) {
         </section>
       </div>
 
-      {documento.pdf_url && (
+      {documento.url_pdf && (
         <div className="shrink-0 space-y-2.5 border-t border-borda bg-cartao p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
@@ -278,7 +274,7 @@ function ConteudoDocumento({ id }: { id: string }) {
               <Download className="size-4 text-primaria-texto" aria-hidden />
               Baixar PDF
             </button>
-            <a href={documento.pdf_url} target="_blank" rel="noopener noreferrer" className={botaoSecundario}>
+            <a href={documento.url_pdf} target="_blank" rel="noopener noreferrer" className={botaoSecundario}>
               <ExternalLink className="size-4 text-primaria-texto" aria-hidden />
               Abrir PDF
             </a>

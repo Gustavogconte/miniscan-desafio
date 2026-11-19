@@ -24,7 +24,13 @@ cp .env.example .env.local
 npm run dev
 ```
 
-No `.env.local`, preencha `NEXT_PUBLIC_API_URL` com o endereço da API e use a chave **publishable** do Supabase em `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Nunca use a chave secreta: o RLS deixa a chave pública só com leitura.
+No `.env.local`, preencha `NEXT_PUBLIC_API_URL` com o endereço da API. É a única variável: o app não fala direto com o Supabase. Login, visão, OCR, PDF e histórico passam todos pela API, que filtra os documentos pelo dono.
+
+## Login
+
+Toda tela exige uma conta. Sem sessão, a guarda do layout (`src/componentes/guarda-sessao.tsx`) leva para `/entrar`, onde dá para entrar ou criar a conta com nome, e-mail e senha de pelo menos 8 caracteres. A API devolve um token, que fica no `localStorage` (`src/lib/sessao.ts`) e vai em toda chamada no cabeçalho `Authorization: Bearer`. Se a API recusar o token (vencido depois de 30 dias, ou encerrado), o app apaga a sessão e volta para a tela de entrada. O botão de sair fica ao lado do tema, na tela inicial, e sair desmonta as telas abertas, para nenhuma foto ficar na memória para a próxima pessoa. No iPhone, o app instalado na tela de início guarda os dados à parte do Safari, então é preciso entrar uma vez nele também.
+
+Os PDFs e as fotos do histórico chegam por links assinados que valem 1 hora, porque o bucket do Supabase é privado. Por isso o cartão do histórico não tem mais o botão de compartilhar link: a tela do documento baixa o PDF ao abrir e compartilha o próprio arquivo.
 
 A câmera ao vivo usa a `getUserMedia`, que exige contexto seguro. Ela funciona em `localhost` e em sites HTTPS. No celular, pela rede local em http, a tela oferece a câmera nativa do sistema e a galeria como alternativa.
 
@@ -40,14 +46,11 @@ npm run build
 ## Deploy na Vercel
 
 1. Em [vercel.com/new](https://vercel.com/new), importe o repositório do GitHub, mantenha o nome de projeto `miniscan-desafio` (é o que o CORS da API aceita) e defina **Root Directory** como `frontend`. O framework (Next.js) é detectado sozinho.
-2. Em *Environment Variables*, cadastre:
-   - `NEXT_PUBLIC_API_URL`: o endereço HTTPS público da API (veja "Deploy numa VPS" em `backend/README.md`).
-   - `NEXT_PUBLIC_SUPABASE_URL`: a URL do projeto no Supabase.
-   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: a chave **publishable** (`sb_publishable_...`).
+2. Em *Environment Variables*, cadastre só `NEXT_PUBLIC_API_URL`, com o endereço HTTPS público da API (veja "Deploy numa VPS" em `backend/README.md`). As chaves do Supabase não vão para a Vercel.
 3. Faça o deploy. As variáveis `NEXT_PUBLIC_*` entram no build, então qualquer mudança nelas pede um novo deploy.
 4. Se o projeto tiver outro nome na Vercel, libere o domínio dele no CORS da API (`MINISCAN_ORIGENS_CORS` e `MINISCAN_ORIGENS_CORS_REGEX`; veja `backend/README.md`).
 
-O `next.config.ts` envia cabeçalhos de segurança (câmera liberada só para o próprio app, bloqueio de iframe). A cada push na `main` que mexe no front-end, e em cada pull request, o GitHub Actions (`.github/workflows/frontend.yml`) roda lint, tipos, testes e build.
+O `next.config.ts` envia cabeçalhos de segurança (câmera liberada só para o próprio app, bloqueio de iframe) e, em produção, uma política de conteúdo (CSP) que só deixa o app se conectar à própria origem, à API e ao Storage do Supabase. Como o token da sessão fica no `localStorage`, isso impede que um script injetado o mande para outro site. A cada push na `main` que mexe no front-end, e em cada pull request, o GitHub Actions (`.github/workflows/frontend.yml`) roda lint, tipos, testes e build.
 
 ## Testar no celular com um túnel HTTPS (sem deploy)
 
