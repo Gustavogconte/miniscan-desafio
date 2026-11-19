@@ -103,6 +103,22 @@ export async function obterDocumento(id: string): Promise<DocumentoCompleto | nu
   }
 }
 
+/** Apaga o documento da conta, com as páginas, as imagens e o PDF. */
+export async function excluirDocumento(id: string): Promise<void> {
+  await chamar(`/documentos/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** Muda o nome do documento e devolve o nome como ficou salvo (sem espaços sobrando). */
+export async function renomearDocumento(id: string, titulo: string): Promise<string> {
+  const resposta = await chamar(`/documentos/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ titulo }),
+  });
+  const dados: { titulo: string } = await resposta.json();
+  return dados.titulo;
+}
+
 function nomeArquivo(blob: Blob, base: string): string {
   const extensao = blob.type === "image/png" ? "png" : blob.type === "application/pdf" ? "pdf" : "jpg";
   return `${base}.${extensao}`;

@@ -1,16 +1,18 @@
 "use client";
 
-import { Check, Copy, Download, ExternalLink, LoaderCircle, Share2 } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, LoaderCircle, Pencil, Share2, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { useAviso } from "@/componentes/aviso";
 import { CabecalhoEtapa } from "@/componentes/cabecalho-etapa";
+import { Dialogo } from "@/componentes/dialogo";
 import { GradePaginas } from "@/componentes/grade-paginas";
 import { adiantarVisualizador, VisualizadorPaginas } from "@/componentes/visualizador-sob-demanda";
-import { obterDocumento } from "@/lib/api";
+import { excluirDocumento, mensagemDeErro, obterDocumento, renomearDocumento } from "@/lib/api";
 import { baixarArquivo, compartilharPdf, nomeDoArquivo } from "@/lib/arquivo";
+import { marcarExcluido, marcarRenomeado } from "@/lib/mudancas-historico";
 import { ROTULO_FILTRO, type DocumentoCompleto } from "@/lib/tipos";
 import { useVisualizador } from "@/lib/usar-visualizador";
 import type { ImagemVisualizada } from "@/lib/visualizador";
@@ -41,8 +43,13 @@ export function TelaDocumento() {
 }
 
 function ConteudoDocumento({ id }: { id: string }) {
+  const router = useRouter();
   const avisar = useAviso();
   const visualizador = useVisualizador();
+  // Janela aberta: confirmar a exclusão ou mudar o nome.
+  const [janela, setJanela] = useState<"excluir" | "renomear" | null>(null);
+  const [novoNome, setNovoNome] = useState("");
+  const [salvando, setSalvando] = useState(false);
   const idValido = UUID.test(id);
   const [estado, setEstado] = useState<Estado>({ tipo: "carregando" });
   // O PDF é baixado logo ao abrir: no iPhone, o menu de compartilhar só abre se for
@@ -171,8 +178,47 @@ function ConteudoDocumento({ id }: { id: string }) {
     else if (documento.url_pdf) window.open(documento.url_pdf, "_blank", "noopener");
   }
 
+  function abrirRenomear() {
+    setNovoNome(documento.titulo);
+    setJanela("renomear");
+  }
+
+  async function renomear(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    setSalvando(true);
+    try {
+      const titulo = await renomearDocumento(documento.id, novoNome);
+      setEstado({ tipo: "pronto", documento: { ...documento, titulo } });
+      marcarRenomeado(documento.id, titulo);
+      setJanela(null);
+      avisar("Nome alterado");
+    } catch (erro) {
+      setJanela(null);
+      avisar(mensagemDeErro(erro), "erro");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function excluir() {
+    setSalvando(true);
+    try {
+      await excluirDocumento(documento.id);
+      marcarExcluido(documento.id);
+      setJanela(null);
+      avisar("Documento excluído");
+      router.replace("/");
+    } catch (erro) {
+      setSalvando(false);
+      setJanela(null);
+      avisar(mensagemDeErro(erro), "erro");
+    }
+  }
+
   const botaoSecundario =
     "flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-borda bg-cartao text-xs font-semibold text-texto transition hover:bg-secundario disabled:opacity-60";
+  const botaoIcone =
+    "flex size-11 items-center justify-center rounded-xl text-texto-secundario transition hover:bg-secundario";
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -181,6 +227,16 @@ function ConteudoDocumento({ id }: { id: string }) {
         subtitulo={`${paginas.length} ${paginas.length === 1 ? "página" : "páginas"} • ${formatoData.format(new Date(documento.criado_em))}`}
         voltarPara="/"
         rotuloVoltar="Voltar ao histórico"
+        acao={
+          <div className="flex shrink-0">
+            <button type="button" onClick={abrirRenomear} aria-label="Mudar o nome do documento" className={`${botaoIcone} hover:text-texto`}>
+              <Pencil className="size-5" aria-hidden />
+            </button>
+            <button type="button" onClick={() => setJanela("excluir")} aria-label="Excluir o documento" className={`${botaoIcone} hover:text-perigo`}>
+              <Trash2 className="size-5" aria-hidden />
+            </button>
+          </div>
+        }
       />
 
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
@@ -290,6 +346,56 @@ function ConteudoDocumento({ id }: { id: string }) {
           aoFechar={visualizador.fechar}
         />
       )}
+
+      <Dialogo aberto={janela === "renomear"} titulo="Mudar o nome" aoFechar={() => setJanela(null)}>
+        <form onSubmit={renomear} className="space-y-4">
+          <label htmlFor="novo-nome" className="sr-only">
+            Nome do documento
+          </label>
+          <input
+            id="novo-nome"
+            value={novoNome}
+            onChange={(evento) => setNovoNome(evento.target.value)}
+            maxLength={200}
+            required
+            autoComplete="off"
+            className="h-11 w-full rounded-xl border border-borda-campo bg-fundo px-3.5 text-base text-texto focus:border-primaria-texto focus:outline-none focus:ring-2 focus:ring-primaria-suave sm:text-sm"
+          />
+          <div className="grid grid-cols-2 gap-2.5">
+            <button type="button" onClick={() => setJanela(null)} disabled={salvando} className={botaoSecundario}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={salvando || !novoNome.trim()}
+              className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-primaria text-xs font-semibold text-white transition hover:bg-primaria-hover disabled:opacity-60"
+            >
+              {salvando && <LoaderCircle className="size-4 animate-spin" aria-hidden />}
+              Salvar
+            </button>
+          </div>
+        </form>
+      </Dialogo>
+
+      <Dialogo aberto={janela === "excluir"} titulo="Excluir este documento?" aoFechar={() => setJanela(null)}>
+        <p className="text-sm text-texto-secundario">
+          “{documento.titulo}” e as páginas dele saem do app. Não dá para desfazer.
+        </p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button type="button" onClick={() => setJanela(null)} disabled={salvando} className={botaoSecundario}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={excluir}
+            disabled={salvando}
+            className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-perigo text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+          >
+            {salvando ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <Trash2 className="size-4" aria-hidden />}
+            Excluir
+          </button>
+        </div>
+      </Dialogo>
     </main>
   );
 }

@@ -10,6 +10,7 @@ import { Logo } from "@/componentes/logo";
 import { BotaoTema } from "@/componentes/tema";
 import { listarDocumentos, sair } from "@/lib/api";
 import { useDigitalizacao } from "@/lib/estado-digitalizacao";
+import { aplicarMudancas } from "@/lib/mudancas-historico";
 import { useSessao } from "@/lib/sessao";
 import type { DocumentoHistorico, Modo } from "@/lib/tipos";
 
@@ -57,7 +58,9 @@ export default function TelaInicio() {
     };
   }, [termo]);
 
-  const quantidade = lista.tipo === "pronto" ? lista.documentos.length : null;
+  // Sem os excluídos e com os nomes novos, enquanto a lista atualizada não chega da API.
+  const documentos = lista.tipo === "pronto" ? aplicarMudancas(lista.documentos) : [];
+  const quantidade = lista.tipo === "pronto" ? documentos.length : null;
 
   async function sairDaConta() {
     setSaindo(true);
@@ -161,7 +164,7 @@ export default function TelaInicio() {
           </div>
         )}
 
-        {lista.tipo === "pronto" && lista.documentos.length === 0 && (
+        {lista.tipo === "pronto" && documentos.length === 0 && (
           <div className="rounded-2xl border border-dashed border-borda p-6 text-center">
             <p className="font-display text-sm font-bold text-texto">
               {termo ? `Nada encontrado para “${termo}”` : "Nenhum documento ainda"}
@@ -174,8 +177,9 @@ export default function TelaInicio() {
           </div>
         )}
 
-        {lista.tipo === "pronto" &&
-          lista.documentos.map((documento) => <CartaoDocumento key={documento.id} documento={documento} />)}
+        {documentos.map((documento) => (
+          <CartaoDocumento key={documento.id} documento={documento} />
+        ))}
       </section>
 
       <div className="grid shrink-0 grid-cols-5 gap-2.5 border-t border-borda bg-cartao p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
