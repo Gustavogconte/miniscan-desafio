@@ -98,6 +98,22 @@ class TestSugerirTitulo:
         ]
         assert sugerir_titulo(linhas, 1000) == "Recibo de pagamento"
 
+    def test_titulo_em_duas_linhas_fica_com_a_de_cima(self):
+        # A cedilha deixa a segunda linha um pouco mais alta que a primeira.
+        linhas = [
+            self.linha("CONTRATO DE PRESTACAO", 100, altura=60),
+            self.linha("DE SERVIÇOS GERAIS", 170, altura=63),
+            self.linha("Pelo presente instrumento", 260),
+            self.linha("as partes abaixo", 290),
+        ]
+        assert sugerir_titulo(linhas, 1000) == "CONTRATO DE PRESTACAO"
+
+    def test_numero_na_linha_do_titulo_sai_do_nome(self):
+        linhas = [self.linha("RECIBO Nº 0001234", 80, altura=45), self.linha("Recebi de", 150)]
+        assert sugerir_titulo(linhas, 1000) == "RECIBO Nº"
+        linhas = [self.linha("NOTA FISCAL 000.123.456", 40), self.linha("Emitente", 80)]
+        assert sugerir_titulo(linhas, 1000) == "NOTA FISCAL"
+
     def test_sem_palavras_devolve_vazio(self):
         assert (
             sugerir_titulo([self.linha("123.456.789-00", 50), self.linha("R$ 10", 90)], 1000) == ""

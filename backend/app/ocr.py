@@ -224,6 +224,15 @@ def ordenar_em_linhas(caixas: Sequence[np.ndarray], textos: Sequence[str]) -> st
     return "\n".join(linha.texto for linha in agrupar_em_linhas(caixas, textos))
 
 
+def _so_palavras(texto: str) -> str:
+    """Tira da linha os pedaços sem letra: "RECIBO Nº 0001234" fica "RECIBO Nº"."""
+    pedacos = []
+    for pedaco in texto.split():
+        if any(caractere.isalpha() for caractere in pedaco):
+            pedacos.append(pedaco)
+    return " ".join(pedacos)
+
+
 def _tem_palavras(texto: str) -> bool:
     """Ao menos 4 letras, e mais letras que números e símbolos (descarta datas e códigos)."""
     letras = sum(caractere.isalpha() for caractere in texto)
@@ -246,18 +255,30 @@ def sugerir_titulo(linhas: Sequence[Linha], altura_pagina: float) -> str:
     da página, desde que se destaque das outras. Numa página de letra toda igual (uma
     carta, um recibo), fica a primeira linha com palavras, que costuma ser o cabeçalho.
     """
-    candidatas = [
-        linha
-        for linha in linhas
-        if linha.centro_y <= FRACAO_TOPO_TITULO * altura_pagina and _tem_palavras(linha.texto)
-    ]
-    if not candidatas:
+    candidatas = []
+    for linha in linhas:
+        na_metade_de_cima = linha.centro_y <= FRACAO_TOPO_TITULO * altura_pagina
+        if na_metade_de_cima and _tem_palavras(_so_palavras(linha.texto)):
+            candidatas.append(linha)
+    if len(candidatas) == 0:
         return ""
+
     mediana = float(np.median([linha.altura for linha in linhas]))
-    destacadas = [linha for linha in candidatas if linha.altura >= DESTAQUE_TITULO * mediana]
-    # max() fica com a primeira das empatadas: a mais alta na página.
-    escolhida = max(destacadas, key=lambda linha: linha.altura) if destacadas else candidatas[0]
-    return _encurtar(escolhida.texto)
+    destacadas = []
+    for linha in candidatas:
+        if linha.altura >= DESTAQUE_TITULO * mediana:
+            destacadas.append(linha)
+
+    escolhida = candidatas[0]
+    if len(destacadas) > 0:
+        # Num título de duas linhas, a altura muda um pouco (acento, cedilha): vale a
+        # primeira linha com pelo menos 90% da letra maior, e não só a maior de todas.
+        maior = max(linha.altura for linha in destacadas)
+        for linha in destacadas:
+            if linha.altura >= 0.9 * maior:
+                escolhida = linha
+                break
+    return _encurtar(_so_palavras(escolhida.texto))
 
 
 def ler_pagina(imagem: np.ndarray) -> LeituraOcr:
