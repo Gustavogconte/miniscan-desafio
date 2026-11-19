@@ -347,9 +347,14 @@ def excluir_documento(
         return False
     paginas = linha.get("document_pages") or []
     valores = [linha.get("pdf_url")]
-    valores += [p.get("original_image_url") for p in paginas]
-    valores += [p.get("processed_image_url") for p in paginas]
-    caminhos = sorted({c for valor in valores if (c := caminho_no_bucket(valor, bucket))})
+    for pagina in paginas:
+        valores.append(pagina.get("original_image_url"))
+        valores.append(pagina.get("processed_image_url"))
+    caminhos = []
+    for valor in valores:
+        caminho = caminho_no_bucket(valor, bucket)
+        if caminho and caminho not in caminhos:
+            caminhos.append(caminho)
 
     repositorio.remover_documento(documento_id, usuario_id)
     if caminhos:
